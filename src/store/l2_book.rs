@@ -12,6 +12,21 @@ pub struct OrderBook {
     pub last_update_id: u64,
     pub bids: BTreeMap<Reverse<Decimal>, Decimal>,
     pub asks: BTreeMap<Decimal, Decimal>,
+    // 新增：历史数据存储，用于计算变化趋势
+    pub prev_bids: BTreeMap<Reverse<Decimal>, Decimal>,
+    pub prev_asks: BTreeMap<Decimal, Decimal>,
+    pub update_history: Vec<DepthSnapshot>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DepthSnapshot {
+    pub timestamp: u64,
+    pub bid_volume: Decimal,
+    pub ask_volume: Decimal,
+    pub best_bid: Decimal,
+    pub best_ask: Decimal,
+    pub bid_count: usize,
+    pub ask_count: usize,
 }
 
 impl OrderBook {
@@ -21,6 +36,9 @@ impl OrderBook {
             last_update_id: 0,
             bids: BTreeMap::new(),
             asks: BTreeMap::new(),
+            prev_bids: BTreeMap::new(),
+            prev_asks: BTreeMap::new(),
+            update_history: Vec::with_capacity(100),
         }
     }
 
@@ -51,12 +69,20 @@ impl OrderBook {
                 }
             })
             .collect();
+
+        // 初始化历史数据
+        self.prev_bids = self.bids.clone();
+        self.prev_asks = self.asks.clone();
     }
 
     pub fn apply_incremental_update(&mut self, msg: DepthUpdate) -> anyhow::Result<()> {
         if msg.last_update_id <= self.last_update_id {
             return Ok(());
         }
+
+        // 保存更新前的状态
+        self.prev_bids = self.bids.clone();
+        self.prev_asks = self.asks.clone();
 
         // 首次对齐逻辑：U <= lastUpdateId+1 且 u >= lastUpdateId+1
         if self.last_update_id != 0 && msg.first_update_id > self.last_update_id + 1 {
@@ -88,6 +114,24 @@ impl OrderBook {
         }
 
         self.last_update_id = msg.last_update_id;
+
+        // 保存历史快照（每10个更新保存一次，避免内存过大）
+        if self.update_history.len() >= 100 {
+            self.update_history.remove(0);
+        }
+
+        if let Some((best_bid, best_ask)) = self.best_bid_ask() {
+            self.update_history.push(DepthSnapshot {
+                timestamp: msg.event_time,
+                bid_volume: self.bids.values().sum(),
+                ask_volume: self.asks.values().sum(),
+                best_bid,
+                best_ask,
+                bid_count: self.bids.len(),
+                ask_count: self.asks.len(),
+            });
+        }
+
         Ok(())
     }
 
@@ -114,60 +158,414 @@ impl OrderBook {
         (top_bids, top_asks)
     }
 
-    /// 计算盘口特征
+    // 获取指定价格区间的订单（修复版本）
+    pub fn get_bids_in_range(&self, start: Decimal, end: Decimal) -> Vec<(Decimal, Decimal)> {
+        // 对于 Reverse 排序，需要反转范围
+        // 因为 bids 是按 Reverse(price) 降序排列（价格从高到低）
+        // 要查询 start <= price <= end，需要使用 Reverse(end)..=Reverse(start)
+        let reverse_start = Reverse(end);
+        let reverse_end = Reverse(start);
+
+        self.bids
+            .range(reverse_start..=reverse_end)
+            .map(|(Reverse(p), q)| (*p, *q))
+            .collect()
+    }
+
+    // 获取从指定价格开始的买单（向下到最低价）
+    pub fn get_bids_from_price(&self, price: Decimal) -> Vec<(Decimal, Decimal)> {
+        let reverse_start = Reverse(price);
+        let reverse_end = Reverse(Decimal::MIN);
+
+        self.bids
+            .range(reverse_start..=reverse_end)
+            .map(|(Reverse(p), q)| (*p, *q))
+            .collect()
+    }
+
+    // 获取到指定价格为止的买单（从最高价到指定价格）
+    pub fn get_bids_to_price(&self, price: Decimal) -> Vec<(Decimal, Decimal)> {
+        let reverse_start = Reverse(Decimal::MAX);
+        let reverse_end = Reverse(price);
+
+        self.bids
+            .range(reverse_start..=reverse_end)
+            .map(|(Reverse(p), q)| (*p, *q))
+            .collect()
+    }
+
+    // 获取指定价格区间的卖单
+    pub fn get_asks_in_range(&self, start: Decimal, end: Decimal) -> Vec<(Decimal, Decimal)> {
+        self.asks
+            .range(start..=end)
+            .map(|(p, q)| (*p, *q))
+            .collect()
+    }
+
+    // 获取从指定价格开始的卖单（向上到最高价）
+    pub fn get_asks_from_price(&self, price: Decimal) -> Vec<(Decimal, Decimal)> {
+        self.asks
+            .range(price..=Decimal::MAX)
+            .map(|(p, q)| (*p, *q))
+            .collect()
+    }
+
+    // 获取到指定价格为止的卖单（从最低价到指定价格）
+    pub fn get_asks_to_price(&self, price: Decimal) -> Vec<(Decimal, Decimal)> {
+        self.asks
+            .range(Decimal::MIN..=price)
+            .map(|(p, q)| (*p, *q))
+            .collect()
+    }
+
+    /// 计算盘口特征（增强版，新增20+个指标）
     pub fn compute_features(&self, depth: usize) -> OrderBookFeatures {
-        // 解开 Reverse
+        // 获取当前最佳买卖价
+        let (best_bid, best_ask) = self.best_bid_ask().unwrap_or((Decimal::ZERO, Decimal::ZERO));
+
+        // 获取前 depth 档数据
         let top_bids: Vec<_> = self.bids.iter()
             .take(depth)
-            .map(|(rev_price, qty)| (&rev_price.0, qty))
+            .map(|(rev_price, qty)| (rev_price.0, *qty))
             .collect();
-        let top_asks: Vec<_> = self.asks.iter().take(depth).collect();
+        let top_asks: Vec<_> = self.asks.iter()
+            .take(depth)
+            .map(|(price, qty)| (*price, *qty))
+            .collect();
 
-        let slope_bid = Self::calc_slope(&top_bids);
-        let slope_ask = Self::calc_slope(&top_asks);
-
-        let liquidity_gap_bid = Self::calc_liquidity_gap(&top_bids);
-        let liquidity_gap_ask = Self::calc_liquidity_gap(&top_asks);
-
-        let whale_bid = Self::detect_whale(&top_bids);
-        let whale_ask = Self::detect_whale(&top_asks);
-
-        let (spread, spread_bps) = if let (Some(bid), Some(ask)) = (top_bids.first(), top_asks.first()) {
-            let s = ask.0 - bid.0;
-            let s_bps = if !bid.0.is_zero() { (s / bid.0 * Decimal::from(10000)).round_dp(2) } else { Decimal::ZERO };
-            (s, s_bps)
+        // 1. 基础指标
+        let spread = best_ask - best_bid;
+        let spread_bps = if !best_bid.is_zero() {
+            (spread / best_bid * Decimal::from(10000)).round_dp(2)
         } else {
-            (Decimal::ZERO, Decimal::ZERO)
+            Decimal::ZERO
         };
 
+        // 2. 微价格
         let microprice = if let (Some(bid), Some(ask)) = (top_bids.first(), top_asks.first()) {
             (bid.0 * ask.1 + ask.0 * bid.1) / (bid.1 + ask.1)
         } else {
             Decimal::ZERO
         };
 
-        let buy_volume: Decimal = top_bids.iter().map(|(_, q)| *q).sum();
-        let sell_volume: Decimal = top_asks.iter().map(|(_, q)| *q).sum();
-        let ofi = buy_volume - sell_volume;
-        let bid_ask_ratio = if sell_volume.is_zero() { Decimal::ZERO } else { buy_volume / sell_volume };
+        // 3. 成交量计算
+        let bid_volume_depth: Decimal = top_bids.iter().map(|(_, q)| q).sum();
+        let ask_volume_depth: Decimal = top_asks.iter().map(|(_, q)| q).sum();
+        let total_bid_volume: Decimal = self.bids.values().sum();
+        let total_ask_volume: Decimal = self.asks.values().sum();
 
-        let pump_flag = ofi > dec!(1.5) * sell_volume;
-        let dump_flag = ofi < -dec!(1.5) * buy_volume;
+        // 4. OFI (订单流不平衡)
+        let ofi = bid_volume_depth - ask_volume_depth;
+
+        // 5. 买卖比例
+        let bid_ask_ratio = if ask_volume_depth > Decimal::ZERO {
+            bid_volume_depth / ask_volume_depth
+        } else {
+            dec!(10.0)
+        };
+
+        // 6. 加权平均价格
+        let weighted_bid_price: Decimal = if bid_volume_depth > Decimal::ZERO {
+            top_bids.iter().map(|(p, q)| p * q).sum::<Decimal>() / bid_volume_depth
+        } else {
+            Decimal::ZERO
+        };
+        let weighted_ask_price: Decimal = if ask_volume_depth > Decimal::ZERO {
+            top_asks.iter().map(|(p, q)| p * q).sum::<Decimal>() / ask_volume_depth
+        } else {
+            Decimal::ZERO
+        };
+
+        // 7. 价格压力
+        let price_pressure = weighted_ask_price - weighted_bid_price;
+
+        // 8. 深度集中度 (前3档占比)
+        let bid_depth_3: Decimal = self.bids.iter().take(3).map(|(_, q)| q).sum();
+        let ask_depth_3: Decimal = self.asks.iter().take(3).map(|(_, q)| q).sum();
+        let bid_concentration = if total_bid_volume > Decimal::ZERO {
+            bid_depth_3 / total_bid_volume * dec!(100)
+        } else {
+            Decimal::ZERO
+        };
+        let ask_concentration = if total_ask_volume > Decimal::ZERO {
+            ask_depth_3 / total_ask_volume * dec!(100)
+        } else {
+            Decimal::ZERO
+        };
+
+        // 9. 订单簿不平衡指数 OBI
+        let obi = if total_bid_volume + total_ask_volume > Decimal::ZERO {
+            (total_bid_volume - total_ask_volume) / (total_bid_volume + total_ask_volume) * dec!(100)
+        } else {
+            Decimal::ZERO
+        };
+
+        // 10. 价格弹性 (相邻档位平均价差)
+        let bid_elasticity = if top_bids.len() >= 2 {
+            (0..top_bids.len()-1).map(|i| top_bids[i].0 - top_bids[i+1].0).sum::<Decimal>() / Decimal::from(top_bids.len() - 1)
+        } else {
+            Decimal::ZERO
+        };
+        let ask_elasticity = if top_asks.len() >= 2 {
+            (0..top_asks.len()-1).map(|i| top_asks[i+1].0 - top_asks[i].0).sum::<Decimal>() / Decimal::from(top_asks.len() - 1)
+        } else {
+            Decimal::ZERO
+        };
+
+        // 11. 鲸鱼检测
+        let whale_bid = Self::detect_whale(&top_bids.iter().map(|(p, q)| (p, q)).collect());
+        let whale_ask = Self::detect_whale(&top_asks.iter().map(|(p, q)| (p, q)).collect());
+
+        // 12. 大单占比
+        let max_bid_qty = top_bids.iter().map(|(_, q)| q).max().unwrap_or(&Decimal::ZERO);
+        let max_ask_qty = top_asks.iter().map(|(_, q)| q).max().unwrap_or(&Decimal::ZERO);
+        let max_bid_ratio = if bid_volume_depth > Decimal::ZERO {
+            *max_bid_qty / bid_volume_depth * dec!(100)
+        } else {
+            Decimal::ZERO
+        };
+        let max_ask_ratio = if ask_volume_depth > Decimal::ZERO {
+            *max_ask_qty / ask_volume_depth * dec!(100)
+        } else {
+            Decimal::ZERO
+        };
+
+        // 13. 挂单变化率 (与上一帧对比)
+        let prev_bid_volume: Decimal = self.prev_bids.values().sum();
+        let prev_ask_volume: Decimal = self.prev_asks.values().sum();
+
+        let bid_volume_change = if prev_bid_volume > Decimal::ZERO {
+            ((total_bid_volume - prev_bid_volume) / prev_bid_volume * dec!(100)).round_dp(2)
+        } else {
+            Decimal::ZERO
+        };
+        let ask_volume_change = if prev_ask_volume > Decimal::ZERO {
+            ((total_ask_volume - prev_ask_volume) / prev_ask_volume * dec!(100)).round_dp(2)
+        } else {
+            Decimal::ZERO
+        };
+
+        // 14. 价格变化率
+        let price_change = if let Some(last) = self.update_history.last() {
+            if last.best_bid > Decimal::ZERO {
+                ((best_bid - last.best_bid) / last.best_bid * dec!(100)).round_dp(2)
+            } else {
+                Decimal::ZERO
+            }
+        } else {
+            Decimal::ZERO
+        };
+
+        // 15. 累计 delta (过去10个更新)
+        let cum_delta = if self.update_history.len() >= 2 {
+            let first = self.update_history.first().unwrap();
+            let last = self.update_history.last().unwrap();
+            (last.bid_volume - last.ask_volume) - (first.bid_volume - first.ask_volume)
+        } else {
+            Decimal::ZERO
+        };
+
+        // 16. 斜率计算
+        let slope_bid = Self::calc_slope(&top_bids.iter().map(|(p, q)| (p, q)).collect());
+        let slope_ask = Self::calc_slope(&top_asks.iter().map(|(p, q)| (p, q)).collect());
+
+        // 17. 流动性缺口
+        let liquidity_gap_bid = Self::calc_liquidity_gap(&top_bids.iter().map(|(p, q)| (p, q)).collect());
+        let liquidity_gap_ask = Self::calc_liquidity_gap(&top_asks.iter().map(|(p, q)| (p, q)).collect());
+
+        // 18. 买卖压力比 (前5档 vs 后5档)
+        let bid_pressure_front: Decimal = self.bids.iter().take(5).map(|(_, q)| q).sum();
+        let bid_pressure_back: Decimal = self.bids.iter().skip(5).take(5).map(|(_, q)| q).sum();
+        let ask_pressure_front: Decimal = self.asks.iter().take(5).map(|(_, q)| q).sum();
+        let ask_pressure_back: Decimal = self.asks.iter().skip(5).take(5).map(|(_, q)| q).sum();
+
+        let bid_pressure_ratio = if bid_pressure_back > Decimal::ZERO {
+            bid_pressure_front / bid_pressure_back
+        } else {
+            dec!(10.0)
+        };
+        let ask_pressure_ratio = if ask_pressure_back > Decimal::ZERO {
+            ask_pressure_front / ask_pressure_back
+        } else {
+            dec!(10.0)
+        };
+
+        // 19. 盘口厚度 (最佳价位附近的总量)
+        let near_bid_thickness: Decimal = if best_bid > Decimal::ZERO {
+            self.get_bids_in_range(best_bid - dec!(0.1), best_bid).iter().map(|(_, q)| q).sum()
+        } else {
+            Decimal::ZERO
+        };
+        let near_ask_thickness: Decimal = if best_ask > Decimal::ZERO {
+            self.get_asks_in_range(best_ask, best_ask + dec!(0.1)).iter().map(|(_, q)| q).sum()
+        } else {
+            Decimal::ZERO
+        };
+
+        // 20. 价格支撑/阻力强度
+        let support_strength = if best_bid > Decimal::ZERO {
+            self.get_bids_in_range(best_bid * dec!(0.99), best_bid).iter().map(|(_, q)| q).sum::<Decimal>()
+        } else {
+            Decimal::ZERO
+        };
+        let resistance_strength = if best_ask > Decimal::ZERO {
+            self.get_asks_in_range(best_ask, best_ask * dec!(1.01)).iter().map(|(_, q)| q).sum::<Decimal>()
+        } else {
+            Decimal::ZERO
+        };
+
+        // 21. 订单簿失衡度
+        let imbalance_depth_10 = if ask_volume_depth > Decimal::ZERO {
+            bid_volume_depth / ask_volume_depth
+        } else {
+            dec!(10.0)
+        };
+        let imbalance_total = if total_ask_volume > Decimal::ZERO {
+            total_bid_volume / total_ask_volume
+        } else {
+            dec!(10.0)
+        };
+
+        // 22. 趋势强度综合指标
+        let trend_strength = (obi * dec!(0.3) + bid_volume_change * dec!(0.2) + price_change * dec!(0.5))
+            .max(dec!(-100)).min(dec!(100));
+
+        // 23. 拉盘/砸盘信号
+        let pump_signal =
+            // 买单斜率陡峭且为正
+            slope_bid > dec!(100000) &&
+                // 卖单斜率平缓或为负
+                slope_ask < dec!(50000) &&
+                // 买单集中度高
+                bid_concentration > dec!(30) &&
+                // 买单变化率大幅增加
+                bid_volume_change > dec!(10) &&
+                // OFI为正且较大
+                ofi > dec!(50000);
+
+        let dump_signal =
+            // 卖单斜率陡峭且为负
+            slope_ask < dec!(-100000) &&
+                // 买单斜率平缓
+                slope_bid > dec!(-50000) &&
+                // 卖单集中度高
+                ask_concentration > dec!(30) &&
+                // 卖单变化率大幅增加
+                ask_volume_change > dec!(10) &&
+                // OFI为负且绝对值大
+                ofi < dec!(-50000);
+
+        // 24. 鲸鱼进场/离场检测
+        let whale_entry = whale_bid && bid_volume_change > dec!(20) && max_bid_ratio > dec!(40);
+        let whale_exit = whale_ask && ask_volume_change > dec!(20) && max_ask_ratio > dec!(40);
+
+        // 25. 假突破检测 (价格变动但成交量不足)
+        let fake_breakout = price_change.abs() > dec!(0.5) &&
+            (bid_volume_change.abs() + ask_volume_change.abs()) < dec!(5);
+
+        // 26. 流动性危机预警
+        let liquidity_warning = spread_bps > dec!(50) ||
+            (bid_volume_depth < dec!(10000) && ask_volume_depth < dec!(10000));
+
+        // 27. 大单吃筹检测 (买单主动吃掉卖单)
+        let bid_eating = bid_volume_change > dec!(30) && ask_volume_change < dec!(-10) && price_change > Decimal::ZERO;
+
+        // 28. 大单砸盘检测 (卖单主动吃掉买单)
+        let ask_eating = ask_volume_change > dec!(30) && bid_volume_change < dec!(-10) && price_change < Decimal::ZERO;
+
+        // 29. 买卖盘失衡加速
+        let imbalance_acceleration = if self.update_history.len() >= 10 {
+            let old_obi = if let Some(old) = self.update_history.get(self.update_history.len() - 10) {
+                let old_total = old.bid_volume + old.ask_volume;
+                if old_total > Decimal::ZERO {
+                    (old.bid_volume - old.ask_volume) / old_total * dec!(100)
+                } else {
+                    Decimal::ZERO
+                }
+            } else {
+                Decimal::ZERO
+            };
+            obi - old_obi
+        } else {
+            Decimal::ZERO
+        };
+
+        // 30. 价格偏离度 (当前价格与加权平均价的偏离)
+        let mid_price = (best_bid + best_ask) / dec!(2);
+        let price_deviation = if mid_price > Decimal::ZERO {
+            (weighted_bid_price - mid_price) / mid_price * dec!(100)
+        } else {
+            Decimal::ZERO
+        };
 
         OrderBookFeatures {
-            slope_bid,
-            slope_ask,
-            liquidity_gap_bid,
-            liquidity_gap_ask,
-            whale_bid,
-            whale_ask,
+            // 基础数据
             spread,
             spread_bps,
             microprice,
             ofi,
             bid_ask_ratio,
-            pump_flag,
-            dump_flag,
+            obi,
+
+            // 成交量相关
+            bid_volume_depth,
+            ask_volume_depth,
+            total_bid_volume,
+            total_ask_volume,
+
+            // 价格相关
+            weighted_bid_price,
+            weighted_ask_price,
+            price_pressure,
+            price_change,
+
+            // 深度相关
+            bid_concentration,
+            ask_concentration,
+            bid_elasticity,
+            ask_elasticity,
+
+            // 大单相关
+            whale_bid,
+            whale_ask,
+            max_bid_ratio,
+            max_ask_ratio,
+
+            // 变化率
+            bid_volume_change,
+            ask_volume_change,
+            cum_delta,
+
+            // 斜率
+            slope_bid,
+            slope_ask,
+
+            // 流动性
+            liquidity_gap_bid,
+            liquidity_gap_ask,
+            bid_pressure_ratio,
+            ask_pressure_ratio,
+            near_bid_thickness,
+            near_ask_thickness,
+            support_strength,
+            resistance_strength,
+
+            // 失衡指标
+            imbalance_depth_10,
+            imbalance_total,
+            trend_strength,
+            imbalance_acceleration,
+            price_deviation,
+
+            // 信号标志
+            pump_signal,
+            dump_signal,
+            whale_entry,
+            whale_exit,
+            fake_breakout,
+            liquidity_warning,
+            bid_eating,
+            ask_eating,
         }
     }
 
@@ -175,13 +573,17 @@ impl OrderBook {
         if entries.len() < 2 { return Decimal::ZERO; }
         let (p1, q1) = entries.first().unwrap();
         let (p2, q2) = entries.last().unwrap();
-        (**q2 - **q1) / (**p2 - **p1)
+        if (**p2 - **p1).is_zero() {
+            Decimal::ZERO
+        } else {
+            (**q2 - **q1) / (**p2 - **p1)
+        }
     }
 
     fn calc_liquidity_gap(entries: &Vec<(&Decimal, &Decimal)>) -> usize {
         let mut gap = 0;
         for i in 1..entries.len() {
-            if (*entries[i].0 - *entries[i-1].0) >dec!(0.5) {
+            if (*entries[i].0 - *entries[i-1].0) > dec!(0.5) {
                 gap += 1;
             }
         }
@@ -192,27 +594,77 @@ impl OrderBook {
         let total: Decimal = entries.iter().map(|(_, q)| *q).sum();
         if total.is_zero() { return false; }
         let max_order = entries.iter().map(|(_, q)| *q).max().unwrap();
-        (max_order / total) > dec!(0.3) // 单笔占比 >30%
+        (max_order / total) > dec!(0.3)
     }
-
-
-
 }
-
 
 #[derive(Debug, Clone, Copy)]
 pub struct OrderBookFeatures {
-    pub slope_bid: Decimal,
-    pub slope_ask: Decimal,
-    pub liquidity_gap_bid: usize,
-    pub liquidity_gap_ask: usize,
-    pub whale_bid: bool,
-    pub whale_ask: bool,
+    // 基础数据 (6个)
     pub spread: Decimal,
     pub spread_bps: Decimal,
     pub microprice: Decimal,
     pub ofi: Decimal,
     pub bid_ask_ratio: Decimal,
-    pub pump_flag: bool,
-    pub dump_flag: bool,
+    pub obi: Decimal,
+
+    // 成交量相关 (4个)
+    pub bid_volume_depth: Decimal,
+    pub ask_volume_depth: Decimal,
+    pub total_bid_volume: Decimal,
+    pub total_ask_volume: Decimal,
+
+    // 价格相关 (4个)
+    pub weighted_bid_price: Decimal,
+    pub weighted_ask_price: Decimal,
+    pub price_pressure: Decimal,
+    pub price_change: Decimal,
+
+    // 深度相关 (4个)
+    pub bid_concentration: Decimal,
+    pub ask_concentration: Decimal,
+    pub bid_elasticity: Decimal,
+    pub ask_elasticity: Decimal,
+
+    // 大单相关 (4个)
+    pub whale_bid: bool,
+    pub whale_ask: bool,
+    pub max_bid_ratio: Decimal,
+    pub max_ask_ratio: Decimal,
+
+    // 变化率 (3个)
+    pub bid_volume_change: Decimal,
+    pub ask_volume_change: Decimal,
+    pub cum_delta: Decimal,
+
+    // 斜率 (2个)
+    pub slope_bid: Decimal,
+    pub slope_ask: Decimal,
+
+    // 流动性 (7个)
+    pub liquidity_gap_bid: usize,
+    pub liquidity_gap_ask: usize,
+    pub bid_pressure_ratio: Decimal,
+    pub ask_pressure_ratio: Decimal,
+    pub near_bid_thickness: Decimal,
+    pub near_ask_thickness: Decimal,
+    pub support_strength: Decimal,
+    pub resistance_strength: Decimal,
+
+    // 失衡指标 (5个)
+    pub imbalance_depth_10: Decimal,
+    pub imbalance_total: Decimal,
+    pub trend_strength: Decimal,
+    pub imbalance_acceleration: Decimal,
+    pub price_deviation: Decimal,
+
+    // 信号标志 (8个)
+    pub pump_signal: bool,
+    pub dump_signal: bool,
+    pub whale_entry: bool,
+    pub whale_exit: bool,
+    pub fake_breakout: bool,
+    pub liquidity_warning: bool,
+    pub bid_eating: bool,
+    pub ask_eating: bool,
 }

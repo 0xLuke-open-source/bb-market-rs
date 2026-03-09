@@ -9,11 +9,14 @@ use reqwest::Client;
 use rust_decimal::Decimal;
 use std::io::Write;
 use std::time::Duration;
+use const_format::concatcp;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal_macros::dec;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 
-const COIN: &str = "ASTER";
+const COIN: &str = "KERNEL";
 const SYMBOL: &str = concatcp!(COIN, "USDT");  // 这个支持 const 变量
 
 #[tokio::main]
@@ -178,130 +181,191 @@ fn display_orderbook(book: &OrderBook, features: &OrderBookFeatures, update_coun
     let (bid, ask) = book
         .best_bid_ask()
         .unwrap_or((Decimal::ZERO, Decimal::ZERO));
-    let spread = ask - bid;
-    let spread_bps = if !bid.is_zero() {
-        (spread / bid * Decimal::from(10000)).round_dp(2)
+
+    // 标题 - 带警告色
+    let title = if features.pump_signal {
+        "🚀🚀🚀 拉盘预警! 🚀🚀🚀".to_string()
+    } else if features.dump_signal {
+        "📉📉📉 砸盘预警! 📉📉📉".to_string()
+    } else if features.whale_entry {
+        "🐋🐋🐋 鲸鱼进场! 🐋🐋🐋".to_string()
+    } else if features.whale_exit {
+        "🐋🐋🐋 鲸鱼离场! 🐋🐋🐋".to_string()
+    } else if features.liquidity_warning {
+        "⚠️⚠️⚠️ 流动性危机! ⚠️⚠️⚠️".to_string()
     } else {
-        Decimal::ZERO
+        format!("Binance {} Order Book Monitor (专业版)", book.symbol)
     };
 
-    // 标题
-    println!("╔════════════════════════════════════════════════════════════════════════════════╗");
-    println!(
-        "║                    Binance {} Order Book Monitor                          ║",
-        book.symbol
-    );
-    println!("╠════════════════════════════════════════════════════════════════════════════════╣");
+    println!("╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗");
+    println!("║ {:^104} ║", title);
+    println!("╠══════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
-    // 基础数据
+    // ==================== 第1行：基础价格数据 ====================
+    println!("║ 💰 价格数据                                 | 📊 成交量数据                                               ║");
+    println!("╠─────────────────────────────────────────────┼──────────────────────────────────────────────────────────║");
     println!(
-        "║ 📊 基础数据                                                                      ║"
-    );
-    println!("╠────────────────────────────────────────────────────────────────────────────────║");
-    println!(
-        "║  Bid: {:>18}  |  Ask: {:>18}  ║",
-        format!("{}", bid).green(),
-        format!("{}", ask).red()
+        "║  Bid: {:>20} {}    | 总买单量: {:>20.6} {:<4}                   ║",
+        format!("{}", bid),
+        if features.whale_bid { "🐋" } else { "  " },
+        features.total_bid_volume,
+        COIN
     );
     println!(
-        "║  Spread: {:>14} ({:>6} bps)  |  Updates: {:>16}  ║",
-        spread, spread_bps, update_count
+        "║  Ask: {:>20} {}    | 总卖单量: {:>20.6} {:<4}                   ║",
+        format!("{}", ask),
+        if features.whale_ask { "🐋" } else { "  " },
+        features.total_ask_volume,
+        COIN
     );
-    println!("║  Last Update ID: {:>42}  ║", book.last_update_id);
-    println!("╠────────────────────────────────────────────────────────────────────────────────║");
+    println!(
+        "║  Spread: {:>18} ({:>8} bps) | 前10档买单: {:>18.6} {:<4}                   ║",
+        features.spread.to_string(),
+        features.spread_bps.to_string(),
+        features.bid_volume_depth,
+        COIN
+    );
+    println!(
+        "║  微价格: {:>19}     | 前10档卖单: {:>18.6} {:<4}                   ║",
+        features.microprice.to_string(),
+        features.ask_volume_depth,
+        COIN
+    );
 
-    // 订单簿深度
-    println!(
-        "║ 📈 订单簿深度                                                                    ║"
-    );
-    println!("╠────────────────────────────────────────────────────────────────────────────────║");
-    println!(
-        "║  Bids: {:>6} 个价格档位  |  Total Bid Vol: {:>12.6} {COIN}  ║",
-        book.bids.len().to_string().green(),
-        book.bids.values().sum::<Decimal>()
-    );
-    println!(
-        "║  Asks: {:>6} 个价格档位  |  Total Ask Vol: {:>12.6} {COIN}  ║",
-        book.asks.len().to_string().red(),
-        book.asks.values().sum::<Decimal>()
-    );
-    println!("╠────────────────────────────────────────────────────────────────────────────────║");
+    // ==================== 第2行：失衡指标 ====================
+    println!("╠─────────────────────────────────────────────┼──────────────────────────────────────────────────────────║");
+    println!("║ ⚖️ 失衡指标                                 | 📈 趋势指标                                                 ║");
+    println!("╠─────────────────────────────────────────────┼──────────────────────────────────────────────────────────║");
 
-    // 特征分析
     println!(
-        "║ 🔍 市场特征分析                                                                  ║"
+        "║  OBI: {:>+20} {} | 趋势强度: {:>+20}                              ║",
+        features.obi.to_string(),
+        if features.obi > dec!(30) { "🚀" } else if features.obi < dec!(-30) { "📉" } else { "➡️" },
+        features.trend_strength.to_string()
     );
-    println!("╠────────────────────────────────────────────────────────────────────────────────║");
-
-    // 鲸鱼检测
-    let whale_indicator = match (features.whale_bid, features.whale_ask) {
-        (true, true) => "🐋 买单 + 卖单".yellow(),
-        (true, false) => "🐋 买单".yellow(),
-        (false, true) => "🐋 卖单".yellow(),
-        (false, false) => "无".normal(),
-    };
-    println!("║  鲸鱼检测: {:>51}  ║", whale_indicator);
-
-    // 斜率
     println!(
-        "║  买单斜率: {:>20.6}  |  卖单斜率: {:>20.6}  ║",
-        if features.slope_bid > Decimal::ZERO {
-            features.slope_bid.to_string().green()
-        } else {
-            features.slope_bid.to_string().red()
-        },
-        if features.slope_ask > Decimal::ZERO {
-            features.slope_ask.to_string().green()
-        } else {
-            features.slope_ask.to_string().red()
+        "║  OFI: {:>+20} {} | 价格变化: {:>+20}%                              ║",
+        features.ofi.to_string(),
+        if features.ofi > dec!(50000) { "📈" } else if features.ofi < dec!(-50000) { "📉" } else { "➡️" },
+        features.price_change.to_string()
+    );
+    println!(
+        "║  Bid/Ask Ratio: {:>17}    | 累计Delta: {:>+20}                              ║",
+        features.bid_ask_ratio.to_string(),
+        features.cum_delta.to_string()
+    );
+    println!(
+        "║  10档失衡: {:>19}    | 总量失衡: {:>20}                              ║",
+        features.imbalance_depth_10.to_string(),
+        features.imbalance_total.to_string()
+    );
+
+    // ==================== 第3行：深度集中度 ====================
+    println!("╠─────────────────────────────────────────────┼──────────────────────────────────────────────────────────║");
+    println!("║ 🎯 深度集中度                               | 📉 价格压力                                                 ║");
+    println!("╠─────────────────────────────────────────────┼──────────────────────────────────────────────────────────║");
+    println!(
+        "║  买单集中度(前3): {:>15}%    | 加权买价: {:>20}                              ║",
+        features.bid_concentration.round_dp(2).to_string(),
+        features.weighted_bid_price.round_dp(6).to_string()
+    );
+    println!(
+        "║  卖单集中度(前3): {:>15}%    | 加权卖价: {:>20}                              ║",
+        features.ask_concentration.round_dp(2).to_string(),
+        features.weighted_ask_price.round_dp(6).to_string()
+    );
+    println!(
+        "║  最大买单占比: {:>17}%    | 价格压力: {:>+20}                              ║",
+        features.max_bid_ratio.round_dp(2).to_string(),
+        features.price_pressure.round_dp(6).to_string()
+    );
+    println!(
+        "║  最大卖单占比: {:>17}%    | 价格弹性(B/A): {:>10}/{:>10}                    ║",
+        features.max_ask_ratio.round_dp(2).to_string(),
+        features.bid_elasticity.round_dp(6).to_string(),
+        features.ask_elasticity.round_dp(6).to_string()
+    );
+
+    // ==================== 第4行：变化率 ====================
+    println!("╠─────────────────────────────────────────────┼──────────────────────────────────────────────────────────║");
+    println!("║ 🔄 变化率                                   | 📊 买卖压力                                                 ║");
+    println!("╠─────────────────────────────────────────────┼──────────────────────────────────────────────────────────║");
+
+    println!(
+        "║  买单变化: {:>+19}% {} | 买单压力比: {:>19}                              ║",
+        features.bid_volume_change.to_string(),
+        if features.bid_volume_change > dec!(20) { "🚀" } else { "" },
+        features.bid_pressure_ratio.round_dp(4).to_string()
+    );
+    println!(
+        "║  卖单变化: {:>+19}% {} | 卖单压力比: {:>19}                              ║",
+        features.ask_volume_change.to_string(),
+        if features.ask_volume_change > dec!(20) { "📉" } else { "" },
+        features.ask_pressure_ratio.round_dp(4).to_string()
+    );
+    println!(
+        "║  近端买单厚度: {:>18}    | 支撑强度: {:>20}                              ║",
+        features.near_bid_thickness.round_dp(6).to_string(),
+        features.support_strength.round_dp(6).to_string()
+    );
+    println!(
+        "║  近端卖单厚度: {:>18}    | 阻力强度: {:>20}                              ║",
+        features.near_ask_thickness.round_dp(6).to_string(),
+        features.resistance_strength.round_dp(6).to_string()
+    );
+
+    // ==================== 第5行：斜率 ====================
+    println!("╠─────────────────────────────────────────────┼──────────────────────────────────────────────────────────║");
+    println!("║ 📐 斜率                                     | ⚡ 流动性缺口                                               ║");
+    println!("╠─────────────────────────────────────────────┼──────────────────────────────────────────────────────────║");
+    println!(
+        "║  买单斜率: {:>+20} {} | 买单缺口: {:>20}处                              ║",
+        features.slope_bid.round_dp(6).to_string(),
+        if features.slope_bid > dec!(100000) { "📈" } else { "" },
+        features.liquidity_gap_bid
+    );
+    println!(
+        "║  卖单斜率: {:>+20} {} | 卖单缺口: {:>20}处                              ║",
+        features.slope_ask.round_dp(6).to_string(),
+        if features.slope_ask < dec!(-100000) { "📉" } else { "" },
+        features.liquidity_gap_ask
+    );
+
+    // ==================== 第6行：信号预警 ====================
+    println!("╠══════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
+    println!("║ 🚨 实时信号预警                                                                                          ║");
+    println!("╠══════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
+
+    // 收集所有激活的信号
+    let mut signals = Vec::new();
+    if features.pump_signal { signals.push("🚀 拉盘信号"); }
+    if features.dump_signal { signals.push("📉 砸盘信号"); }
+    if features.whale_entry { signals.push("🐋 鲸鱼进场"); }
+    if features.whale_exit { signals.push("🐋 鲸鱼离场"); }
+    if features.bid_eating { signals.push("🍽️ 买单吃筹"); }
+    if features.ask_eating { signals.push("💥 卖单砸盘"); }
+    if features.fake_breakout { signals.push("🎭 假突破"); }
+    if features.liquidity_warning { signals.push("⚠️ 流动性危机"); }
+
+    if signals.is_empty() {
+        println!("║  {:^104}  ║", "暂无异常信号");
+    } else {
+        // 每行显示4个信号
+        for chunk in signals.chunks(4) {
+            let mut line = String::from("║  ");
+            for signal in chunk {
+                line.push_str(&format!("{:<25}", signal));
+            }
+            line.push_str("  ║");
+            println!("{}", line);
         }
-    );
+    }
 
-    // 流动性缺口
-    println!(
-        "║  流动性缺口: Bid: {:>3}处  |  Ask: {:>3}处                          ║",
-        features.liquidity_gap_bid, features.liquidity_gap_ask
-    );
-
-    // 微价格
-    println!("║  微价格(Microprice): {:>39.6}  ║", features.microprice);
-
-    // OFI和买卖比例
-    println!(
-        "║  OFI: {:>+20.6}  |  Bid/Ask Ratio: {:>16.6}  ║",
-        if features.ofi > Decimal::ZERO {
-            features.ofi.to_string().green()
-        } else {
-            features.ofi.to_string().red()
-        },
-        features.bid_ask_ratio
-    );
-
-    println!("╠────────────────────────────────────────────────────────────────────────────────║");
-
-    // 暴涨/暴跌信号
-    println!(
-        "║ ⚡ 市场信号                                                                       ║"
-    );
-    println!("╠────────────────────────────────────────────────────────────────────────────────║");
-
-    let pump_signal = if features.pump_flag {
-        "⚡ 暴涨信号！".bright_green().bold()
-    } else {
-        "   无信号    ".normal()
-    };
-
-    let dump_signal = if features.dump_flag {
-        "⚡ 暴跌信号！".bright_red().bold()
-    } else {
-        "   无信号    ".normal()
-    };
-
-    println!("║  {}  |  {}  ║", pump_signal, dump_signal);
-    println!("╚════════════════════════════════════════════════════════════════════════════════╝");
+    println!("╠══════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
+    println!("║  📋 Top 5 订单簿深度                                                                                    ║");
+    println!("╠══════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
 
     // Top 5 订单簿
-    println!("\n📋 Top 5 订单簿深度");
     println!("┌───────────────┬───────────────┬───────────────┬───────────────┐");
     println!("│     Bids       │     Amount    │     Asks       │     Amount    │");
     println!("├───────────────┼───────────────┼───────────────┼───────────────┤");
@@ -320,25 +384,39 @@ fn display_orderbook(book: &OrderBook, features: &OrderBookFeatures, update_coun
             (Decimal::ZERO, Decimal::ZERO)
         };
 
+        // 标记异常大单
+        let bid_marker = if bid_qty > features.total_bid_volume * dec!(0.2) { "🐋" } else { "" };
+        let ask_marker = if ask_qty > features.total_ask_volume * dec!(0.2) { "🐋" } else { "" };
+
         println!(
-            "│ {:>13.6} │ {:>11.6} {COIN} │ {:>13.6} │ {:>11.6} {COIN} │",
-            bid_price, bid_qty, ask_price, ask_qty
+            "│ {:>13.6}{:<2} │ {:>11.6} {:<4} │ {:>13.6}{:<2} │ {:>11.6} {:<4} │",
+            bid_price, bid_marker, bid_qty, COIN, ask_price, ask_marker, ask_qty, COIN
         );
     }
     println!("└───────────────┴───────────────┴───────────────┴───────────────┘");
 
-    // 进度条（可选）
-    let total_depth = (book.bids.len() + book.asks.len()) as f64;
-    let ratio = book.bids.len() as f64 / total_depth;
-    let bar_len = 40;
-    let filled = (ratio * bar_len as f64) as usize;
-    let empty = bar_len - filled;
+    // ==================== 买卖力量对比图 ====================
+    let total_bid_vol = features.total_bid_volume;
+    let total_ask_vol = features.total_ask_volume;
+    let total_vol = total_bid_vol + total_ask_vol;
+
+    let bid_ratio = if total_vol > Decimal::ZERO {
+        (total_bid_vol / total_vol * dec!(100)).round_dp(1)
+    } else {
+        Decimal::ZERO
+    };
+
+    let ask_ratio = dec!(100) - bid_ratio;
 
     println!(
-        "\n📊 买卖力量对比 [Bids:{:3} Asks:{:3}]",
-        book.bids.len(),
-        book.asks.len()
+        "\n📊 买卖力量对比 [买单:{:.1}% 卖单:{:.1}%]  |  更新次数: {}",
+        bid_ratio, ask_ratio, update_count
     );
+
+    let bar_len = 50;
+    let filled = (bid_ratio / dec!(100) * Decimal::from(bar_len)).round().to_u64().unwrap_or(0) as usize;
+    let empty = bar_len - filled;
+
     print!("Bids ");
     for _ in 0..filled {
         print!("█");
@@ -348,110 +426,33 @@ fn display_orderbook(book: &OrderBook, features: &OrderBookFeatures, update_coun
     }
     println!(" Asks");
 
-    std::io::stdout().flush().unwrap();
-}
+    // ==================== 市场状态总结 ====================
+    println!("\n📌 市场状态总结:");
 
-fn display_compact(book: &OrderBook, features: &OrderBookFeatures, update_count: u64) {
-    let (bid, ask) = book
-        .best_bid_ask()
-        .unwrap_or((Decimal::ZERO, Decimal::ZERO));
-    let spread = ask - bid;
-
-    print!("\x1B[2J\x1B[1;1H"); // 清屏
-
-    println!("┌─────────────────────────────────────────────────────────────────────────────┐");
-    println!(
-        "│ Binance {} Order Book                                         Updates: {:>6} │",
-        book.symbol, update_count
-    );
-    println!("├───────────────┬───────────────┬───────────────┬─────────────────────────────┤");
-    println!("│ Bid           │ Ask           │ Spread        │ Features                     │");
-    println!("├───────────────┼───────────────┼───────────────┼─────────────────────────────┤");
-    println!(
-        "│ {:<13} │ {:<13} │ {:<13} │ Whale: {}{}                       │",
-        format!("{}", bid).green(),
-        format!("{}", ask).red(),
-        format!("{}", spread),
-        if features.whale_bid { "B" } else { "-" },
-        if features.whale_ask { "A" } else { "-" }
-    );
-    println!(
-        "│               │               │               │ Slope: {:>6.4}/{:>6.4}              │",
-        features.slope_bid, features.slope_ask
-    );
-    println!(
-        "│ Bids: {:<4}    │ Asks: {:<4}    │               │ {} {}                      │",
-        book.bids.len().to_string().green(),
-        book.asks.len().to_string().red(),
-        if features.pump_flag {
-            "⚡Pump "
-        } else {
-            "      "
-        },
-        if features.dump_flag {
-            "⚡Dump"
-        } else {
-            "     "
-        }
-    );
-    println!("└───────────────┴───────────────┴───────────────┴─────────────────────────────┘");
-
-    std::io::stdout().flush().unwrap();
-}
-
-use colored::*;
-use const_format::concatcp;
-
-fn display_single_line(book: &OrderBook, features: &OrderBookFeatures, update_count: u64) {
-    let (bid, ask) = book
-        .best_bid_ask()
-        .unwrap_or((Decimal::ZERO, Decimal::ZERO));
-    let spread = ask - bid;
-
-    // 根据信号添加表情
-    let sentiment = if features.pump_flag {
-        "🚀"
-    } else if features.dump_flag {
-        "📉"
-    } else if book.bids.len() > book.asks.len() {
-        "📈"
+    // 根据各项指标综合判断
+    if features.pump_signal {
+        println!("   🔴 检测到强烈拉盘信号！买单斜率陡峭，大单集中，可能即将上涨");
+    } else if features.dump_signal {
+        println!("   🔴 检测到强烈砸盘信号！卖单斜率陡峭，大单抛压，可能即将下跌");
+    } else if features.whale_entry {
+        println!("   🟡 鲸鱼正在进场！有大资金在建立仓位，密切关注");
+    } else if features.whale_exit {
+        println!("   🟡 鲸鱼正在离场！有大资金在撤退，注意风险");
+    } else if features.bid_eating {
+        println!("   🟢 买单正在主动吃筹！买方力量强劲，价格可能上涨");
+    } else if features.ask_eating {
+        println!("   🔴 卖单正在主动砸盘！卖方力量强劲，价格可能下跌");
+    } else if features.bid_volume_change > dec!(30) {
+        println!("   🟢 买单量激增！买方正在积极挂单");
+    } else if features.ask_volume_change > dec!(30) {
+        println!("   🔴 卖单量激增！卖方正在积极挂单");
+    } else if features.bid_concentration > dec!(50) {
+        println!("   🟡 买单高度集中！少数几个价位堆积了大量买单");
+    } else if features.ask_concentration > dec!(50) {
+        println!("   🟡 卖单高度集中！少数几个价位堆积了大量卖单");
     } else {
-        "➡️"
-    };
-
-    // 鲸鱼指示
-    let whale = match (features.whale_bid, features.whale_ask) {
-        (true, true) => "🐋🐋".yellow(),
-        (true, false) => "🐋B ".yellow(),
-        (false, true) => "🐋A ".yellow(),
-        (false, false) => "    ".normal(),
-    };
-
-    // 买卖比例条
-    let total = (book.bids.len() + book.asks.len()) as f64;
-    let bid_ratio = book.bids.len() as f64 / total;
-    let bar_len = 20;
-    let filled = (bid_ratio * bar_len as f64) as usize;
-    let bar = format!(
-        "{}{}",
-        "█".repeat(filled).green(),
-        "█".repeat(bar_len - filled).red()
-    );
-
-    print!(
-        "\r{} Bid:{:>12} Ask:{:>12} | Spread:{:>8} | Bids:{:>4} Asks:{:>4} | Slope:{:>.2}/{:>.2} | {} | {} {}      ",
-        sentiment,
-        bid.to_string().green(),
-        ask.to_string().red(),
-        spread,
-        book.bids.len().to_string().green(),
-        book.asks.len().to_string().red(),
-        features.slope_bid,
-        features.slope_ask,
-        whale,
-        bar,
-        update_count,
-    );
+        println!("   🟢 市场相对平稳，无明显异常信号");
+    }
 
     std::io::stdout().flush().unwrap();
 }
