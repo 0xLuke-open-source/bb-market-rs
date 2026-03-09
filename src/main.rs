@@ -16,6 +16,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
+use crate::analysis::algorithms::MarketIntelligence;
 use crate::analysis::MarketAnalysis;
 
 const COIN: &str = "DOGS";
@@ -128,20 +129,29 @@ async fn main() -> anyhow::Result<()> {
             }
             last_print = Instant::now();
         }
-
+        // 在 main 函数中初始化
+        let mut market_intel = MarketIntelligence::new();
         // 新增：每30秒生成一次分析报告
         if last_report.elapsed() >= report_interval {
             if let Some((bid, ask)) = book.best_bid_ask() {
                 let features = book.compute_features(10);
                 let analysis = MarketAnalysis::new(&book, &features);
+
+                // 运行高级算法分析
+                let comprehensive = market_intel.analyze(&book, &features);
+
                 analysis.display();
 
+                // 显示高级算法分析
+                market_intel.display_summary(&comprehensive);
+
+
                 // 可选：保存到文件
-                if save_to_file {
-                    if let Err(e) = analysis.save_to_file(report_file) {
-                        eprintln!("Failed to save report: {}", e);
-                    }
-                }
+                // if save_to_file {
+                //     if let Err(e) = analysis.save_to_file(report_file) {
+                //         eprintln!("Failed to save report: {}", e);
+                //     }
+                // }
             }
             last_report = Instant::now();
         }

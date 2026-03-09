@@ -1,5 +1,5 @@
 pub mod analysis;
-
+pub mod algorithms;
 
 // 导出模块
 pub use analysis::{
