@@ -1,7 +1,9 @@
 mod client;
 mod codec;
 mod store;
+mod analysis;
 
+use std::io;
 use crate::codec::binance_msg::Snapshot;
 use crate::store::l2_book::{OrderBook, OrderBookFeatures};
 use colored::Colorize;
@@ -14,9 +16,9 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
+use crate::analysis::MarketAnalysis;
 
-
-const COIN: &str = "KERNEL";
+const COIN: &str = "DOGS";
 const SYMBOL: &str = concatcp!(COIN, "USDT");  // 这个支持 const 变量
 
 #[tokio::main]
@@ -85,6 +87,16 @@ async fn main() -> anyhow::Result<()> {
     // 5. 处理更新
     let mut last_print = Instant::now();
     let print_interval = Duration::from_millis(100);
+
+    // 新增：定时报告
+    let mut last_report = Instant::now();
+    let report_interval = Duration::from_secs(30); // 30秒报告一次
+
+    // 新增：可选，保存报告到文件
+    let save_to_file = true; // 设置为 true 则保存到文件
+    let report_file = "market_analysis.log";
+
+
     let mut update_count = 0;
 
     while let Some(msg) = rx.recv().await {
@@ -109,15 +121,29 @@ async fn main() -> anyhow::Result<()> {
                 let features = book.compute_features(10);
 
                 // 选择你喜欢的显示模式
-                display_orderbook(&book, &features, update_count); // 方案1：完整表格
+                // display_orderbook(&book, &features, update_count); // 方案1：完整表格
                 // display_compact(&book, &features, update_count);    // 方案2：紧凑表格
-
                 // display_single_line(&book, &features, update_count);    // 方案3：单行实时更新
-
-                use std::io::{self, Write};
-                io::stdout().flush().unwrap();
+                io::stdout().flush()?;
             }
             last_print = Instant::now();
+        }
+
+        // 新增：每30秒生成一次分析报告
+        if last_report.elapsed() >= report_interval {
+            if let Some((bid, ask)) = book.best_bid_ask() {
+                let features = book.compute_features(10);
+                let analysis = MarketAnalysis::new(&book, &features);
+                analysis.display();
+
+                // 可选：保存到文件
+                if save_to_file {
+                    if let Err(e) = analysis.save_to_file(report_file) {
+                        eprintln!("Failed to save report: {}", e);
+                    }
+                }
+            }
+            last_report = Instant::now();
         }
     }
 
