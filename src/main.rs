@@ -19,7 +19,7 @@ use tokio::time::Instant;
 use crate::analysis::algorithms::MarketIntelligence;
 use crate::analysis::MarketAnalysis;
 
-const COIN: &str = "DOGS";
+const COIN: &str = "PLUME";
 const SYMBOL: &str = concatcp!(COIN, "USDT");  // 这个支持 const 变量
 
 #[tokio::main]
