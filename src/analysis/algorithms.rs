@@ -6,8 +6,35 @@ use rust_decimal_macros::dec;
 use std::collections::{VecDeque};
 use std::cmp::Reverse;
 use chrono::{DateTime, Local};
-use rust_decimal::prelude::ToPrimitive;
-use crate::store::l2_book::{OrderBook, OrderBookFeatures};
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
+use crate::store::l2_book::{OrderBook, OrderBookFeatures, TrendPeriod};
+
+// ==================== 新增：多周期分析数据结构 ====================
+
+#[derive(Debug, Clone)]
+pub struct DivergenceSignal {
+    pub period: String,
+    pub direction: String,
+    pub strength: u8,
+    pub description: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct AccelerationCurve {
+    pub micro: Decimal,   // 5s加速度
+    pub short: Decimal,   // 1m加速度
+    pub medium: Decimal,  // 5m加速度
+    pub long: Decimal,    // 1h加速度
+}
+
+#[derive(Debug, Clone)]
+pub struct TrendCoherence {
+    pub coherence: String,
+    pub std_deviation: Decimal,
+    pub micro: Decimal,
+    pub short: Decimal,
+    pub medium: Decimal,
+}
 
 // ==================== 1. 鲸鱼检测算法 ====================
 
@@ -56,6 +83,177 @@ pub struct WhaleDetector {
     ask_history: VecDeque<Vec<(Decimal, Decimal)>>,
     whale_threshold: Decimal,           // 鲸鱼阈值 (默认5%)
 }
+
+// ==================== 2. Spoofing 识别算法 ====================
+
+#[derive(Debug, Clone)]
+pub struct SpoofingDetectionResult {
+    pub detected: bool,
+    pub confidence: u8,
+    pub spoofing_type: SpoofingType,
+    pub spoofing_levels: Vec<SpoofingLevel>,
+    pub estimated_manipulation: Decimal,  // 估计的价格操纵幅度
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SpoofingType {
+    BidSpoofing,     // 买单欺诈
+    AskSpoofing,     // 卖单欺诈
+    Layering,        // 分层欺诈
+    WashTrading,     // 对倒
+    Unknown,
+}
+
+#[derive(Debug, Clone)]
+pub struct SpoofingLevel {
+    pub price: Decimal,
+    pub quantity: Decimal,
+    pub side: OrderSide,
+    pub lifetime_secs: f64,
+    pub cancel_rate: f64,
+}
+
+pub struct SpoofingDetector {
+    order_history: VecDeque<OrderBookSnapshot>,
+}
+
+#[derive(Debug, Clone)]
+struct OrderBookSnapshot {
+    timestamp: DateTime<Local>,
+    bids: Vec<(Decimal, Decimal)>,
+    asks: Vec<(Decimal, Decimal)>,
+}
+
+// ==================== 3. Pump / Dump 预测模型 ====================
+
+#[derive(Debug, Clone)]
+pub struct PumpDumpPrediction {
+    pub pump_probability: u8,
+    pub dump_probability: u8,
+    pub pump_target: Decimal,
+    pub dump_target: Decimal,
+    pub time_horizon: String,
+    pub confidence: u8,
+    pub signals: Vec<PumpDumpSignal>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PumpDumpSignal {
+    pub signal_type: SignalType,
+    pub strength: u8,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SignalType {
+    VolumeSurge,
+    OrderFlowImbalance,
+    WhaleActivity,
+    SpoofingDetected,
+    PriceAcceleration,
+    SupportBreak,
+    ResistanceBreak,
+}
+
+pub struct PumpDumpPredictor {
+    history: VecDeque<PriceVolumeSnapshot>,
+    volume_surge_threshold: Decimal,
+}
+
+#[derive(Debug, Clone)]
+struct PriceVolumeSnapshot {
+    timestamp: DateTime<Local>,
+    price: Decimal,
+    volume: Decimal,
+}
+
+// ==================== 4. 做市商行为识别 ====================
+
+#[derive(Debug, Clone)]
+pub struct MarketMakerBehavior {
+    pub is_active: bool,
+    pub mm_type: MarketMakerType,
+    pub strategy: MMStrategy,
+    pub inventory_bias: Decimal,        // 库存偏向 (-100 到 100)
+    pub spread_policy: SpreadPolicy,
+    pub quote_frequency: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MarketMakerType {
+    HighFrequencyMM,
+    InstitutionalMM,
+    RetailMM,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MMStrategy {
+    SpreadCapture,      // 赚取价差
+    InventoryMgmt,      // 库存管理
+    PriceStabilization, // 价格稳定
+    Directional,        // 方向性交易
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SpreadPolicy {
+    Tight,      // 紧价差 (< 10bps)
+    Normal,     // 正常价差 (10-30bps)
+    Wide,       // 宽价差 (> 30bps)
+}
+
+pub struct MarketMakerDetector {
+    quote_history: VecDeque<QuoteSnapshot>,
+}
+
+#[derive(Debug, Clone)]
+struct QuoteSnapshot {
+    timestamp: DateTime<Local>,
+    bid_price: Decimal,
+    ask_price: Decimal,
+}
+
+// ==================== 5. 订单流 Alpha 信号 ====================
+
+#[derive(Debug, Clone)]
+pub struct OrderFlowAlpha {
+    pub signal: AlphaSignal,
+    pub strength: u8,
+    pub confidence: u8,
+    pub expected_return: Decimal,
+    pub time_horizon: String,
+    pub components: Vec<AlphaComponent>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AlphaSignal {
+    StrongBuy,
+    Buy,
+    Neutral,
+    Sell,
+    StrongSell,
+}
+
+#[derive(Debug, Clone)]
+pub struct AlphaComponent {
+    pub name: String,
+    pub value: Decimal,
+    pub contribution: u8,
+}
+
+pub struct OrderFlowAlphaGenerator {
+    history: VecDeque<OrderFlowSnapshot>,
+}
+
+#[derive(Debug, Clone)]
+struct OrderFlowSnapshot {
+    timestamp: DateTime<Local>,
+    ofi: Decimal,
+    obi: Decimal,
+    price: Decimal,
+}
+
+// ==================== 所有算法的实现 ====================
 
 impl WhaleDetector {
     pub fn new() -> Self {
@@ -259,46 +457,6 @@ impl WhaleDetector {
     }
 }
 
-// ==================== 2. Spoofing 识别算法 ====================
-
-#[derive(Debug, Clone)]
-pub struct SpoofingDetectionResult {
-    pub detected: bool,
-    pub confidence: u8,
-    pub spoofing_type: SpoofingType,
-    pub spoofing_levels: Vec<SpoofingLevel>,
-    pub estimated_manipulation: Decimal,  // 估计的价格操纵幅度
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum SpoofingType {
-    BidSpoofing,     // 买单欺诈
-    AskSpoofing,     // 卖单欺诈
-    Layering,        // 分层欺诈
-    WashTrading,     // 对倒
-    Unknown,
-}
-
-#[derive(Debug, Clone)]
-pub struct SpoofingLevel {
-    pub price: Decimal,
-    pub quantity: Decimal,
-    pub side: OrderSide,
-    pub lifetime_secs: f64,
-    pub cancel_rate: f64,
-}
-
-pub struct SpoofingDetector {
-    order_history: VecDeque<OrderBookSnapshot>,
-}
-
-#[derive(Debug, Clone)]
-struct OrderBookSnapshot {
-    timestamp: DateTime<Local>,
-    bids: Vec<(Decimal, Decimal)>,
-    asks: Vec<(Decimal, Decimal)>,
-}
-
 impl SpoofingDetector {
     pub fn new() -> Self {
         Self {
@@ -468,49 +626,6 @@ impl SpoofingDetection {
             levels: Vec::new(),
         }
     }
-}
-
-// ==================== 3. Pump / Dump 预测模型 ====================
-
-#[derive(Debug, Clone)]
-pub struct PumpDumpPrediction {
-    pub pump_probability: u8,
-    pub dump_probability: u8,
-    pub pump_target: Decimal,
-    pub dump_target: Decimal,
-    pub time_horizon: String,
-    pub confidence: u8,
-    pub signals: Vec<PumpDumpSignal>,
-}
-
-#[derive(Debug, Clone)]
-pub struct PumpDumpSignal {
-    pub signal_type: SignalType,
-    pub strength: u8,
-    pub description: String,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum SignalType {
-    VolumeSurge,
-    OrderFlowImbalance,
-    WhaleActivity,
-    SpoofingDetected,
-    PriceAcceleration,
-    SupportBreak,
-    ResistanceBreak,
-}
-
-pub struct PumpDumpPredictor {
-    history: VecDeque<PriceVolumeSnapshot>,
-    volume_surge_threshold: Decimal,
-}
-
-#[derive(Debug, Clone)]
-struct PriceVolumeSnapshot {
-    timestamp: DateTime<Local>,
-    price: Decimal,
-    volume: Decimal,
 }
 
 impl PumpDumpPredictor {
@@ -711,52 +826,6 @@ impl PumpDumpPredictor {
     }
 }
 
-// ==================== 4. 做市商行为识别 ====================
-
-#[derive(Debug, Clone)]
-pub struct MarketMakerBehavior {
-    pub is_active: bool,
-    pub mm_type: MarketMakerType,
-    pub strategy: MMStrategy,
-    pub inventory_bias: Decimal,        // 库存偏向 (-100 到 100)
-    pub spread_policy: SpreadPolicy,
-    pub quote_frequency: f64,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MarketMakerType {
-    HighFrequencyMM,
-    InstitutionalMM,
-    RetailMM,
-    Unknown,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MMStrategy {
-    SpreadCapture,      // 赚取价差
-    InventoryMgmt,      // 库存管理
-    PriceStabilization, // 价格稳定
-    Directional,        // 方向性交易
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum SpreadPolicy {
-    Tight,      // 紧价差 (< 10bps)
-    Normal,     // 正常价差 (10-30bps)
-    Wide,       // 宽价差 (> 30bps)
-}
-
-pub struct MarketMakerDetector {
-    quote_history: VecDeque<QuoteSnapshot>,
-}
-
-#[derive(Debug, Clone)]
-struct QuoteSnapshot {
-    timestamp: DateTime<Local>,
-    bid_price: Decimal,
-    ask_price: Decimal,
-}
-
 impl MarketMakerDetector {
     pub fn new() -> Self {
         Self {
@@ -861,46 +930,6 @@ impl MarketMakerDetector {
             0.0
         }
     }
-}
-
-// ==================== 5. 订单流 Alpha 信号 ====================
-
-#[derive(Debug, Clone)]
-pub struct OrderFlowAlpha {
-    pub signal: AlphaSignal,
-    pub strength: u8,
-    pub confidence: u8,
-    pub expected_return: Decimal,
-    pub time_horizon: String,
-    pub components: Vec<AlphaComponent>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum AlphaSignal {
-    StrongBuy,
-    Buy,
-    Neutral,
-    Sell,
-    StrongSell,
-}
-
-#[derive(Debug, Clone)]
-pub struct AlphaComponent {
-    pub name: String,
-    pub value: Decimal,
-    pub contribution: u8,
-}
-
-pub struct OrderFlowAlphaGenerator {
-    history: VecDeque<OrderFlowSnapshot>,
-}
-
-#[derive(Debug, Clone)]
-struct OrderFlowSnapshot {
-    timestamp: DateTime<Local>,
-    ofi: Decimal,
-    obi: Decimal,
-    price: Decimal,
 }
 
 impl OrderFlowAlphaGenerator {
@@ -1247,6 +1276,118 @@ impl MarketIntelligence {
         }
     }
 
+    // ==================== 新增：多周期分析接口 ====================
+
+    /// 多周期背离检测
+    pub fn detect_multi_period_divergence(&self, book: &OrderBook) -> Vec<DivergenceSignal> {
+        let mut signals = Vec::new();
+
+        // 检查不同周期的背离
+        let periods = [
+            (TrendPeriod::Micro, "5s", 0.001),
+            (TrendPeriod::Short, "1m", 0.005),
+            (TrendPeriod::Medium, "5m", 0.02),
+        ];
+
+        for (period, name, threshold) in periods {
+            if let Some(signal) = self.check_period_divergence(book, period, name, threshold) {
+                signals.push(signal);
+            }
+        }
+
+        signals
+    }
+
+    fn check_period_divergence(&self, book: &OrderBook, period: TrendPeriod,
+                               name: &str, threshold: f64) -> Option<DivergenceSignal> {
+        let samples = match period {
+            TrendPeriod::Micro => &book.history.samples_5s,
+            TrendPeriod::Short => &book.history.samples_1m,
+            TrendPeriod::Medium => &book.history.samples_5m,
+            TrendPeriod::Long => &book.history.samples_1h,
+        };
+
+        if samples.len() < 10 { return None; }
+
+        let current = samples.back().unwrap();
+        let older = samples.front().unwrap();
+
+        // 价格涨了但OBI跌了 → 看跌背离
+        let price_up = current.mid_price > older.mid_price + Decimal::from_f64(threshold).unwrap();
+        let obi_down = current.obi < older.obi - dec!(10);
+
+        if price_up && obi_down {
+            return Some(DivergenceSignal {
+                period: name.to_string(),
+                direction: "看跌背离".to_string(),
+                strength: ((older.obi - current.obi) / dec!(10)).round().to_u8().unwrap_or(50).min(100),
+                description: format!("价格↑ {:.4} 但买盘↓ {:.1}%",
+                                     current.mid_price - older.mid_price,
+                                     older.obi - current.obi),
+            });
+        }
+
+        // 价格跌了但OBI涨了 → 看涨背离
+        let price_down = current.mid_price < older.mid_price - Decimal::from_f64(threshold).unwrap();
+        let obi_up = current.obi > older.obi + dec!(10);
+
+        if price_down && obi_up {
+            return Some(DivergenceSignal {
+                period: name.to_string(),
+                direction: "看涨背离".to_string(),
+                strength: ((current.obi - older.obi) / dec!(10)).round().to_u8().unwrap_or(50).min(100),
+                description: format!("价格↓ {:.4} 但买盘↑ {:.1}%",
+                                     older.mid_price - current.mid_price,
+                                     current.obi - older.obi),
+            });
+        }
+
+        None
+    }
+
+    /// 计算多周期加速度曲线
+    pub fn calculate_acceleration_curve(&self, book: &OrderBook) -> AccelerationCurve {
+        AccelerationCurve {
+            micro: book.history.stats_5s.acceleration,
+            short: book.history.stats_1m.acceleration,
+            medium: book.history.stats_5m.acceleration,
+            long: book.history.stats_1h.acceleration,
+        }
+    }
+
+    /// 识别趋势共振/分歧
+    pub fn analyze_trend_coherence(&self, book: &OrderBook) -> TrendCoherence {
+        let micro_trend = book.get_trend_strength(TrendPeriod::Micro);
+        let short_trend = book.get_trend_strength(TrendPeriod::Short);
+        let medium_trend = book.get_trend_strength(TrendPeriod::Medium);
+
+        // 计算趋势一致性
+        let trends = [micro_trend, short_trend, medium_trend];
+        let avg = trends.iter().sum::<Decimal>() / Decimal::from(3);
+        let variance = trends.iter()
+            .map(|&t| (t - avg) * (t - avg))
+            .sum::<Decimal>() / Decimal::from(3);
+        let std = Decimal::from_f64_retain(variance.to_f64().unwrap_or(0.0).sqrt()).unwrap_or(Decimal::ZERO);
+
+        let coherence = if std < dec!(0.5) {
+            "高度共振"
+        } else if std < dec!(1.0) {
+            "基本一致"
+        } else if std < dec!(2.0) {
+            "出现分歧"
+        } else {
+            "严重分歧"
+        };
+
+        TrendCoherence {
+            coherence: coherence.to_string(),
+            std_deviation: std,
+            micro: micro_trend,
+            short: short_trend,
+            medium: medium_trend,
+        }
+    }
+
     pub fn display_summary(&self, analysis: &ComprehensiveAnalysis) {
         println!("\n{}", "🔬".repeat(30));
         println!("📊 市场智能综合分析 - {}", analysis.timestamp.format("%Y-%m-%d %H:%M:%S"));
@@ -1319,4 +1460,3 @@ impl MarketIntelligence {
         println!("\n{}", "🔬".repeat(30));
     }
 }
-

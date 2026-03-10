@@ -134,6 +134,10 @@ async fn main() -> anyhow::Result<()> {
         if last_report.elapsed() >= report_interval {
             if let Some((bid, ask)) = book.best_bid_ask() {
                 let features = book.compute_features(10);
+
+                // 关键：触发自动采样存档
+                book.auto_sample(&features);
+
                 let analysis = MarketAnalysis::new(&book, &features);
                 // 运行高级算法分析
                 let comprehensive = market_intel.analyze(&book, &features);
@@ -143,6 +147,41 @@ async fn main() -> anyhow::Result<()> {
                 // 显示高级算法分析
                 market_intel.display_summary(&comprehensive);
 
+                // ========== 新增：多周期分析 ==========
+                let divergence_signals = market_intel.detect_multi_period_divergence(&book);
+                let acceleration = market_intel.calculate_acceleration_curve(&book);
+                let coherence = market_intel.analyze_trend_coherence(&book);
+
+                println!("\n{}", "📈".repeat(20));
+                println!("📊 多周期趋势分析");
+                println!("{}", "📈".repeat(20));
+
+                if !divergence_signals.is_empty() {
+                    println!("\n🔄 多周期背离检测:");
+                    for signal in divergence_signals {
+                        let color = if signal.direction.contains("看跌") { "🔴" } else { "🟢" };
+                        println!("  {} [{}] {} - 强度:{}% - {}",
+                                 color, signal.period, signal.direction, signal.strength, signal.description);
+                    }
+                } else {
+                    println!("\n🔄 未检测到明显背离");
+                }
+
+                println!("\n📈 加速度曲线:");
+                println!("  5s: {:.6} | 1m: {:.6} | 5m: {:.6} | 1h: {:.6}",
+                         acceleration.micro, acceleration.short,
+                         acceleration.medium, acceleration.long);
+
+                let coh_color = if coherence.coherence.contains("高度共振") {
+                    "🟢"
+                } else if coherence.coherence.contains("分歧") {
+                    "🟡"
+                } else {
+                    "🔴"
+                };
+                println!("\n🎯 趋势共振分析: {} {} (std:{:.4})",
+                         coh_color, coherence.coherence, coherence.std_deviation);
+                // ========== 结束新增 ==========
 
                 // 可选：保存到文件
                 // if save_to_file {

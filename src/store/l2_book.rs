@@ -1,10 +1,93 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::cmp::Reverse;
+use std::time::{Duration, Instant};
 use rust_decimal::Decimal;
 use crate::codec::binance_msg::{DepthUpdate, Snapshot};
 use std::str::FromStr;
-use std::time::Instant;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
+use crate::analysis::algorithms::AlphaSignal::Sell;
+// ==================== 采样层数据结构 ====================
+
+// 增强的采样点，包含更多微观结构特征
+#[derive(Debug, Clone)]
+pub struct RichSamplePoint {
+    pub timestamp: Instant,
+    // 价格维度
+    pub mid_price: Decimal,
+    pub weighted_bid: Decimal,
+    pub weighted_ask: Decimal,
+    pub microprice: Decimal,
+
+    // 订单簿维度
+    pub bid_volume: Decimal,
+    pub ask_volume: Decimal,
+    pub obi: Decimal,              // 订单簿失衡
+    pub ofi: Decimal,               // 订单流失衡
+    pub spread_bps: Decimal,        // 买卖价差
+
+    // 流动性维度
+    pub bid_depth: Decimal,
+    pub ask_depth: Decimal,
+    pub depth_ratio: Decimal,
+
+    // 大单维度
+    pub max_bid_ratio: Decimal,
+    pub max_ask_ratio: Decimal,
+
+    // 斜率维度
+    pub slope_bid: Decimal,
+    pub slope_ask: Decimal,
+
+    // 衍生特征
+    pub price_pressure: Decimal,
+    pub microprice_deviation: Decimal,
+}
+
+// 滚动统计（避免每次重新计算）
+#[derive(Debug, Clone, Default)]
+pub struct RollingStats {
+    pub price_ma: Decimal,        // 移动平均
+    pub price_std: Decimal,        // 标准差
+    pub volume_ma: Decimal,        // 成交量均线
+    pub obi_ma: Decimal,           // OBI 均线
+    pub price_momentum: Decimal,    // 价格动量
+    pub volume_momentum: Decimal,   // 成交量动量
+    pub acceleration: Decimal,      // 加速度
+}
+
+// 采样特征
+#[derive(Debug, Clone)]
+pub struct HistoryManager {
+    // 多级采样桶
+    pub samples_raw: VecDeque<RichSamplePoint>,      // 原始流（100ms级，用于实时）
+    pub samples_5s: VecDeque<RichSamplePoint>,       // 5秒级（用于微观加速）
+    pub samples_1m: VecDeque<RichSamplePoint>,       // 1分钟级（用于趋势）
+    pub samples_5m: VecDeque<RichSamplePoint>,       // 5分钟级（用于中期）
+    pub samples_1h: VecDeque<RichSamplePoint>,       // 1小时级（用于宏观）
+
+    // 采样计时器
+    last_5s_tick: Instant,
+    last_1m_tick: Instant,
+    last_5m_tick: Instant,
+    last_1h_tick: Instant,
+
+    // 聚合统计（预计算加速）
+    pub stats_5s: RollingStats,
+    pub stats_1m: RollingStats,
+    pub stats_5m: RollingStats,
+    pub stats_1h: RollingStats,
+}
+
+// 趋势周期枚举
+#[derive(Debug, Clone, Copy)]
+pub enum TrendPeriod {
+    Micro,   // 5秒级（瞬时）
+    Short,   // 1分钟级（短期）
+    Medium,  // 5分钟级（中期）
+    Long,    // 1小时级（长期）
+}
+
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct OrderBook {
@@ -20,6 +103,9 @@ pub struct OrderBook {
     pub last_mid_price: Option<Decimal>,
     pub last_total_volume: Decimal,
     pub last_update_time: Instant,
+
+    // 新增：多级采样历史管理器
+    pub history: HistoryManager,
 }
 
 #[derive(Debug, Clone)]
@@ -31,6 +117,153 @@ pub struct DepthSnapshot {
     pub best_ask: Decimal,
     pub bid_count: usize,
     pub ask_count: usize,
+}
+
+impl RichSamplePoint {
+    pub fn from_features(features: &OrderBookFeatures) -> Self {
+        let mid = (features.weighted_bid_price + features.weighted_ask_price) / dec!(2);
+
+        Self {
+            timestamp: Instant::now(),
+            mid_price: mid,
+            weighted_bid: features.weighted_bid_price,
+            weighted_ask: features.weighted_ask_price,
+            microprice: features.microprice,
+            bid_volume: features.total_bid_volume,
+            ask_volume: features.total_ask_volume,
+            obi: features.obi,
+            ofi: features.ofi,
+            spread_bps: features.spread_bps,
+            bid_depth: features.bid_volume_depth,
+            ask_depth: features.ask_volume_depth,
+            depth_ratio: features.bid_ask_ratio,
+            max_bid_ratio: features.max_bid_ratio,
+            max_ask_ratio: features.max_ask_ratio,
+            slope_bid: features.slope_bid,
+            slope_ask: features.slope_ask,
+            price_pressure: features.price_pressure,
+            microprice_deviation: features.microprice - mid,
+        }
+    }
+}
+
+impl HistoryManager {
+    pub fn new() -> Self {
+        Self {
+            // 容量配置：原始采样保存最近1000条（约100秒）
+            samples_raw: VecDeque::with_capacity(1000),
+            // 5秒采样保存1小时
+            samples_5s: VecDeque::with_capacity(720),
+            // 1分钟采样保存24小时
+            samples_1m: VecDeque::with_capacity(1440),
+            // 5分钟采样保存7天
+            samples_5m: VecDeque::with_capacity(2016),
+            // 1小时采样保存30天
+            samples_1h: VecDeque::with_capacity(720),
+
+            last_5s_tick: Instant::now(),
+            last_1m_tick: Instant::now(),
+            last_5m_tick: Instant::now(),
+            last_1h_tick: Instant::now(),
+
+            stats_5s: RollingStats::default(),
+            stats_1m: RollingStats::default(),
+            stats_5m: RollingStats::default(),
+            stats_1h: RollingStats::default(),
+        }
+    }
+
+    // 核心采样方法
+    pub fn sample(&mut self, point: RichSamplePoint) {
+        let now = Instant::now();
+
+        // 1. 始终保存原始采样
+        self.samples_raw.push_back(point.clone());
+        if self.samples_raw.len() > 1000 {
+            self.samples_raw.pop_front();
+        }
+
+        // 2. 5秒采样
+        if now.duration_since(self.last_5s_tick) >= Duration::from_secs(5) {
+            self.samples_5s.push_back(point.clone());
+            if self.samples_5s.len() > 720 {
+                self.samples_5s.pop_front();
+            }
+            Self::update_stats(&mut self.stats_5s, &self.samples_5s);
+            self.last_5s_tick = now;
+        }
+
+        // 3. 1分钟采样
+        if now.duration_since(self.last_1m_tick) >= Duration::from_secs(60) {
+            self.samples_1m.push_back(point.clone());
+            if self.samples_1m.len() > 1440 {
+                self.samples_1m.pop_front();
+            }
+            Self::update_stats(&mut self.stats_1m, &self.samples_1m);
+            self.last_1m_tick = now;
+        }
+
+        // 4. 5分钟采样
+        if now.duration_since(self.last_5m_tick) >= Duration::from_secs(300) {
+            self.samples_5m.push_back(point.clone());
+            if self.samples_5m.len() > 2016 {
+                self.samples_5m.pop_front();
+            }
+            Self::update_stats(&mut self.stats_5m, &self.samples_5m);
+            self.last_5m_tick = now;
+        }
+
+        // 5. 1小时采样
+        if now.duration_since(self.last_1h_tick) >= Duration::from_secs(3600) {
+            self.samples_1h.push_back(point);
+            if self.samples_1h.len() > 720 {
+                self.samples_1h.pop_front();
+            }
+            Self::update_stats(&mut self.stats_1h, &self.samples_1h);
+            self.last_1h_tick = now;
+        }
+    }
+
+    // 更新滚动统计
+    fn update_stats(stats: &mut RollingStats, samples: &VecDeque<RichSamplePoint>){
+    // fn update_stats(&self, stats: &mut RollingStats, samples: &VecDeque<RichSamplePoint>) {
+        if samples.len() < 2 { return; }
+
+        // 计算价格移动平均
+        let sum: Decimal = samples.iter().map(|s| s.mid_price).sum();
+        stats.price_ma = sum / Decimal::from(samples.len());
+
+        // 计算标准差
+        let variance: Decimal = samples.iter()
+            .map(|s| (s.mid_price - stats.price_ma) * (s.mid_price - stats.price_ma))
+            .sum::<Decimal>() / Decimal::from(samples.len());
+        stats.price_std = Decimal::from_f64_retain(variance.to_f64().unwrap_or(0.0).sqrt()).unwrap_or(Decimal::ZERO);
+        // 成交量均线
+        let vol_sum: Decimal = samples.iter().map(|s| s.bid_volume + s.ask_volume).sum();
+        stats.volume_ma = vol_sum / Decimal::from(samples.len());
+
+        // OBI均线
+        let obi_sum: Decimal = samples.iter().map(|s| s.obi).sum();
+        stats.obi_ma = obi_sum / Decimal::from(samples.len());
+
+        // 价格动量
+        if let (Some(current), Some(prev)) = (samples.back(), samples.front()) {
+            stats.price_momentum = current.mid_price - prev.mid_price;
+            stats.volume_momentum = (current.bid_volume + current.ask_volume) -
+                (prev.bid_volume + prev.ask_volume);
+        }
+
+        // 加速度（需要至少3个点）
+        if samples.len() >= 3 {
+            let v1 = samples.back().unwrap();
+            let v2 = samples.get(samples.len() - 2).unwrap();
+            let v3 = samples.get(samples.len() - 3).unwrap();
+
+            let speed_now = v1.mid_price - v2.mid_price;
+            let speed_prev = v2.mid_price - v3.mid_price;
+            stats.acceleration = speed_now - speed_prev;
+        }
+    }
 }
 
 impl OrderBook {
@@ -46,6 +279,7 @@ impl OrderBook {
             last_mid_price: None,
             last_total_volume: Decimal::ZERO,
             last_update_time: Instant::now(),
+            history: HistoryManager::new(),
         }
     }
 
@@ -195,6 +429,25 @@ impl OrderBook {
 
     pub fn get_asks_to_price(&self, price: Decimal) -> Vec<(Decimal, Decimal)> {
         self.asks.range(Decimal::MIN..=price).map(|(p, q)| (*p, *q)).collect()
+    }
+
+    // 自动采样
+    pub fn auto_sample(&mut self, features: &OrderBookFeatures) {
+        let point = RichSamplePoint::from_features(features);
+        self.history.sample(point);
+    }
+
+    // 获取指定周期的趋势强度
+    pub fn get_trend_strength(&self, period: TrendPeriod) -> Decimal {
+        let stats = match period {
+            TrendPeriod::Micro => &self.history.stats_5s,
+            TrendPeriod::Short => &self.history.stats_1m,
+            TrendPeriod::Medium => &self.history.stats_5m,
+            TrendPeriod::Long => &self.history.stats_1h,
+        };
+
+        // 结合价格动量和成交量动量
+        stats.price_momentum * dec!(0.6) + stats.volume_momentum * dec!(0.4)
     }
 
     /// 计算盘口特征（保留全部30个指标逻辑）
