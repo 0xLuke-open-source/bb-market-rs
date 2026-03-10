@@ -19,7 +19,7 @@ use tokio::time::Instant;
 use crate::analysis::algorithms::MarketIntelligence;
 use crate::analysis::MarketAnalysis;
 
-const COIN: &str = "PLUME";
+const COIN: &str = "BTC";
 const SYMBOL: &str = concatcp!(COIN, "USDT");  // 这个支持 const 变量
 
 #[tokio::main]
@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
 
     let (tx, mut rx) = mpsc::channel(2000);
     let mut book = OrderBook::new(SYMBOL);
-
+    let mut market_intel = MarketIntelligence::new();
     // 记录连接开始时间
     let _connection_start = Instant::now(); // 添加下划线前缀消除警告
     let max_connection_duration = Duration::from_secs(23 * 60 * 60); // 23小时，提前重连
@@ -91,7 +91,7 @@ async fn main() -> anyhow::Result<()> {
 
     // 新增：定时报告
     let mut last_report = Instant::now();
-    let report_interval = Duration::from_secs(30); // 30秒报告一次
+    let report_interval = Duration::from_secs(20); // 20秒报告一次
 
     // 新增：可选，保存报告到文件
     let save_to_file = true; // 设置为 true 则保存到文件
@@ -100,6 +100,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut update_count = 0;
 
+    // 在 main 函数中初始化
     while let Some(msg) = rx.recv().await {
         if let Err(e) = book.apply_incremental_update(msg) {
             eprintln!("\nUpdate Error: {}", e);
@@ -129,14 +130,11 @@ async fn main() -> anyhow::Result<()> {
             }
             last_print = Instant::now();
         }
-        // 在 main 函数中初始化
-        let mut market_intel = MarketIntelligence::new();
         // 新增：每30秒生成一次分析报告
         if last_report.elapsed() >= report_interval {
             if let Some((bid, ask)) = book.best_bid_ask() {
                 let features = book.compute_features(10);
                 let analysis = MarketAnalysis::new(&book, &features);
-
                 // 运行高级算法分析
                 let comprehensive = market_intel.analyze(&book, &features);
 
