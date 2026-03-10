@@ -1,0 +1,14 @@
+# 1. 首先同步币种列表（只需执行一次）
+cargo run -- --sync-usdt
+
+# 2. 监控前10个币种（默认）
+cargo run -- --multi
+
+# 3. 监控前20个币种
+cargo run -- --multi --count 20
+
+# 4. 使用自定义币种列表文件
+cargo run -- --multi --symbol-file my_symbols.txt --count 5
+
+# 5. 单币种监控（原来的方式）
+cargo run

@@ -5,27 +5,23 @@ mod store;
 mod analysis;
 mod symbols;
 
-use std::io;
-use crate::codec::binance_msg::Snapshot;
-use crate::store::l2_book::{OrderBook, OrderBookFeatures};
-use colored::Colorize;
-use reqwest::Client;
-use rust_decimal::Decimal;
 use std::io::Write;
+use std::sync::Arc;
+use crate::codec::binance_msg::Snapshot;
+use crate::store::l2_book::OrderBook;
+use reqwest::Client;
 use std::time::Duration;
 use const_format::concatcp;
-use rust_decimal::prelude::ToPrimitive;
-use rust_decimal_macros::dec;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
+use clap::Parser;
 use crate::analysis::algorithms::MarketIntelligence;
 use crate::analysis::MarketAnalysis;
-use clap::Parser;
 use crate::symbols::sync_symbols;
+use crate::analysis::multi_monitor::{MultiSymbolMonitor, MultiWebSocketManager};
 
 const COIN: &str = "BTC";
 const SYMBOL: &str = concatcp!(COIN, "USDT");
-
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -37,15 +33,23 @@ struct Args {
     /// 同步 USDT 交易对列表时，输出的文件名
     #[clap(short, long, default_value = "usdt_symbols.txt")]
     output: String,
-}
 
+    /// 多币种监控模式
+    #[clap(short, long, action)]
+    multi: bool,
+
+    /// 监控的币种数量 (默认: 10)
+    #[clap(short, long, default_value_t = 10)]
+    count: usize,
+
+    /// 指定要监控的币种列表文件
+    #[clap(long)]
+    symbol_file: Option<String>,
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-
-    // 如果没有参数或只有 --help，clap 会自动处理帮助信息
-    // 所以我们不需要手动处理 help 参数
 
     rustls::crypto::ring::default_provider()
         .install_default()
@@ -60,11 +64,50 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // 正常启动监控
-    start_monitoring(client).await
+    // 多币种监控模式
+    if args.multi {
+        start_multi_monitoring(args).await
+    } else {
+        // 单币种监控模式
+        start_monitoring(client).await
+    }
+}
+
+async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
+    println!("🚀 启动多币种监控模式...");
+
+    // 创建监控器
+    let monitor = Arc::new(MultiSymbolMonitor::new(20)); // 每20秒报告一次
+
+    // 确定要监控的币种
+    let symbols = if let Some(file) = args.symbol_file {
+        // 从指定文件加载
+        monitor.load_symbols_from_file(&file, args.count).await?
+    } else {
+        // 从默认文件加载
+        monitor.load_symbols_from_file("usdt_symbols.txt", args.count).await?
+    };
+
+    println!("📋 将监控以下 {} 个币种:", symbols.len());
+    for (i, symbol) in symbols.iter().enumerate() {
+        println!("  {}. {}", i+1, symbol);
+    }
+
+    // 初始化监控器
+    monitor.init_monitors(symbols.clone()).await;
+
+    // 启动 WebSocket 管理器
+    let mut manager = MultiWebSocketManager::new(monitor);
+    manager.start_all(symbols).await;
+
+    // 等待（不会返回）
+    manager.wait().await;
+
+    Ok(())
 }
 
 async fn start_monitoring(client: Client) -> anyhow::Result<()> {
+    // ... 原有的单币种监控代码保持不变 ...
     let (tx, mut rx) = mpsc::channel(2000);
     let mut book = OrderBook::new(SYMBOL);
     let mut market_intel = MarketIntelligence::new();
@@ -115,15 +158,8 @@ async fn start_monitoring(client: Client) -> anyhow::Result<()> {
 
         if last_print.elapsed() >= print_interval {
             if let Some((bid, ask)) = book.best_bid_ask() {
-                let spread = ask - bid;
-                let spread_bps = if !bid.is_zero() {
-                    (spread / bid * Decimal::from(10000)).round_dp(2)
-                } else {
-                    Decimal::from(0)
-                };
-
-                let features = book.compute_features(10);
-                io::stdout().flush()?;
+                let _features = book.compute_features(10);
+                std::io::stdout().flush()?;
             }
             last_print = Instant::now();
         }
@@ -186,6 +222,7 @@ async fn fetch_snapshot_with_retry(
     symbol: &str,
     max_retries: u32,
 ) -> anyhow::Result<Snapshot> {
+    // ... 保持不变 ...
     let endpoints = [
         "https://api.binance.com",
         "https://api1.binance.com",

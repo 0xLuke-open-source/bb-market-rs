@@ -123,7 +123,7 @@ impl MultiSymbolMonitor {
                     }
 
                     // 可选：显示完整报告
-                    // analysis.display();
+                    analysis.display();
                     // market_intel.display_summary(&comprehensive);
                 }
                 monitor.last_report = Instant::now();
