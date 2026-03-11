@@ -3,6 +3,9 @@
 
 use std::collections::BTreeMap;
 use std::cmp::Reverse;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::Path;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use colored::*;
@@ -1172,16 +1175,29 @@ impl MarketAnalysis {
         recs
     }
 
-    // 重写display函数以包含高级指标
-    pub fn display(&self) {
-        println!("\n{}", "=".repeat(120));
-        println!("📊 市场分析报告 - {}", self.timestamp.format("%Y-%m-%d %H:%M:%S"));
-        println!("{}", "=".repeat(120));
+    // 将报告输出到文件
+    pub fn write_to_file(&self, file_path: &str) -> std::io::Result<()> {
+        let content = self.format_to_string();
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(file_path)?;
+        writeln!(file, "{}", content)?;
+        Ok(())
+    }
+
+    // 将报告格式化为字符串
+    fn format_to_string(&self) -> String {
+        let mut output = String::new();
+
+        output.push_str(&format!("\n{}", "=".repeat(120)));
+        output.push_str(&format!("\n📊 市场分析报告 - {}", self.timestamp.format("%Y-%m-%d %H:%M:%S")));
+        output.push_str(&format!("\n{}", "=".repeat(120)));
 
         // 市场概览
-        println!("\n📌 市场概览");
-        println!("{}", "-".repeat(60));
-        println!("当前价格: {:.6}", self.price_level);
+        output.push_str("\n\n📌 市场概览");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str(&format!("\n当前价格: {:.6}", self.price_level));
 
         let regime_str = match self.market_regime {
             MarketRegime::Accumulation => "📈 吸筹阶段",
@@ -1191,7 +1207,7 @@ impl MarketAnalysis {
             MarketRegime::Sideways => "➡️ 横盘整理",
             MarketRegime::Volatile => "⚡ 剧烈波动",
         };
-        println!("市场状态: {} (置信度 {}%)", regime_str, self.confidence);
+        output.push_str(&format!("\n市场状态: {} (置信度 {}%)", regime_str, self.confidence));
 
         let intent_str = match self.whale_intent {
             WhaleIntent::Accumulating => "🐋 正在吸筹",
@@ -1200,11 +1216,11 @@ impl MarketAnalysis {
             WhaleIntent::Waiting => "👀 观望等待",
             WhaleIntent::Unknown => "❓ 意图不明",
         };
-        println!("主力意图: {}", intent_str);
+        output.push_str(&format!("\n主力意图: {}", intent_str));
 
         // 基础关键指标
-        println!("\n📊 基础指标分析");
-        println!("{}", "-".repeat(80));
+        output.push_str("\n\n📊 基础指标分析");
+        output.push_str(&format!("\n{}", "-".repeat(80)));
         for indicator in &self.key_indicators {
             let status_symbol = match indicator.status {
                 IndicatorStatus::Bullish => "🟢",
@@ -1212,117 +1228,115 @@ impl MarketAnalysis {
                 IndicatorStatus::Neutral => "⚪",
                 IndicatorStatus::Warning => "🟡",
             };
-            println!("{} {}: {} - {}", status_symbol, indicator.name, indicator.value, indicator.description);
+            output.push_str(&format!("\n{} {}: {} - {}", status_symbol, indicator.name, indicator.value, indicator.description));
         }
-
-        // ========== 新增：高级指标分组显示 ==========
 
         // 1. 流动性深度指标
-        println!("\n💧 流动性深度指标");
-        println!("{}", "-".repeat(60));
-        println!("流动性综合评分: {:.1}/100", self.advanced_metrics.liquidity_score);
-        println!("深度比率(买/卖): {:.3}", self.advanced_metrics.market_depth_ratio);
-        println!("买卖盘集中度: {:.1}%", self.advanced_metrics.bid_ask_concentration);
-        println!("1kU买入滑点: {:.3}%", self.advanced_metrics.quote_slippage_buy_1k);
-        println!("1kU卖出滑点: {:.3}%", self.advanced_metrics.quote_slippage_sell_1k);
-        println!("10kU平均滑点: {:.3}%", self.advanced_metrics.quote_slippage_10k);
-        println!("加权价差: {:.6}", self.advanced_metrics.weighted_spread);
+        output.push_str("\n\n💧 流动性深度指标");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str(&format!("\n流动性综合评分: {:.1}/100", self.advanced_metrics.liquidity_score));
+        output.push_str(&format!("\n深度比率(买/卖): {:.3}", self.advanced_metrics.market_depth_ratio));
+        output.push_str(&format!("\n买卖盘集中度: {:.1}%", self.advanced_metrics.bid_ask_concentration));
+        output.push_str(&format!("\n1kU买入滑点: {:.3}%", self.advanced_metrics.quote_slippage_buy_1k));
+        output.push_str(&format!("\n1kU卖出滑点: {:.3}%", self.advanced_metrics.quote_slippage_sell_1k));
+        output.push_str(&format!("\n10kU平均滑点: {:.3}%", self.advanced_metrics.quote_slippage_10k));
+        output.push_str(&format!("\n加权价差: {:.6}", self.advanced_metrics.weighted_spread));
 
         // 2. 订单流质量指标
-        println!("\n📈 订单流质量指标");
-        println!("{}", "-".repeat(60));
-        println!("订单流质量: {:.1}/100", self.advanced_metrics.order_flow_quality);
-        println!("主动单比例: {:.1}%", self.advanced_metrics.aggressive_order_ratio);
-        println!("被动单比例: {:.1}%", self.advanced_metrics.passive_order_ratio);
-        println!("订单流失衡速度: {:.0}", self.advanced_metrics.order_book_imbalance_velocity);
+        output.push_str("\n\n📈 订单流质量指标");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str(&format!("\n订单流质量: {:.1}/100", self.advanced_metrics.order_flow_quality));
+        output.push_str(&format!("\n主动单比例: {:.1}%", self.advanced_metrics.aggressive_order_ratio));
+        output.push_str(&format!("\n被动单比例: {:.1}%", self.advanced_metrics.passive_order_ratio));
+        output.push_str(&format!("\n订单流失衡速度: {:.0}", self.advanced_metrics.order_book_imbalance_velocity));
 
         // 3. 价格发现指标
-        println!("\n🎯 价格发现指标");
-        println!("{}", "-".repeat(60));
-        println!("微价格效率: {:.3}", self.advanced_metrics.microprice_efficiency);
-        println!("加权中间价: {:.6}", self.advanced_metrics.weighted_mid_price);
-        println!("买入价格影响: {:.3}%", self.advanced_metrics.price_impact_buy);
-        println!("卖出价格影响: {:.3}%", self.advanced_metrics.price_impact_sell);
-        println!("市场冲击成本: {:.3}%", self.advanced_metrics.market_impact_cost);
+        output.push_str("\n\n🎯 价格发现指标");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str(&format!("\n微价格效率: {:.3}", self.advanced_metrics.microprice_efficiency));
+        output.push_str(&format!("\n加权中间价: {:.6}", self.advanced_metrics.weighted_mid_price));
+        output.push_str(&format!("\n买入价格影响: {:.3}%", self.advanced_metrics.price_impact_buy));
+        output.push_str(&format!("\n卖出价格影响: {:.3}%", self.advanced_metrics.price_impact_sell));
+        output.push_str(&format!("\n市场冲击成本: {:.3}%", self.advanced_metrics.market_impact_cost));
 
         // 4. 波动率指标
-        println!("\n🌊 波动率指标");
-        println!("{}", "-".repeat(60));
-        println!("1分钟已实现波动率: {:.3}%", self.advanced_metrics.realized_volatility_1m);
-        println!("5分钟已实现波动率: {:.3}%", self.advanced_metrics.realized_volatility_5m);
-        println!("隐含波动率: {:.1}%", self.advanced_metrics.implied_volatility);
-        println!("恐慌指数等效: {:.1}", self.advanced_metrics.vix_equivalent);
+        output.push_str("\n\n🌊 波动率指标");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str(&format!("\n1分钟已实现波动率: {:.3}%", self.advanced_metrics.realized_volatility_1m));
+        output.push_str(&format!("\n5分钟已实现波动率: {:.3}%", self.advanced_metrics.realized_volatility_5m));
+        output.push_str(&format!("\n隐含波动率: {:.1}%", self.advanced_metrics.implied_volatility));
+        output.push_str(&format!("\n恐慌指数等效: {:.1}", self.advanced_metrics.vix_equivalent));
 
         // 5. 市场微观结构
-        println!("\n🔬 市场微观结构");
-        println!("{}", "-".repeat(60));
-        println!("市场效率比率: {:.1}/100", self.advanced_metrics.market_efficiency_ratio);
-        println!("信息不对称度: {:.1}%", self.advanced_metrics.information_asymmetry);
-        println!("价格聚集度: {:.1}%", self.advanced_metrics.price_clustering);
-        println!("订单簿恢复力: {:.1}/100", self.advanced_metrics.order_book_resilience);
-        println!("做市商盈利性: {:.3}", self.advanced_metrics.market_maker_profitability);
+        output.push_str("\n\n🔬 市场微观结构");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str(&format!("\n市场效率比率: {:.1}/100", self.advanced_metrics.market_efficiency_ratio));
+        output.push_str(&format!("\n信息不对称度: {:.1}%", self.advanced_metrics.information_asymmetry));
+        output.push_str(&format!("\n价格聚集度: {:.1}%", self.advanced_metrics.price_clustering));
+        output.push_str(&format!("\n订单簿恢复力: {:.1}/100", self.advanced_metrics.order_book_resilience));
+        output.push_str(&format!("\n做市商盈利性: {:.3}", self.advanced_metrics.market_maker_profitability));
 
         // 6. 资金流向指标
-        println!("\n💰 资金流向指标");
-        println!("{}", "-".repeat(60));
-        println!("净流量: {:.0}", self.advanced_metrics.net_flow_volume);
-        println!("买入流压力: {:.1}%", self.advanced_metrics.buy_flow_pressure);
-        println!("卖出流压力: {:.1}%", self.advanced_metrics.sell_flow_pressure);
-        println!("机构流比例: {:.1}%", self.advanced_metrics.institutional_flow_ratio);
-        println!("散户流比例: {:.1}%", self.advanced_metrics.retail_flow_ratio);
+        output.push_str("\n\n💰 资金流向指标");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str(&format!("\n净流量: {:.0}", self.advanced_metrics.net_flow_volume));
+        output.push_str(&format!("\n买入流压力: {:.1}%", self.advanced_metrics.buy_flow_pressure));
+        output.push_str(&format!("\n卖出流压力: {:.1}%", self.advanced_metrics.sell_flow_pressure));
+        output.push_str(&format!("\n机构流比例: {:.1}%", self.advanced_metrics.institutional_flow_ratio));
+        output.push_str(&format!("\n散户流比例: {:.1}%", self.advanced_metrics.retail_flow_ratio));
 
         // 7. 风险指标
-        println!("\n⚠️ 风险指标");
-        println!("{}", "-".repeat(60));
-        println!("VaR(95% 1分钟): {:.3}%", self.advanced_metrics.var_95_1m);
-        println!("CVaR(95% 1分钟): {:.3}%", self.advanced_metrics.cvar_95_1m);
-        println!("尾部风险指数: {:.1}/100", self.advanced_metrics.tail_risk_index);
-        println!("流动性调整VaR: {:.3}%", self.advanced_metrics.liquidity_adjusted_var);
-        println!("系统性风险指数: {:.1}/100", self.advanced_metrics.systemic_risk_index);
+        output.push_str("\n\n⚠️ 风险指标");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str(&format!("\nVaR(95% 1分钟): {:.3}%", self.advanced_metrics.var_95_1m));
+        output.push_str(&format!("\nCVaR(95% 1分钟): {:.3}%", self.advanced_metrics.cvar_95_1m));
+        output.push_str(&format!("\n尾部风险指数: {:.1}/100", self.advanced_metrics.tail_risk_index));
+        output.push_str(&format!("\n流动性调整VaR: {:.3}%", self.advanced_metrics.liquidity_adjusted_var));
+        output.push_str(&format!("\n系统性风险指数: {:.1}/100", self.advanced_metrics.systemic_risk_index));
 
         // 8. 市场情绪指标
-        println!("\n😊 市场情绪指标");
-        println!("{}", "-".repeat(60));
-        println!("恐惧贪婪指数: {:.1}/100", self.advanced_metrics.fear_greed_index);
-        println!("市场情绪: {:.1}/100", self.advanced_metrics.market_sentiment);
-        println!("多空比: {:.3}", self.advanced_metrics.bull_bear_ratio);
-        println!("投资者信心: {:.1}/100", self.advanced_metrics.investor_confidence);
-        println!("市场动量: {:.1}", self.advanced_metrics.market_momentum);
+        output.push_str("\n\n😊 市场情绪指标");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str(&format!("\n恐惧贪婪指数: {:.1}/100", self.advanced_metrics.fear_greed_index));
+        output.push_str(&format!("\n市场情绪: {:.1}/100", self.advanced_metrics.market_sentiment));
+        output.push_str(&format!("\n多空比: {:.3}", self.advanced_metrics.bull_bear_ratio));
+        output.push_str(&format!("\n投资者信心: {:.1}/100", self.advanced_metrics.investor_confidence));
+        output.push_str(&format!("\n市场动量: {:.1}", self.advanced_metrics.market_momentum));
 
         // 9. 做市商专用指标
-        println!("\n🏦 做市商专用指标");
-        println!("{}", "-".repeat(60));
-        println!("库存风险: {:.1}%", self.advanced_metrics.inventory_risk);
-        println!("价差盈利性: {:.3}", self.advanced_metrics.spread_profitability);
-        println!("逆向选择成本: {:.3}", self.advanced_metrics.adverse_selection_cost);
-        println!("最优价差: {:.6}", self.advanced_metrics.optimal_spread);
-        println!("做市信号: {:.0}", self.advanced_metrics.market_making_signal);
-        println!("流动性提供成本: {:.3}", self.advanced_metrics.liquidity_provision_cost);
+        output.push_str("\n\n🏦 做市商专用指标");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str(&format!("\n库存风险: {:.1}%", self.advanced_metrics.inventory_risk));
+        output.push_str(&format!("\n价差盈利性: {:.3}", self.advanced_metrics.spread_profitability));
+        output.push_str(&format!("\n逆向选择成本: {:.3}", self.advanced_metrics.adverse_selection_cost));
+        output.push_str(&format!("\n最优价差: {:.6}", self.advanced_metrics.optimal_spread));
+        output.push_str(&format!("\n做市信号: {:.0}", self.advanced_metrics.market_making_signal));
+        output.push_str(&format!("\n流动性提供成本: {:.3}", self.advanced_metrics.liquidity_provision_cost));
 
         // 支撑阻力
-        println!("\n🛡️ 支撑阻力位 (按距离排序)");
-        println!("{}", "-".repeat(60));
-        println!("【支撑位】");
+        output.push_str("\n\n🛡️ 支撑阻力位 (按距离排序)");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
+        output.push_str("\n【支撑位】");
         if !self.support_levels.is_empty() {
             for (i, (price, qty, strength)) in self.support_levels.iter().take(5).enumerate() {
-                println!("  {}. {:.6} - {:.0} {}", i+1, price, qty.round_dp(0), strength);
+                output.push_str(&format!("\n  {}. {:.6} - {:.0} {}", i+1, price, qty.round_dp(0), strength));
             }
         } else {
-            println!("  暂无明显支撑位");
+            output.push_str("\n  暂无明显支撑位");
         }
 
-        println!("\n【阻力位】");
+        output.push_str("\n\n【阻力位】");
         if !self.resistance_levels.is_empty() {
             for (i, (price, qty, strength)) in self.resistance_levels.iter().take(5).enumerate() {
-                println!("  {}. {:.6} - {:.0} {}", i+1, price, qty.round_dp(0), strength);
+                output.push_str(&format!("\n  {}. {:.6} - {:.0} {}", i+1, price, qty.round_dp(0), strength));
             }
         } else {
-            println!("  暂无明显阻力位");
+            output.push_str("\n  暂无明显阻力位");
         }
 
         // 预测
-        println!("\n🎯 走势预测");
-        println!("{}", "-".repeat(80));
+        output.push_str("\n\n🎯 走势预测");
+        output.push_str(&format!("\n{}", "-".repeat(80)));
 
         // 短期预测
         let short_dir = match self.short_term_forecast.direction {
@@ -1332,12 +1346,12 @@ impl MarketAnalysis {
             ForecastDirection::Bearish => "📉 看跌",
             ForecastDirection::StrongBearish => "💥 强烈看跌",
         };
-        println!("【短期 {}】", self.short_term_forecast.time_frame);
-        println!("  方向: {}", short_dir);
-        println!("  概率: {}%", self.short_term_forecast.probability);
-        println!("  目标: {:.6}", self.short_term_forecast.target);
-        println!("  止损: {:.6}", self.short_term_forecast.stop_loss);
-        println!("  理由: {}", self.short_term_forecast.reasoning);
+        output.push_str(&format!("\n【短期 {}】", self.short_term_forecast.time_frame));
+        output.push_str(&format!("\n  方向: {}", short_dir));
+        output.push_str(&format!("\n  概率: {}%", self.short_term_forecast.probability));
+        output.push_str(&format!("\n  目标: {:.6}", self.short_term_forecast.target));
+        output.push_str(&format!("\n  止损: {:.6}", self.short_term_forecast.stop_loss));
+        output.push_str(&format!("\n  理由: {}", self.short_term_forecast.reasoning));
 
         // 中期预测
         let medium_dir = match self.medium_term_forecast.direction {
@@ -1347,30 +1361,37 @@ impl MarketAnalysis {
             ForecastDirection::Bearish => "📉 看跌",
             ForecastDirection::StrongBearish => "💥 强烈看跌",
         };
-        println!("\n【中期 {}】", self.medium_term_forecast.time_frame);
-        println!("  方向: {}", medium_dir);
-        println!("  概率: {}%", self.medium_term_forecast.probability);
-        println!("  目标: {:.6}", self.medium_term_forecast.target);
-        println!("  止损: {:.6}", self.medium_term_forecast.stop_loss);
-        println!("  理由: {}", self.medium_term_forecast.reasoning);
+        output.push_str(&format!("\n\n【中期 {}】", self.medium_term_forecast.time_frame));
+        output.push_str(&format!("\n  方向: {}", medium_dir));
+        output.push_str(&format!("\n  概率: {}%", self.medium_term_forecast.probability));
+        output.push_str(&format!("\n  目标: {:.6}", self.medium_term_forecast.target));
+        output.push_str(&format!("\n  止损: {:.6}", self.medium_term_forecast.stop_loss));
+        output.push_str(&format!("\n  理由: {}", self.medium_term_forecast.reasoning));
 
         // 风险提示
         if !self.risk_warnings.is_empty() {
-            println!("\n⚠️ 风险提示 ({})", self.risk_warnings.len());
-            println!("{}", "-".repeat(60));
+            output.push_str(&format!("\n\n⚠️ 风险提示 ({})", self.risk_warnings.len()));
+            output.push_str(&format!("\n{}", "-".repeat(60)));
             for warning in &self.risk_warnings {
-                println!("  {}", warning);
+                output.push_str(&format!("\n  {}", warning));
             }
         }
 
         // 操作建议
-        println!("\n💡 操作建议");
-        println!("{}", "-".repeat(60));
+        output.push_str("\n\n💡 操作建议");
+        output.push_str(&format!("\n{}", "-".repeat(60)));
         for rec in &self.recommendations {
-            println!("  {}", rec);
+            output.push_str(&format!("\n  {}", rec));
         }
 
-        println!("\n{}", "=".repeat(120));
-        println!("");
+        output.push_str(&format!("\n\n{}", "=".repeat(120)));
+        output.push_str("\n");
+
+        output
+    }
+
+    // 重写display函数以包含高级指标
+    pub fn display(&self) {
+        println!("{}", self.format_to_string());
     }
 }

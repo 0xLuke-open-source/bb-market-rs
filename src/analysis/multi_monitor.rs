@@ -1,7 +1,7 @@
 // src/multi_monitor.rs
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::{self, Duration, Instant};
@@ -17,16 +17,39 @@ pub struct SymbolMonitor {
     pub market_intel: MarketIntelligence,
     pub last_report: Instant,
     pub update_count: u64,
+    pub report_file: String,  // 每个币种对应的报告文件
 }
 
 impl SymbolMonitor {
     pub fn new(symbol: &str) -> Self {
+        // 为每个币种创建独立的报告文件
+        let report_file = format!("reports/{}_{}.txt",
+                                  symbol.to_lowercase(),
+                                  chrono::Local::now().format("%Y%m%d_%H%M%S")
+        );
+
+        // 确保 reports 目录存在
+        std::fs::create_dir_all("reports").unwrap_or_default();
+
+        // 初始化文件，写入表头
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&report_file)
+        {
+            let _ = writeln!(file, "=== {} 市场分析报告 ===", symbol);
+            let _ = writeln!(file, "启动时间: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
+            let _ = writeln!(file, "{}", "=".repeat(80));
+        }
+
         Self {
             symbol: symbol.to_string(),
             book: OrderBook::new(symbol),
             market_intel: MarketIntelligence::new(),
             last_report: Instant::now(),
             update_count: 0,
+            report_file,
         }
     }
 }
@@ -92,20 +115,16 @@ impl MultiSymbolMonitor {
                     let features = monitor.book.compute_features(10);
                     monitor.book.auto_sample(&features);
 
-                    // 克隆必要的值用于报告
+                    // 生成分析报告
                     let analysis = MarketAnalysis::new(&monitor.book, &features);
                     let comprehensive = monitor.market_intel.analyze(&monitor.book, &features);
 
-                    // 打印分隔线
+                    // 打印到控制台（精简版）
                     println!("\n{}", "=".repeat(100));
                     println!("📊 币种: {} (更新次数: {})", symbol, monitor.update_count);
-                    println!("{:.1}", "=".repeat(100));
-
-                    // 显示基础价格信息
+                    println!("{}", "=".repeat(100));
                     println!("💰 价格: Bid: {:.6} | Ask: {:.6} | Spread: {:.2} bps",
                              bid, ask, features.spread_bps);
-
-                    // 显示关键指标
                     println!("📈 OBI: {:.1}% | OFI: {:.0} | 趋势强度: {:.1}",
                              features.obi, features.ofi, features.trend_strength);
 
@@ -122,9 +141,13 @@ impl MultiSymbolMonitor {
                         println!("🔔 信号: {}", signals.join(" | "));
                     }
 
-                    // 可选：显示完整报告
-                    analysis.display();
-                    // market_intel.display_summary(&comprehensive);
+                    // 写入文件（完整版）
+                    if let Err(e) = analysis.write_to_file(&monitor.report_file) {
+                        eprintln!("[{}] Failed to write report to file: {}", symbol, e);
+                    }
+
+                    // 可选：打印简短的确认信息
+                    println!("📝 报告已追加到文件: {}", monitor.report_file);
                 }
                 monitor.last_report = Instant::now();
             }
@@ -170,7 +193,6 @@ impl MultiWebSocketManager {
                     // 启动 WebSocket 客户端
                     let ws_symbol = symbol_clone.clone();
                     let ws_task = tokio::spawn(async move {
-                        let client = reqwest::Client::new();
                         loop {
                             match crate::client::websocket::run_client(&ws_symbol, tx.clone()).await {
                                 Ok(()) => println!("[{}] WebSocket exited", ws_symbol),

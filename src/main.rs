@@ -5,6 +5,7 @@ mod store;
 mod analysis;
 mod symbols;
 
+use std::fs;
 use std::io::Write;
 use std::sync::Arc;
 use crate::codec::binance_msg::Snapshot;
@@ -75,6 +76,10 @@ async fn main() -> anyhow::Result<()> {
 
 async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     println!("🚀 启动多币种监控模式...");
+
+    // 创建 reports 目录
+    fs::create_dir_all("reports")?;
+    println!("📁 报告将保存到 reports 目录");
 
     // 创建监控器
     let monitor = Arc::new(MultiSymbolMonitor::new(20)); // 每20秒报告一次
