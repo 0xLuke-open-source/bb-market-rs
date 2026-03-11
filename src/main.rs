@@ -80,6 +80,7 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     // 创建 reports 目录
     fs::create_dir_all("reports")?;
     println!("📁 报告将保存到 reports 目录");
+    println!("📁 拉盘信号将保存到 reports/pump_signals.txt");
 
     // 创建监控器
     let monitor = Arc::new(MultiSymbolMonitor::new(20)); // 每20秒报告一次
@@ -102,10 +103,31 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     monitor.init_monitors(symbols.clone()).await;
 
     // 启动 WebSocket 管理器
-    let mut manager = MultiWebSocketManager::new(monitor);
+    let mut manager = MultiWebSocketManager::new(monitor.clone());
+
+    // ===== 新增：启动独立的拉盘检测任务 =====
+    let pump_monitor = monitor.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(3)); // 每3秒检测一次
+        println!("🔍 拉盘信号检测任务已启动 (每3秒检测一次)");
+
+        loop {
+            interval.tick().await;
+
+            // 创建临时的 WebSocket 管理器用于检测
+            let pump_manager = MultiWebSocketManager::new(pump_monitor.clone());
+            if let Err(e) = pump_manager.detect_pump_signals().await {
+                eprintln!("❌ 拉盘检测错误: {}", e);
+            }
+        }
+    });
+
+    // 启动所有 WebSocket 连接
+    println!("🔄 正在启动 WebSocket 连接...");
     manager.start_all(symbols).await;
 
     // 等待（不会返回）
+    println!("✅ 所有监控任务已启动，开始监控...");
     manager.wait().await;
 
     Ok(())

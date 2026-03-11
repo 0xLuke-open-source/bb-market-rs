@@ -3,12 +3,23 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::sync::Arc;
+use rust_decimal::prelude::ToPrimitive;
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::{self, Duration, Instant};
 use crate::codec::binance_msg::DepthUpdate;
 use crate::store::l2_book::{OrderBook, OrderBookFeatures};
 use crate::analysis::algorithms::MarketIntelligence;
 use crate::analysis::MarketAnalysis;
+use crate::analysis::pump_detector::PumpDetector;
+
+
+
+
+// 添加一个静态的拉盘检测器
+lazy_static::lazy_static! {
+        static ref PUMP_DETECTOR: PumpDetector = PumpDetector::new("pump_signals.txt")
+            .with_min_strength(30);
+    }
 
 // 单个币种的监控数据
 pub struct SymbolMonitor {
@@ -227,4 +238,50 @@ impl MultiWebSocketManager {
             }
         }
     }
+
+
+
+
+
+
+    // 独立的拉盘检测函数 - 不修改原有逻辑
+    pub async fn detect_pump_signals(&self) -> anyhow::Result<()> {
+        let mut monitors = self.monitors.monitors.lock().await;
+        let mut signals = Vec::new();
+
+        for (symbol, monitor) in monitors.iter_mut() {
+            let features = monitor.book.compute_features(10);
+
+            // 运行完整分析获取概率数据
+            let analysis = monitor.market_intel.analyze(&monitor.book, &features);
+
+            // 分析拉盘信号
+            if let Some(signal) = PUMP_DETECTOR.analyze_symbol(
+                symbol,
+                &features,
+                analysis.pump_dump.pump_probability,
+                analysis.whale.accumulation_score.to_u8().unwrap_or(0),
+                analysis.pump_dump.pump_target,
+            ) {
+                // 单个写入
+                let _ = PUMP_DETECTOR.write_pump_signal(&signal);
+                signals.push(signal);
+            }
+        }
+
+        // 每10次检测写一次TOP汇总
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+        let count = COUNTER.fetch_add(1, Ordering::SeqCst);
+        if count % 10 == 0 && !signals.is_empty() {
+            let _ = PUMP_DETECTOR.write_top_signals(&mut signals);
+
+            // 可选：同时在控制台显示
+            PUMP_DETECTOR.print_top_signals(&signals, 5);
+        }
+
+        Ok(())
+    }
 }
+

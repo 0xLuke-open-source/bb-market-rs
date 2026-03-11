@@ -128,6 +128,7 @@ dependencies = [
  "colored",
  "const_format",
  "futures-util",
+ "lazy_static",
  "reqwest",
  "rust_decimal",
  "rust_decimal_macros",
