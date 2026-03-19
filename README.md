@@ -376,7 +376,7 @@ MIT License © 2024 [Your Name]
 - 作者：[Luke]
 - 邮箱：[0x60b690cb4bd26d4cb@gmail.com
 ]
-- GitHub：[@yourusername](https://github.com/yourusername)
+- GitHub：[@Luke](https://github.com/0xLuke-open-source/bb-market-rs.git)
 
 ---
 
