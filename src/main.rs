@@ -123,11 +123,20 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
 
             // 找出当前异动最频繁的币种
             let monitors = anomaly_monitor.monitors.lock().await;
-            let mut top_anomalies: Vec<(String, u32)> = monitors.iter()
-                .map(|(symbol, m)| (symbol.clone(), m.anomaly_detector.get_stats().last_minute_count))
-                .filter(|(_, count)| *count > 0)
-                .collect();
+            // let mut top_anomalies: Vec<(String, u32)> = monitors.iter()
+            //     .map(|(symbol, m)| (symbol.clone(), m.anomaly_detector.get_stats().last_minute_count))
+            //     .filter(|(_, count)| *count > 0)
+            //     .collect();
 
+            let mut top_anomalies: Vec<(String, u32)> = Vec::new();
+
+            for (symbol, arc) in monitors.iter() {
+                let monitor = arc.lock().await;
+                let count = monitor.anomaly_detector.get_stats().last_minute_count;
+                if count > 0 {
+                    top_anomalies.push((symbol.clone(), count));
+                }
+            }
             // 按异动数量排序
             top_anomalies.sort_by(|a, b| b.1.cmp(&a.1));
 
@@ -299,8 +308,9 @@ async fn write_global_anomaly_summary(monitor: &MultiSymbolMonitor) -> std::io::
     let monitors = monitor.monitors.lock().await;
 
     // 收集所有币种的异动统计
-    for (symbol, monitor) in monitors.iter() {
-        let stats = monitor.anomaly_detector.get_stats();
+    for (symbol, arc) in monitors.iter() {
+        let monitor_guard = arc.lock().await;
+        let stats = monitor_guard.anomaly_detector.get_stats();
         if stats.total_events > 0 {
             writeln!(
                 file,
