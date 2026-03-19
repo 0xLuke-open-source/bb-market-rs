@@ -10,6 +10,7 @@ use crate::codec::binance_msg::DepthUpdate;
 use crate::store::l2_book::{OrderBook, OrderBookFeatures};
 use crate::analysis::algorithms::MarketIntelligence;
 use crate::analysis::MarketAnalysis;
+use crate::analysis::orderbook_anomaly::{AnomalyEvent, OrderBookAnomalyDetector};
 use crate::analysis::pump_detector::PumpDetector;
 
 
@@ -29,6 +30,8 @@ pub struct SymbolMonitor {
     pub last_report: Instant,
     pub update_count: u64,
     pub report_file: String,  // 每个币种对应的报告文件
+    pub anomaly_detector: OrderBookAnomalyDetector,  // 新增
+    pub anomaly_file: String,  // 新增：异动日志文件
 }
 
 impl SymbolMonitor {
@@ -38,9 +41,40 @@ impl SymbolMonitor {
                                   symbol.to_lowercase(),
                                   chrono::Local::now().format("%Y%m%d_%H%M%S")
         );
+        let anomaly_file = format!("anomaly/{}_{}.txt",
+                                   symbol.to_lowercase(),
+                                   chrono::Local::now().format("%Y%m%d_%H%M%S"));
 
-        // 确保 reports 目录存在
+        // 确保 reports 目录和 anomaly 子目录存在
         std::fs::create_dir_all("reports").unwrap_or_default();
+        std::fs::create_dir_all("anomaly").unwrap_or_default();  // 修复这里！
+        // 初始化异动日志文件
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&anomaly_file)
+        {
+            let _ = writeln!(file, "=== {} 订单簿异动日志 ===", symbol);
+            let _ = writeln!(file, "启动时间: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
+            let _ = writeln!(file, "{}", "=".repeat(120));
+            let _ = writeln!(
+                file,
+                "{:<8} | {:<15} | {:<6} | {:<6} | {:<12} | {:<10} | {:<8} | {:<8} | {}",
+                "时间", "异动类型", "严重度", "置信度", "价格", "大小", "占比", "影响", "描述"
+            );
+            let _ = writeln!(file, "{}", "-".repeat(120));
+
+            // 添加一个测试行，确保文件能写入
+            let _ = writeln!(
+                file,
+                "{:<8} | {:<15} | {:<6}% | {:<6}% | {:<12} | {:<10} | {:<8} | {:<8} | {}",
+                "00:00:00", "Test", "0", "0", "-", "-", "-", "-", "测试写入"
+            );
+            let _ = file.flush();
+            println!("📁 创建异动日志文件: {}", anomaly_file);
+        }
+
 
         // 初始化文件，写入表头
         if let Ok(mut file) = std::fs::OpenOptions::new()
@@ -58,16 +92,79 @@ impl SymbolMonitor {
             symbol: symbol.to_string(),
             book: OrderBook::new(symbol),
             market_intel: MarketIntelligence::new(),
+            anomaly_detector: OrderBookAnomalyDetector::new(),  // 初始化
             last_report: Instant::now(),
             update_count: 0,
             report_file,
+            anomaly_file,
         }
+    }
+
+
+    fn write_anomaly_to_file(&self, anomaly: &AnomalyEvent) -> std::io::Result<()> {
+        // 先检查文件是否存在，如果不存在则重新创建并写入表头
+        if !std::path::Path::new(&self.anomaly_file).exists() {
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&self.anomaly_file)
+            {
+                let _ = writeln!(file, "=== {} 订单簿异动日志 ===", self.symbol);
+                let _ = writeln!(file, "启动时间: {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
+                let _ = writeln!(file, "{}", "=".repeat(120));
+                let _ = writeln!(
+                    file,
+                    "{:<8} | {:<15} | {:<6} | {:<6} | {:<12} | {:<10} | {:<8} | {:<8} | {}",
+                    "时间", "异动类型", "严重度", "置信度", "价格", "大小", "占比", "影响", "描述"
+                );
+                let _ = writeln!(file, "{}", "-".repeat(120));
+            }
+        }
+        // 打开文件追加内容
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.anomaly_file)?;
+
+        let price_str = anomaly.price_level
+            .map(|p| format!("{:.6}", p))
+            .unwrap_or_else(|| "-".to_string());
+
+        let size_str = anomaly.size
+            .map(|s| format!("{:.0}", s))
+            .unwrap_or_else(|| "-".to_string());
+
+        let percentage_str = anomaly.percentage
+            .map(|p| format!("{:.1}%", p))
+            .unwrap_or_else(|| "-".to_string());
+
+        let impact_str = anomaly.price_impact
+            .map(|i| format!("{:.2}%", i))
+            .unwrap_or_else(|| "-".to_string());
+
+        writeln!(
+            file,
+            "{:<8} | {:<15} | {:<6}% | {:<6}% | {:<12} | {:<10} | {:<8} | {:<8} | {}",
+            anomaly.timestamp.format("%H:%M:%S"),
+            format!("{:?}", anomaly.anomaly_type),
+            anomaly.severity,
+            anomaly.confidence,
+            price_str,
+            size_str,
+            percentage_str,
+            impact_str,
+            anomaly.description
+        )?;
+
+        file.flush()?;
+        Ok(())
     }
 }
 
 // 多币种监控器
 pub struct MultiSymbolMonitor {
-    monitors: Arc<Mutex<HashMap<String, SymbolMonitor>>>,
+    pub(crate) monitors: Arc<Mutex<HashMap<String, SymbolMonitor>>>,
     report_interval: Duration,
 }
 
@@ -120,6 +217,24 @@ impl MultiSymbolMonitor {
 
             monitor.update_count += 1;
 
+            // 每次更新都检测异动
+            let features = monitor.book.compute_features(10);
+            let anomalies = monitor.anomaly_detector.detect(&monitor.book, &features);
+
+            // 处理严重异动
+            for anomaly in &anomalies {
+                if anomaly.severity >= 60 {  // 严重度60以上才记录/报警
+                    // 写入文件
+                    if let Err(e) = monitor.write_anomaly_to_file(anomaly) {
+                        eprintln!("[{}] Failed to write anomaly: {}", symbol, e);
+                    }
+
+                    // 控制台打印（颜色区分）
+                    Self::print_anomaly_alert(symbol, anomaly);
+                }
+            }
+
+
             // 定期生成报告
             if monitor.last_report.elapsed() >= self.report_interval {
                 if let Some((bid, ask)) = monitor.book.best_bid_ask() {
@@ -129,6 +244,15 @@ impl MultiSymbolMonitor {
                     // 生成分析报告
                     let analysis = MarketAnalysis::new(&monitor.book, &features);
                     let comprehensive = monitor.market_intel.analyze(&monitor.book, &features);
+
+
+                    // 写入文件（完整版）
+                    if let Err(e) = analysis.write_to_file(&monitor.report_file) {
+                        eprintln!("[{}] Failed to write report: {}", symbol, e);
+                    }
+
+                    // 打印异动统计
+                    monitor.anomaly_detector.print_summary();
 
                     // 打印到控制台（精简版）
                     println!("\n{}", "=".repeat(100));
@@ -165,6 +289,31 @@ impl MultiSymbolMonitor {
         }
 
         Ok(())
+    }
+
+
+    // 打印异动警报
+    fn print_anomaly_alert(symbol: &str, anomaly: &AnomalyEvent) {
+        let color = if anomaly.severity >= 80 {
+            "\x1b[91m"  // 红色 - 严重
+        } else if anomaly.severity >= 60 {
+            "\x1b[93m"  // 黄色 - 警告
+        } else {
+            "\x1b[94m"  // 蓝色 - 信息
+        };
+        let reset = "\x1b[0m";
+
+        println!(
+            "{}{} [{}] {} | 严重度:{}% 置信度:{}% {}{}",
+            color,
+            anomaly.timestamp.format("%H:%M:%S"),
+            symbol,
+            format!("{:?}", anomaly.anomaly_type),
+            anomaly.severity,
+            anomaly.confidence,
+            anomaly.description,
+            reset
+        );
     }
 
     // 获取所有活跃的币种

@@ -21,7 +21,7 @@ use crate::analysis::MarketAnalysis;
 use crate::symbols::sync_symbols;
 use crate::analysis::multi_monitor::{MultiSymbolMonitor, MultiWebSocketManager};
 
-const COIN: &str = "BTC";
+const COIN: &str = "ASTR";
 const SYMBOL: &str = concatcp!(COIN, "USDT");
 
 #[derive(Parser, Debug)]
@@ -80,7 +80,8 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     // 创建 reports 目录
     fs::create_dir_all("reports")?;
     println!("📁 报告将保存到 reports 目录");
-    println!("📁 拉盘信号将保存到 reports/pump_signals.txt");
+    println!("📁 拉盘信号将保存到 pump_signals.txt");
+    println!("📁 异动日志将保存到 anomaly/*.txt");
 
     // 创建监控器
     let monitor = Arc::new(MultiSymbolMonitor::new(20)); // 每20秒报告一次
@@ -105,11 +106,52 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     // 启动 WebSocket 管理器
     let mut manager = MultiWebSocketManager::new(monitor.clone());
 
+
+    // ===== 新增：异动监控任务 =====
+    let anomaly_monitor = monitor.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(10)); // 每5秒汇总一次
+        println!("🔍 异动监控任务已启动 (每10秒汇总一次)");
+
+        loop {
+            interval.tick().await;
+
+            // 调用全局异动汇总函数
+            if let Err(e) = write_global_anomaly_summary(&anomaly_monitor).await {
+                eprintln!("❌ 全局异动汇总错误: {}", e);
+            }
+
+            // 找出当前异动最频繁的币种
+            let monitors = anomaly_monitor.monitors.lock().await;
+            let mut top_anomalies: Vec<(String, u32)> = monitors.iter()
+                .map(|(symbol, m)| (symbol.clone(), m.anomaly_detector.get_stats().last_minute_count))
+                .filter(|(_, count)| *count > 0)
+                .collect();
+
+            // 按异动数量排序
+            top_anomalies.sort_by(|a, b| b.1.cmp(&a.1));
+
+            // 打印TOP 5异动最频繁的币种
+            if !top_anomalies.is_empty() {
+                println!("\n{}", "🔥".repeat(30));
+                println!("📊 最近1分钟异动最频繁的币种 TOP {}", top_anomalies.len().min(5));
+                println!("{}", "🔥".repeat(30));
+
+                for (i, (symbol, count)) in top_anomalies.iter().take(5).enumerate() {
+                    let medal = if i == 0 { "🥇" } else if i == 1 { "🥈" } else if i == 2 { "🥉" } else { "  " };
+                    println!("{} {}: {} 次异动", medal, symbol, count);
+                }
+                println!("{}", "🔥".repeat(30));
+            }
+        }
+    });
+
+
     // ===== 新增：启动独立的拉盘检测任务 =====
     let pump_monitor = monitor.clone();
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(3)); // 每3秒检测一次
-        println!("🔍 拉盘信号检测任务已启动 (每3秒检测一次)");
+        let mut interval = tokio::time::interval(Duration::from_secs(10)); // 每3秒检测一次
+        println!("🔍 拉盘信号检测任务已启动 (每10秒检测一次)");
 
         loop {
             interval.tick().await;
@@ -241,6 +283,38 @@ async fn start_monitoring(client: Client) -> anyhow::Result<()> {
         }
     }
 
+    Ok(())
+}
+
+async fn write_global_anomaly_summary(monitor: &MultiSymbolMonitor) -> std::io::Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("reports/global_anomalies.txt")?;
+
+    writeln!(file, "\n{}", "=".repeat(100))?;
+    writeln!(file, "📊 全局异动汇总 - {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"))?;
+    writeln!(file, "{}", "=".repeat(100))?;
+
+    let monitors = monitor.monitors.lock().await;
+
+    // 收集所有币种的异动统计
+    for (symbol, monitor) in monitors.iter() {
+        let stats = monitor.anomaly_detector.get_stats();
+        if stats.total_events > 0 {
+            writeln!(
+                file,
+                "{}: 总异动 {} | 最近1分钟 {} | 严重度 {:.1} | 最高 {}",
+                symbol,
+                stats.total_events,
+                stats.last_minute_count,
+                stats.avg_severity,
+                stats.max_severity
+            )?;
+        }
+    }
+
+    file.flush()?;
     Ok(())
 }
 
