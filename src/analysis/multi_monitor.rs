@@ -53,7 +53,7 @@ lazy_static::lazy_static! {
 pub struct SymbolMonitor {
     pub symbol:           String,
     pub book:             OrderBook,
-    pub market_intel:     MarketIntelligence,
+    pub market_intel: Option<MarketIntelligence>,
     pub last_report:      Instant,
     pub update_count:     u64,
     pub report_file:      String,
@@ -81,7 +81,7 @@ impl SymbolMonitor {
         Self {
             symbol: symbol.to_string(),
             book: OrderBook::new(symbol),
-            market_intel: MarketIntelligence::new(),
+            market_intel: Some(MarketIntelligence::new()),
             anomaly_detector: OrderBookAnomalyDetector::new(),
             last_report: Instant::now(),
             update_count: 0,
@@ -399,7 +399,12 @@ impl MultiWebSocketManager {
                 use std::ops::DerefMut;
                 let monitor_ref = &mut *monitor;
                 let book = &monitor_ref.book;
-                monitor_ref.market_intel.analyze(book, &features)
+                {
+                    let mut intel = monitor_ref.market_intel.take().unwrap();
+                    let result = intel.analyze(book, &features);
+                    monitor_ref.market_intel = Some(intel);
+                    result
+                }
             };
             if let Some(signal) = PUMP_DETECTOR.analyze_symbol(
                 &symbol, &features,
