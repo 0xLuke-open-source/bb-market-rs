@@ -135,7 +135,7 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/yourusername/nxpc-monitor.git
+git clone https://github.com/0xLuke-open-source/bb-market-rs.git
 cd nxpc-monitor
 
 # 2. 编译（release模式优化性能）
