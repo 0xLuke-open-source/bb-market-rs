@@ -1,22 +1,21 @@
-// src/main.rs — 集成 Web Dashboard
+// src/main.rs — 集成 Web Dashboard + 多数据流版本
 //
-// 新增参数：
-//   --web           启用 Web Dashboard（默认端口 9527）
-//   --port <PORT>   指定端口（配合 --web 使用）
-//
-// 启动后访问：http://127.0.0.1:9527
+// 启动命令：
+//   cargo run --release -- --multi --count 50 --web --port 9527
+//   cargo run --release -- --sync-usdt
+//   cargo run --release -- （单币种调试模式）
 
 mod client;
 mod codec;
 mod store;
 mod analysis;
 mod symbols;
-mod web;   // 新增 Web Dashboard 模块
+mod web;
 
 use std::fs;
 use std::io::Write;
 use std::sync::Arc;
-use crate::codec::binance_msg::Snapshot;
+use crate::codec::binance_msg::{Snapshot, StreamMsg};
 use crate::store::l2_book::OrderBook;
 use reqwest::Client;
 use std::time::Duration;
@@ -40,7 +39,7 @@ const SYMBOL: &str = concatcp!(COIN, "USDT");
     author,
     version,
     about = "BB-Market 实时监控系统",
-    long_about = "Binance L2 订单簿实时分析 + Web Dashboard"
+    long_about = "Binance 多数据流实时分析（订单簿+成交+K线+Ticker）+ Web Dashboard"
 )]
 struct Args {
     /// 同步 USDT 交易对列表并退出
@@ -63,7 +62,7 @@ struct Args {
     #[clap(long)]
     symbol_file: Option<String>,
 
-    /// 🆕 启用 Web Dashboard（浏览器可视化）
+    /// 启用 Web Dashboard（浏览器可视化）
     #[clap(long, action)]
     web: bool,
 
@@ -96,10 +95,11 @@ async fn main() -> anyhow::Result<()> {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 多币种监控（可选 Web Dashboard）
+// 多币种监控
 // ─────────────────────────────────────────────────────────────────
 async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     fs::create_dir_all("reports")?;
+    fs::create_dir_all("anomaly")?;
 
     let monitor = Arc::new(MultiSymbolMonitor::new(20));
     let port    = args.port;
@@ -119,55 +119,57 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     monitor.init_monitors(symbols.clone()).await;
     let mut manager = MultiWebSocketManager::new(monitor.clone());
 
-    // ── 异动汇总任务 ───────────────────────────────────────────
+    // ── 异动汇总任务（每10秒）────────────────────────────────────
     let anomaly_monitor = monitor.clone();
+    let web_on_clone = web_on;
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(Duration::from_secs(10));
         loop {
             tick.tick().await;
             write_global_anomaly_summary(&anomaly_monitor).await.ok();
 
-            // 控制台 TOP5
-            let monitors = anomaly_monitor.monitors.lock().await;
-            let mut top: Vec<(String, u32)> = Vec::new();
-            for (sym, arc) in monitors.iter() {
-                let m = arc.lock().await;
-                let cnt = m.anomaly_detector.get_stats().last_minute_count;
-                if cnt > 0 { top.push((sym.clone(), cnt)); }
-            }
-            top.sort_by(|a, b| b.1.cmp(&a.1));
-            if !top.is_empty() && !web_on {
-                println!("\n🔥 异动 TOP5:");
-                for (i, (s, c)) in top.iter().take(5).enumerate() {
-                    println!("  {}. {}: {} 次", i + 1, s, c);
+            if !web_on_clone {
+                // 控制台模式才打印 TOP5
+                let monitors = anomaly_monitor.monitors.lock().await;
+                let mut top: Vec<(String, u32)> = Vec::new();
+                for (sym, arc) in monitors.iter() {
+                    let m = arc.lock().await;
+                    let cnt = m.anomaly_detector.get_stats().last_minute_count;
+                    if cnt > 0 { top.push((sym.clone(), cnt)); }
+                }
+                top.sort_by(|a, b| b.1.cmp(&a.1));
+                if !top.is_empty() {
+                    println!("\n🔥 异动 TOP5:");
+                    for (i, (s, c)) in top.iter().take(5).enumerate() {
+                        println!("  {}. {}: {} 次", i + 1, s, c);
+                    }
                 }
             }
         }
     });
 
-    // ── 拉盘检测任务 ───────────────────────────────────────────
+    // ── 拉盘检测任务（每10秒）
+    // ⚠️ 注意：detect_pump_signals 现在是 MultiSymbolMonitor 的方法，
+    //          不再是 MultiWebSocketManager 的方法
     let pump_monitor = monitor.clone();
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(Duration::from_secs(10));
         loop {
             tick.tick().await;
-            let mgr = MultiWebSocketManager::new(pump_monitor.clone());
-            mgr.detect_pump_signals().await.ok();
+            pump_monitor.detect_pump_signals().await.ok();
         }
     });
 
-    // ── Web Dashboard ───────────────────────────────────────────
+    // ── Web Dashboard ─────────────────────────────────────────────
     if web_on {
         let dash_state = new_dashboard_state();
 
-        // 数据桥接任务（每 500ms 同步）
         let bridge_monitor = monitor.clone();
         let bridge_dash    = dash_state.clone();
         tokio::spawn(async move {
             run_bridge(bridge_monitor, bridge_dash, 500).await;
         });
 
-        // HTTP + WebSocket 服务器
         let server_dash = dash_state.clone();
         tokio::spawn(async move {
             if let Err(e) = run_server(server_dash, port).await {
@@ -177,21 +179,23 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
 
         println!("\n╔══════════════════════════════════════════════╗");
         println!("║  🌐 Dashboard: http://127.0.0.1:{}         ║", port);
-        println!("║  浏览器打开即可查看实时图表                    ║");
+        println!("║  数据源：订单簿 + 成交流 + K线 + 24h Ticker   ║");
         println!("╚══════════════════════════════════════════════╝\n");
     }
 
-    // ── 启动所有 WebSocket 连接 ─────────────────────────────────
     manager.start_all(symbols).await;
     manager.wait().await;
     Ok(())
 }
 
 // ─────────────────────────────────────────────────────────────────
-// 单币种监控（原逻辑不变）
+// 单币种调试模式
+// ⚠️ websocket::run_client 现在发送 StreamMsg（组合消息枚举），
+//    不再是单独的 DepthUpdate，需要 match 分支处理各类消息
 // ─────────────────────────────────────────────────────────────────
 async fn start_monitoring(client: Client) -> anyhow::Result<()> {
-    let (tx, mut rx) = mpsc::channel(2000);
+    // channel 类型改为 StreamMsg
+    let (tx, mut rx) = mpsc::channel::<StreamMsg>(2000);
     let mut book = OrderBook::new(SYMBOL);
     let mut market_intel = MarketIntelligence::new();
     let max_connection_duration = Duration::from_secs(23 * 60 * 60);
@@ -213,6 +217,8 @@ async fn start_monitoring(client: Client) -> anyhow::Result<()> {
     });
 
     tokio::time::sleep(Duration::from_secs(2)).await;
+
+    // 初始化快照（仍用 REST API）
     let snapshot = fetch_snapshot_with_retry(&client, SYMBOL, 5).await?;
     book.init_from_snapshot(snapshot);
     println!("Snapshot initialized. ID: {}", book.last_update_id);
@@ -222,32 +228,64 @@ async fn start_monitoring(client: Client) -> anyhow::Result<()> {
     let print_interval  = Duration::from_millis(100);
     let report_interval = Duration::from_secs(20);
 
+    // 单币种模式：按消息类型分发处理
     while let Some(msg) = rx.recv().await {
-        if let Err(e) = book.apply_incremental_update(msg) {
-            eprintln!("Update Error: {}", e);
-            break;
-        }
-        if last_print.elapsed() >= print_interval {
-            book.compute_features(10);
-            std::io::stdout().flush()?;
-            last_print = Instant::now();
-        }
-        if last_report.elapsed() >= report_interval {
-            if let Some((bid, ask)) = book.best_bid_ask() {
-                let features = book.compute_features(10);
-                book.auto_sample(&features);
-                let analysis = MarketAnalysis::new(&book, &features);
-                let comp     = market_intel.analyze(&book, &features);
-                analysis.display();
-                market_intel.display_summary(&comp);
+        match msg {
+            StreamMsg::Depth(update) => {
+                if let Err(e) = book.apply_incremental_update(update) {
+                    eprintln!("Depth Update Error: {}", e);
+                    break;
+                }
+                if last_print.elapsed() >= print_interval {
+                    book.compute_features(10);
+                    std::io::stdout().flush()?;
+                    last_print = Instant::now();
+                }
+                if last_report.elapsed() >= report_interval {
+                    if book.best_bid_ask().is_some() {
+                        let features = book.compute_features(10);
+                        book.auto_sample(&features);
+                        let analysis = MarketAnalysis::new(&book, &features);
+                        let comp     = market_intel.analyze(&book, &features);
+                        analysis.display();
+                        market_intel.display_summary(&comp);
+                    }
+                    last_report = Instant::now();
+                }
             }
-            last_report = Instant::now();
+            StreamMsg::Trade(trade) => {
+                // 单币种模式：打印大单成交
+                let qty = trade.qty.parse::<f64>().unwrap_or(0.0);
+                if qty > 100000.0 {
+                    let dir = if trade.is_taker_buy() { "🟢 主动买" } else { "🔴 主动卖" };
+                    println!("[{}] {} {} @ {}",
+                             trade.symbol, dir,
+                             trade.qty, trade.price);
+                }
+            }
+            StreamMsg::Ticker(ticker) => {
+                // 单币种模式：定期打印24h数据
+                if last_report.elapsed() >= report_interval {
+                    println!("[24h] {} 涨跌:{:.2}% 高:{} 低:{} 量:{}",
+                             ticker.symbol, ticker.change_pct(),
+                             ticker.high, ticker.low, ticker.volume);
+                }
+            }
+            StreamMsg::Kline(kline) => {
+                // 单币种模式：K线收盘时打印
+                if kline.kline.is_closed {
+                    let k = &kline.kline;
+                    println!("[1m K线] {} O:{} H:{} L:{} C:{} 买入占比:{:.1}%",
+                             kline.symbol, k.open, k.high, k.low, k.close,
+                             k.taker_buy_ratio());
+                }
+            }
         }
     }
     Ok(())
 }
 
-// ── 工具函数 ─────────────────────────────────────────────────────
+// ── 工具函数 ──────────────────────────────────────────────────────
 
 async fn write_global_anomaly_summary(monitor: &MultiSymbolMonitor) -> std::io::Result<()> {
     let mut file = std::fs::OpenOptions::new()

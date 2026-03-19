@@ -1,15 +1,4 @@
-// src/web/bridge.rs — 终极修复版
-//
-// 所有借用冲突根因汇总：
-//
-// 1. guard.book.history.samples_raw.get(1)  → &RichSamplePoint → 持有 guard.book 借用
-// 2. guard.anomaly_detector.get_stats()     → &AnomalyStats    → 持有 guard 借用  ← 本次根因
-//
-// get_stats() 返回 &AnomalyStats（引用），anom_stats 变量持有这个引用直到最后使用。
-// 在 anom_stats 引用存活期间，guard.market_intel.take() 试图可变借用 guard，冲突。
-//
-// 修法：把 &AnomalyStats 里需要的字段立刻 copy 成值类型，引用随即释放。
-
+// src/web/bridge.rs — 完整版，含 CVD/Ticker/Kline/BigTrade
 use std::sync::Arc;
 use tokio::time::{interval, Duration};
 use rust_decimal::prelude::ToPrimitive;
@@ -17,7 +6,9 @@ use chrono::Local;
 
 use crate::analysis::algorithms::{OverallSentiment, RiskLevel, TradingRecommendation};
 use crate::analysis::multi_monitor::{MultiSymbolMonitor, SymbolMonitor};
-use crate::web::state::{SharedDashboardState, SymbolJson, FeedEntry};
+use crate::web::state::{
+    SharedDashboardState, SymbolJson, FeedEntry, KlineJson, BigTradeJson,
+};
 
 pub async fn run_bridge(
     monitor:    Arc<MultiSymbolMonitor>,
@@ -36,38 +27,24 @@ pub async fn run_bridge(
         for (symbol, arc) in arcs {
             let mut guard = arc.lock().await;
 
-            // ── 块1：所有 guard.book 访问，块结束借用释放 ──────────
-            let (features, top_bids_raw, top_asks_raw, mid, price_change_pct) = {
-                let features = guard.book.compute_features(10);
-                let (top_bids_raw, top_asks_raw) = guard.book.top_n(12);
-
-                let mid = (features.weighted_bid_price + features.weighted_ask_price)
+            // ── 块1：从 book 取数据，块结束释放借用 ───────────────
+            let (features, top_bids_raw, top_asks_raw, mid, _) = {
+                let f = guard.book.compute_features(10);
+                let (b, a) = guard.book.top_n(25);
+                let mid = (f.weighted_bid_price + f.weighted_ask_price)
                     .to_f64().unwrap_or(0.0) / 2.0;
+                (f, b, a, mid, 0.0f64)
+            };
 
-                let prev_mid: f64 = guard.book.history.samples_raw
-                    .get(1)
-                    .and_then(|s| s.mid_price.to_f64())
-                    .unwrap_or(mid);
-
-                let price_change_pct = if prev_mid != 0.0 {
-                    (mid - prev_mid) / prev_mid * 100.0
-                } else { 0.0 };
-
-                (features, top_bids_raw, top_asks_raw, mid, price_change_pct)
-            }; // ← guard.book 借用释放
-
-            // ── 块2：get_stats() 返回引用，立即 copy 字段值，引用释放 ──
-            //    关键：不能 let anom_stats = guard.anomaly_detector.get_stats();
-            //    因为 anom_stats 是 &AnomalyStats，会持有 guard 的借用直到最后使用。
-            //    改为立即解构成 Copy 的值类型。
+            // ── 块2：anomaly stats（返回引用，立即 copy）──────────
             let (anom_count_1m, anom_max_severity) = {
                 let s = guard.anomaly_detector.get_stats();
                 (s.last_minute_count, s.max_severity)
-            }; // ← &AnomalyStats 引用在此释放，guard 借用结束
+            };
 
-            let update_count = guard.update_count; // u64，Copy，无借用
+            let update_count = guard.update_count;
 
-            // ── 块3：take() + analyze() + put back，此时 guard 无任何借用 ──
+            // ── 块3：market_intel analyze（Option::take 避免借用冲突）
             let analysis = {
                 let mut intel = guard.market_intel.take().unwrap();
                 let result = intel.analyze(&guard.book, &features);
@@ -75,18 +52,50 @@ pub async fn run_bridge(
                 result
             };
 
-            // ── 组装 JSON ────────────────────────────────────────────
+            // ── 成交流字段（直接 copy）────────────────────────────
+            let cvd             = guard.cvd.to_f64().unwrap_or(0.0);
+            let taker_buy_ratio = guard.taker_buy_ratio;
+            let change_24h_pct  = guard.change_24h_pct;
+            let high_24h        = guard.price_24h_high;
+            let low_24h         = guard.price_24h_low;
+            let volume_24h      = guard.volume_24h;
+            let quote_vol_24h   = guard.quote_vol_24h;
+
+            // ── 多周期K线 ─────────────────────────────────────────
+            let klines: std::collections::HashMap<String, Vec<KlineJson>> = guard.klines.iter()
+                .map(|(interval, bars)| {
+                    let v: Vec<KlineJson> = bars.iter().map(|k| KlineJson {
+                        interval: k.interval.clone(),
+                        t: k.open_time, o: k.open, h: k.high, l: k.low, c: k.close,
+                        v: k.volume, tbr: k.taker_buy_ratio,
+                    }).collect();
+                    (interval.clone(), v)
+                }).collect();
+            let current_kline: std::collections::HashMap<String, KlineJson> = guard.current_kline.iter()
+                .map(|(interval, k)| (interval.clone(), KlineJson {
+                    interval: k.interval.clone(),
+                    t: k.open_time, o: k.open, h: k.high, l: k.low, c: k.close,
+                    v: k.volume, tbr: k.taker_buy_ratio,
+                })).collect();
+
+            // ── 大单（最近10条）───────────────────────────────────
+            let big_trades: Vec<BigTradeJson> = guard.big_trades.iter().rev().take(10)
+                .map(|bt| BigTradeJson { t: bt.time_ms, p: bt.price, q: bt.qty, buy: bt.is_buy })
+                .collect();
+
+            // ── 组装 SymbolJson ───────────────────────────────────
             let snap = SymbolJson {
                 symbol: symbol.clone(),
                 bid:  features.weighted_bid_price.to_f64().unwrap_or(0.0),
                 ask:  features.weighted_ask_price.to_f64().unwrap_or(0.0),
                 mid,
                 spread_bps:       features.spread_bps.to_f64().unwrap_or(0.0),
-                price_change_pct,
+                change_24h_pct, high_24h, low_24h, volume_24h, quote_vol_24h,
                 ofi:              features.ofi.to_f64().unwrap_or(0.0),
                 ofi_raw:          features.ofi_raw.to_f64().unwrap_or(0.0),
                 obi:              features.obi.to_f64().unwrap_or(0.0),
                 trend_strength:   features.trend_strength.to_f64().unwrap_or(0.0),
+                cvd, taker_buy_ratio,
                 pump_score:       features.pump_score,
                 dump_score:       features.dump_score,
                 pump_signal:      features.pump_signal,
@@ -98,63 +107,69 @@ pub async fn run_bridge(
                 total_ask_volume: features.total_ask_volume.to_f64().unwrap_or(0.0),
                 max_bid_ratio:    features.max_bid_ratio.to_f64().unwrap_or(0.0),
                 max_ask_ratio:    features.max_ask_ratio.to_f64().unwrap_or(0.0),
-                top_bids: top_bids_raw.iter()
-                    .map(|(p, q)| [p.to_f64().unwrap_or(0.0), q.to_f64().unwrap_or(0.0)])
-                    .collect(),
-                top_asks: top_asks_raw.iter()
-                    .map(|(p, q)| [p.to_f64().unwrap_or(0.0), q.to_f64().unwrap_or(0.0)])
-                    .collect(),
-                anomaly_count_1m:     anom_count_1m,
+                top_bids: top_bids_raw.iter().map(|(p,q)| [p.to_f64().unwrap_or(0.0), q.to_f64().unwrap_or(0.0)]).collect(),
+                top_asks: top_asks_raw.iter().map(|(p,q)| [p.to_f64().unwrap_or(0.0), q.to_f64().unwrap_or(0.0)]).collect(),
+                anomaly_count_1m: anom_count_1m,
                 anomaly_max_severity: anom_max_severity,
                 sentiment:      sentinel_str(&analysis.overall_sentiment),
                 risk_level:     risk_str(&analysis.risk_level),
                 recommendation: rec_str(&analysis.trading_recommendation),
                 whale_type:     format!("{:?}", analysis.whale.whale_type),
                 pump_probability: analysis.pump_dump.pump_probability,
+                klines, current_kline, big_trades,
                 update_count,
             };
 
-            // ── 生成 Feed ────────────────────────────────────────────
+            // ── Feed 条目 ─────────────────────────────────────────
             let mut feed_entries: Vec<FeedEntry> = Vec::new();
             let t = Local::now().format("%H:%M:%S").to_string();
+            let sym_short = symbol.replace("USDT", "");
 
             if features.pump_signal && features.pump_score >= 60 {
                 feed_entries.push(FeedEntry {
-                    time: t.clone(), symbol: symbol.clone(),
-                    r#type: "pump".into(), score: Some(features.pump_score),
-                    desc: format!("拉盘评分{}分  OBI:{:+.1}%  OFI:{:.0}",
+                    time: t.clone(), symbol: symbol.clone(), r#type: "pump".into(),
+                    score: Some(features.pump_score),
+                    desc: format!("拉盘{}分 OBI:{:+.1}% 买入占比:{:.0}% CVD:{:.0}",
                                   features.pump_score,
                                   features.obi.to_f64().unwrap_or(0.0),
-                                  features.ofi.to_f64().unwrap_or(0.0)),
+                                  taker_buy_ratio, cvd),
                 });
             }
             if features.dump_signal && features.dump_score >= 60 {
                 feed_entries.push(FeedEntry {
-                    time: t.clone(), symbol: symbol.clone(),
-                    r#type: "dump".into(), score: Some(features.dump_score),
-                    desc: format!("砸盘评分{}分  OBI:{:+.1}%",
+                    time: t.clone(), symbol: symbol.clone(), r#type: "dump".into(),
+                    score: Some(features.dump_score),
+                    desc: format!("砸盘{}分 OBI:{:+.1}% 卖出占比:{:.0}%",
                                   features.dump_score,
-                                  features.obi.to_f64().unwrap_or(0.0)),
+                                  features.obi.to_f64().unwrap_or(0.0),
+                                  100.0 - taker_buy_ratio),
                 });
             }
             if features.whale_entry {
                 feed_entries.push(FeedEntry {
-                    time: t.clone(), symbol: symbol.clone(),
-                    r#type: "whale".into(), score: None,
-                    desc: format!("🐋 鲸鱼进场  买单大单占比{:.1}%",
-                                  features.max_bid_ratio.to_f64().unwrap_or(0.0)),
+                    time: t.clone(), symbol: symbol.clone(), r#type: "whale".into(),
+                    score: None,
+                    desc: format!("🐋鲸鱼进场 大单占比{:.1}% CVD:{:.0}",
+                                  features.max_bid_ratio.to_f64().unwrap_or(0.0), cvd),
                 });
             }
             if anom_max_severity >= 75 {
                 feed_entries.push(FeedEntry {
-                    time: t.clone(), symbol: symbol.clone(),
-                    r#type: "anomaly".into(), score: Some(anom_max_severity),
-                    desc: format!("严重异动 sev:{} 1分钟{}次",
-                                  anom_max_severity, anom_count_1m),
+                    time: t.clone(), symbol: symbol.clone(), r#type: "anomaly".into(),
+                    score: Some(anom_max_severity),
+                    desc: format!("严重异动 sev:{} 1min{}次", anom_max_severity, anom_count_1m),
+                });
+            }
+            // CVD 大幅偏离预警
+            if cvd.abs() > 10000.0 {
+                let dir = if cvd > 0.0 { "持续主动买入" } else { "持续主动卖出" };
+                feed_entries.push(FeedEntry {
+                    time: t.clone(), symbol: symbol.clone(), r#type: "cvd".into(),
+                    score: None,
+                    desc: format!("{} CVD:{:+.0}", dir, cvd),
                 });
             }
 
-            // ── 释放锁，写入 DashboardState ──────────────────────────
             drop(guard);
             let mut ds = dash.write().await;
             ds.upsert(snap);
