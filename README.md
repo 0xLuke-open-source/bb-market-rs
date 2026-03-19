@@ -373,8 +373,9 @@ MIT License © 2024 [Your Name]
 
 ## 📮 联系方式
 
-- 作者：[Your Name]
-- 邮箱：[your.email@example.com]
+- 作者：[Luke]
+- 邮箱：[0x60b690cb4bd26d4cb@gmail.com
+]
 - GitHub：[@yourusername](https://github.com/yourusername)
 
 ---
