@@ -1,4 +1,4 @@
-# NXPCUSDT 市场监控系统
+# COIN/USDT 市场监控系统
 
 [![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
