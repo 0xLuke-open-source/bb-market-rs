@@ -358,7 +358,7 @@ OFI: 13868           // 订单流平稳
 
 ## 📄 许可证
 
-MIT License © 2024 [Your Name]
+MIT License © 2026 [Luke]
 
 ---
 
