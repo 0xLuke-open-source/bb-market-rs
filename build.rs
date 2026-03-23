@@ -6,67 +6,6 @@ fn read_to_string(path: &Path) -> io::Result<String> {
     fs::read_to_string(path)
 }
 
-fn extract_dashboard_assets_from_server_rs(server_rs_src: &str) -> anyhow::Result<DashboardExtract> {
-    // Matches: `const HTML: &str = r#" ... "#;`
-    let start_token = "const HTML: &str = r#\"";
-    let start = server_rs_src
-        .find(start_token)
-        .ok_or_else(|| anyhow::anyhow!("cannot find HTML start token in src/web/server.rs"))?;
-    let start_content = start + start_token.len();
-
-    let end_rel = server_rs_src[start_content..]
-        .find("\"#;")
-        .ok_or_else(|| anyhow::anyhow!("cannot find HTML end token in src/web/server.rs"))?;
-    let html = &server_rs_src[start_content..start_content + end_rel];
-
-    let script_open = "<script>";
-    let script_close = "</script>";
-    let open_pos = html
-        .find(script_open)
-        .ok_or_else(|| anyhow::anyhow!("cannot find <script> in HTML constant"))?;
-    let close_pos = html[open_pos..]
-        .find(script_close)
-        .ok_or_else(|| anyhow::anyhow!("cannot find </script> in HTML constant"))?
-        + open_pos;
-    let close_end = close_pos + script_close.len();
-
-    let prefix = &html[..open_pos];
-    let suffix = &html[close_end..];
-
-    let script_contents = &html[open_pos + script_open.len()..close_pos];
-
-    // Split JS by markers we know are present and stable in the current HTML:
-    // - state.js: everything before `function ensureTradingView`
-    // - tv.js: from `function ensureTradingView` to `function filterP`
-    // - app.js: from `function filterP` to end
-    let tv_start = script_contents
-        .find("function ensureTradingView")
-        .ok_or_else(|| anyhow::anyhow!("cannot find TradingView section in embedded JS"))?;
-    let filter_p_start = script_contents
-        .find("function filterP")
-        .ok_or_else(|| anyhow::anyhow!("cannot find left-search section (function filterP) in embedded JS"))?;
-
-    let state_js = &script_contents[..tv_start];
-    let tv_js = &script_contents[tv_start..filter_p_start];
-    let app_js = &script_contents[filter_p_start..];
-
-    Ok(DashboardExtract {
-        prefix,
-        suffix,
-        state_js,
-        tv_js,
-        app_js,
-    })
-}
-
-struct DashboardExtract<'a> {
-    prefix: &'a str,
-    suffix: &'a str,
-    state_js: &'a str,
-    tv_js: &'a str,
-    app_js: &'a str,
-}
-
 fn write_file(path: &Path, content: &str) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -79,16 +18,53 @@ fn extract_chunk(src: &str, start_idx: usize, end_idx: usize) -> &str {
     &src[start_idx..end_idx]
 }
 
-fn split_app_js_into_modules(app_js: &str, module_root: &Path, force: bool) -> anyhow::Result<()> {
-    // Modules:
-    // - prefs.js: search/prefs/favorites/symbol detail loader helpers
-    // - orders.js: trader order records tab
-    // - trade.js: trade form + submit/cancel actions
-    // - metrics.js: enterprise metrics helpers + CVD/OHLCV helpers
-    // - render.js: main rendering + list/detail/signal sections
-    // - alerts.js: alert generation
-    // - tools.js: DOM helpers + formatting + replay/websocket/bootstrap
+fn rerun_if_changed_dir(dir: &Path) -> anyhow::Result<()> {
+    if !dir.exists() {
+        return Ok(());
+    }
 
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            rerun_if_changed_dir(&path)?;
+        } else {
+            println!("cargo:rerun-if-changed={}", path.display());
+        }
+    }
+
+    Ok(())
+}
+
+fn build_dashboard_html(partials_dir: &Path, out_path: &Path) -> anyhow::Result<()> {
+    let mut partials = Vec::new();
+
+    for entry in fs::read_dir(partials_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() {
+            partials.push(path);
+        }
+    }
+
+    partials.sort();
+
+    if partials.is_empty() {
+        anyhow::bail!("no dashboard partials found in {}", partials_dir.display());
+    }
+
+    let mut html = String::new();
+    for path in partials {
+        html.push_str(&read_to_string(&path)?);
+        if !html.ends_with('\n') {
+            html.push('\n');
+        }
+    }
+
+    write_file(out_path, &html)
+}
+
+fn split_app_js_into_modules(app_js: &str, module_root: &Path, force: bool) -> anyhow::Result<()> {
     let prefs_path = module_root.join("prefs.js");
     let orders_path = module_root.join("orders.js");
     let trade_path = module_root.join("trade.js");
@@ -135,7 +111,6 @@ fn split_app_js_into_modules(app_js: &str, module_root: &Path, force: bool) -> a
         .find(marker_tools)
         .ok_or_else(|| anyhow::anyhow!("cannot find marker: {marker_tools} in app.js"))?;
 
-    // Start of file is prefs chunk.
     let prefs_chunk = extract_chunk(app_js, 0, idx_orders);
     let orders_chunk = extract_chunk(app_js, idx_orders, idx_trade);
     let trade_chunk = extract_chunk(app_js, idx_trade, idx_metrics);
@@ -156,69 +131,32 @@ fn split_app_js_into_modules(app_js: &str, module_root: &Path, force: bool) -> a
 }
 
 fn main() -> anyhow::Result<()> {
-    println!("cargo:rerun-if-changed=src/web/server.rs");
-    println!("cargo:rerun-if-env-changed=DASHBOARD_EXTRACT_FROM_SERVER");
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-env-changed=DASHBOARD_SPLIT_APP");
 
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")?;
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let crate_dir = PathBuf::from(manifest_dir);
-    let server_rs = crate_dir.join("src/web/server.rs");
-    let server_src = read_to_string(&server_rs)?;
 
     let dash_root = crate_dir.join("src/web/dashboard");
+    let partials_dir = dash_root.join("partials");
     let js_dir = dash_root.join("js");
-    let index_path = dash_root.join("index.html");
-    let state_path = js_dir.join("state.js");
-    let tv_path = js_dir.join("tv.js");
     let app_path = js_dir.join("app.js");
-
-    let force_extract = std::env::var("DASHBOARD_EXTRACT_FROM_SERVER")
-        .ok()
-        .as_deref()
-        == Some("1");
-
     let module_root = js_dir.join("app");
+    let generated_index = out_dir.join("dashboard_index.html");
+
+    rerun_if_changed_dir(&partials_dir)?;
+    println!("cargo:rerun-if-changed={}", app_path.display());
+
+    build_dashboard_html(&partials_dir, &generated_index)?;
+
     let force_split = std::env::var("DASHBOARD_SPLIT_APP")
         .ok()
         .as_deref()
         == Some("1");
 
-    let skip_extract = !force_extract
-        && index_path.exists()
-        && state_path.exists()
-        && tv_path.exists()
-        && app_path.exists()
-        && module_root.exists();
-
-    if !skip_extract {
-        let extracted = extract_dashboard_assets_from_server_rs(&server_src)?;
-
-        // Replace inline <script> with classic script tags (no `type="module"`).
-        // We load the further split modules instead of a single `app.js`.
-        let script_tags = r#"
-<script src="/static/js/state.js"></script>
-<script src="/static/js/tv.js"></script>
-<script src="/static/js/app/prefs.js"></script>
-<script src="/static/js/app/orders.js"></script>
-<script src="/static/js/app/trade.js"></script>
-<script src="/static/js/app/metrics.js"></script>
-<script src="/static/js/app/render.js"></script>
-<script src="/static/js/app/alerts.js"></script>
-<script src="/static/js/app/tools.js"></script>
-"#;
-
-        let index_html = format!("{}{}{}", extracted.prefix, script_tags, extracted.suffix);
-
-        write_file(&index_path, &index_html)?;
-        write_file(&state_path, extracted.state_js)?;
-        write_file(&tv_path, extracted.tv_js)?;
-        write_file(&app_path, extracted.app_js)?;
-    }
-
-    // Split the extracted `app.js` into standard functional modules.
-    // We only do it when modules are missing (or forced) to avoid overwriting edits.
     let app_js_src = read_to_string(&app_path)?;
     split_app_js_into_modules(&app_js_src, &module_root, force_split)?;
 
     Ok(())
 }
-

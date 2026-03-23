@@ -1,0 +1,113 @@
+  <div id="col-right">
+    <div class="cr-analysis">
+      <div id="col-analysis">
+        <div class="ph" style="height:33px;flex-shrink:0">
+          <span class="ph-ttl">分析面板</span>
+          <span style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">ANALYTICS</span>
+        </div>
+        <div class="ca-scroll">
+          <div class="ca-price">
+            <div class="cap-r1">
+              <span class="cap-sym" id="rd-sym">--</span>
+              <span class="cap-p" id="rd-p">--</span>
+              <span class="cap-c" id="rd-c">--</span>
+            </div>
+            <div class="cap-btns">
+              <button class="cbtn ccp" id="rbcp" onclick="copySym()">复制代码</button>
+              <button class="cbtn cbn" onclick="openBN()">币安交易</button>
+              <button class="favbtn" id="rbfav" onclick="toggleFavorite()">☆ 加入自选</button>
+            </div>
+            <div class="cap-stats">
+              <div class="cst"><span class="cst-l">买一</span><span class="cst-v cup" id="rd-bid">--</span></div>
+              <div class="cst"><span class="cst-l">卖一</span><span class="cst-v cdn" id="rd-ask">--</span></div>
+              <div class="cst"><span class="cst-l">24h 涨跌</span><span class="cst-v" id="rd-chg">--</span></div>
+              <div class="cst"><span class="cst-l">24h 成交量</span><span class="cst-v" id="rd-vol">--</span></div>
+              <div class="cst"><span class="cst-l">24h 高</span><span class="cst-v cup" id="rd-hi">--</span></div>
+              <div class="cst"><span class="cst-l">24h 低</span><span class="cst-v cdn" id="rd-lo">--</span></div>
+              <div class="cst"><span class="cst-l">拉盘评分</span><span class="cst-v fy" id="rd-ps">--</span></div>
+              <div class="cst"><span class="cst-l">砸盘评分</span><span class="cst-v cdn" id="rd-ds">--</span></div>
+            </div>
+          </div>
+          <div class="ca-summary">
+            <div class="cas-h">
+              <span class="cas-lvl" id="rd-watch-level">观察</span>
+              <span class="cas-title">盯盘结论</span>
+            </div>
+            <div class="cas-main" id="rd-summary">等待市场数据...</div>
+            <div class="cas-reason" id="rd-reason">有新信号时，这里会直接告诉你为什么触发。</div>
+          </div>
+          <div class="sigdetail">
+            <div class="sigdetail-h">
+              <span class="sigdetail-title">信号详情</span>
+              <span class="sigdetail-tag" id="signal-detail-tag">等待信号</span>
+            </div>
+            <div class="sigdetail-main" id="signal-detail-text">点左侧币种、信号卡或预警卡后，这里会显示当前最值得注意的原因。</div>
+            <div class="sigdetail-meta">
+              <div class="sigmeta">
+                <div class="sigmeta-l">当前级别</div>
+                <div class="sigmeta-v" id="signal-detail-level">观察</div>
+              </div>
+              <div class="sigmeta">
+                <div class="sigmeta-l">最近价格</div>
+                <div class="sigmeta-v" id="signal-detail-price">--</div>
+              </div>
+              <div class="sigmeta">
+                <div class="sigmeta-l">24h 涨跌</div>
+                <div class="sigmeta-v" id="signal-detail-change">--</div>
+              </div>
+              <div class="sigmeta">
+                <div class="sigmeta-l">主动买入占比</div>
+                <div class="sigmeta-v" id="signal-detail-tbr">--</div>
+              </div>
+            </div>
+            <div class="sigdetail-recents">
+              <div class="sigdetail-subttl">最近同类提醒</div>
+              <div id="signal-detail-history"><div class="sigdetail-empty">点开信号后，这里会显示同一币种最近几次相近提醒。</div></div>
+            </div>
+          </div>
+          <div class="ca-cvd">
+            <div class="cvd-hdr">
+              <span class="cvd-ttl">主动买卖量差</span>
+              <span class="cvd-v" id="cvd-v">--</span>
+            </div>
+            <canvas id="cvd-c"></canvas>
+          </div>
+          <div class="ca-fac">
+            <div class="caf-ttl">信号因子</div>
+            <div id="rf-list"></div>
+          </div>
+          <div class="ca-enterprise">
+            <div class="cae-head">
+              <span class="cae-title">企业级盯盘指标</span>
+              <span class="cae-sub">成交 / 盘口 / 价格 / 资金 / 跨周期 / 市场 / 质量</span>
+            </div>
+            <div class="cae-grid" id="enterprise-metrics"></div>
+          </div>
+          <div class="ca-bt-hdr">
+            <span>近期大单</span>
+            <span class="ca-bt-cnt" id="bt-cnt">0</span>
+          </div>
+          <div id="bt-list"></div>
+        </div>
+      </div>
+    </div>
+    <div class="cr-ob">
+      <div class="ph" style="height:32px;flex-shrink:0">
+        <span class="ph-ttl">订单簿</span>
+        <span class="ph-sub" style="font-size:9px;text-transform:uppercase;letter-spacing:.3px">DEPTH</span>
+      </div>
+      <div class="ob-col"><span>价格 (USDT)</span><span>数量</span><span>累计</span></div>
+      <div id="ob-asks" class="ob-asks"></div>
+      <div class="ob-mid">
+        <span class="ob-mid-p" id="ob-mid">--</span>
+        <span style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.2px">当前价</span>
+        <span class="ob-bps" id="ob-bps">--</span>
+      </div>
+      <div id="ob-bids" class="ob-bids"></div>
+      <div class="ob-ratio"><div class="or-b" id="or-b" style="width:50%">买 50%</div><div class="or-s" id="or-s">卖 50%</div></div>
+      <div class="ob-ratio-txt">
+        <span id="or-bt" style="color:var(--g)">买 50%</span>
+        <span id="or-st" style="color:var(--r)">卖 50%</span>
+      </div>
+    </div>
+  </div>

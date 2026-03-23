@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BB-Market</title>
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/shell.css">
+<link rel="stylesheet" href="/static/css/market.css">
+<link rel="stylesheet" href="/static/css/trading.css">
+<link rel="stylesheet" href="/static/css/analytics.css">
+<link rel="stylesheet" href="/static/css/alerts.css">
+</head>
+<body>
+
+<!-- ══ 顶部导航 ══ -->
+<div id="nav">
+  <div class="logo">
+    <div class="logo-icon">B</div>
+    BB-<em>Market</em>
+  </div>
+  <div class="ndiv"></div>
+  <div class="nav-sym">
+    <span class="nav-sym-name" id="nav-sym">--/USDT</span>
+    <span class="nav-price cup" id="nav-price">--</span>
+    <span class="nav-chg nup" id="nav-chg">--</span>
+  </div>
+  <div class="nav-stats">
+    <div class="ns"><div class="ns-l">24h 涨跌</div><div class="ns-v" id="nv-chg">--</div></div>
+    <div class="ns"><div class="ns-l">24h 最高</div><div class="ns-v cup" id="nv-hi">--</div></div>
+    <div class="ns"><div class="ns-l">24h 最低</div><div class="ns-v cdn" id="nv-lo">--</div></div>
+    <div class="ns"><div class="ns-l">成交额 USDT</div><div class="ns-v" id="nv-vol">--</div></div>
+    <div class="ns"><div class="ns-l">价差</div><div class="ns-v" id="nv-sp">--</div></div>
+    <div class="ns"><div class="ns-l">主动买卖量差</div><div class="ns-v" id="nv-cvd">--</div></div>
+    <div class="ns"><div class="ns-l">拉盘评分</div><div class="ns-v fy" id="nv-ps">--</div></div>
+  </div>
+  <div class="nav-r">
+    <div class="ws-badge">
+      <div class="wdot" id="wdot"></div><span id="wlbl">连接中</span>
+    </div>
+    <div class="ndiv"></div>
+    <span id="htime" style="font-variant-numeric:tabular-nums"></span>
+    <div class="ndiv"></div>
+    <div class="stat-pill">监控 <b style="color:var(--y)" id="nc">--</b></div>
+    <div class="stat-pill">活跃 <b style="color:var(--g)" id="ns2">--</b></div>
+    <div class="stat-pill" style="cursor:pointer" onclick="openReplay()">回放</div>
+  </div>
+</div>
+
+<!-- ══ K线周期行 ══ -->
+<div id="ktabs">
+  <div class="kt" data-iv="1">1m</div>
+  <div class="kt" data-iv="3">3m</div>
+  <div class="kt" data-iv="5">5m</div>
+  <div class="kt" data-iv="15">15m</div>
+  <div class="kt" data-iv="30">30m</div>
+  <div class="ktd"></div>
+  <div class="kt act" data-iv="60">1h</div>
+  <div class="kt" data-iv="120">2h</div>
+  <div class="kt" data-iv="240">4h</div>
+  <div class="kt" data-iv="360">6h</div>
+  <div class="kt" data-iv="480">8h</div>
+  <div class="kt" data-iv="720">12h</div>
+  <div class="ktd"></div>
+  <div class="kt" data-iv="D">1d</div>
+  <div class="kt" data-iv="3D">3d</div>
+  <div class="kt" data-iv="W">1w</div>
+  <div class="kt" data-iv="M">1M</div>
+  <div class="ktd"></div>
+  <div class="ktv">
+    <span class="co"><span class="co-l">开</span><span id="ci-o">--</span></span>
+    <span class="co"><span class="co-l">高</span><span id="ci-h" style="color:var(--g)">--</span></span>
+    <span class="co"><span class="co-l">低</span><span id="ci-l2" style="color:var(--r)">--</span></span>
+    <span class="co"><span class="co-l">收</span><span id="ci-c">--</span></span>
+    <span class="co"><span class="co-l">量</span><span id="ci-v" style="color:var(--y)">--</span></span>
+    <span class="co"><span class="co-l">买占</span><span id="ci-tbr" style="color:var(--b)">--%</span></span>
+  </div>
+</div>
+
+<!-- ══ 主体 4列 ══ -->
+<div id="app">

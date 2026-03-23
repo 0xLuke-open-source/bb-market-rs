@@ -8,3 +8,4 @@
 {"time":"14:57:31","trade_id":8,"symbol":"BTCUSDT","side":"Buy","price":67867.7,"quantity":0.08487,"quote_quantity":5759.931699,"liquidity":"Maker"}
 {"time":"14:57:31","trade_id":9,"symbol":"BTCUSDT","side":"Buy","price":67867.7,"quantity":0.00008,"quote_quantity":5.429416,"liquidity":"Maker"}
 {"time":"14:57:31","trade_id":10,"symbol":"BTCUSDT","side":"Buy","price":67867.7,"quantity":0.18916,"quote_quantity":12837.854132,"liquidity":"Maker"}
+{"time":"19:24:25","trade_id":1,"symbol":"PENGUUSDT","side":"Buy","price":0.006971,"quantity":36208.0,"quote_quantity":252.405968,"liquidity":"Taker"}

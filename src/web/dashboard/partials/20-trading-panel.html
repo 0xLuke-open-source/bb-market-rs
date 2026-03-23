@@ -1,0 +1,157 @@
+  <div id="col-main" style="grid-column:2">
+    <div id="tv-area">
+      <div id="tv-widget"><div class="tv-loading"><span style="font-size:18px">📈</span><span>TradingView 加载中...</span></div></div>
+    </div>
+
+    <div id="trade-area">
+      <div class="ta-tabs">
+        <div class="tatab act">现货</div>
+        <div class="tatab">全仓</div>
+        <div class="tatab">逐仓</div>
+        <div class="tatab">网格</div>
+        <span style="margin-left:auto;font-size:9px;color:var(--t3);align-self:center;text-transform:uppercase;letter-spacing:.3px">手续费等级</span>
+      </div>
+      <div class="ta-types">
+        <div class="ttype act" onclick="setType(0,this)">限价</div>
+        <div class="ttype" onclick="setType(1,this)">市价</div>
+        <div class="ttype" onclick="setType(2,this)">止盈止损</div>
+      </div>
+      <div class="ta-form">
+        <div class="ta-side">
+          <div class="ta-avail">
+            <span style="color:var(--t3);font-size:9px;text-transform:uppercase;letter-spacing:.2px">可用余额</span>
+            <span style="color:var(--t1)"><span id="avail-buy">3,921.63</span> <span style="color:var(--t3)">USDT</span></span>
+          </div>
+          <div>
+            <div class="ta-label">买入价格</div>
+            <div class="ta-input-row">
+              <input type="number" id="buy-price" placeholder="0.00" step="any">
+              <span>USDT</span>
+              <span class="bbo-btn" onclick="setBBO('buy')">BBO</span>
+            </div>
+          </div>
+          <div>
+            <div class="ta-label">买入数量</div>
+            <div class="ta-input-row">
+              <input type="number" id="buy-qty" placeholder="0">
+              <span id="buy-unit">--</span>
+            </div>
+          </div>
+          <div class="ta-pcts">
+            <button class="ta-pct" onclick="setTradePct('buy',20,this)">20%</button>
+            <button class="ta-pct" onclick="setTradePct('buy',40,this)">40%</button>
+            <button class="ta-pct" onclick="setTradePct('buy',50,this)">50%</button>
+            <button class="ta-pct" onclick="setTradePct('buy',80,this)">80%</button>
+            <button class="ta-pct" onclick="setTradePct('buy',100,this)">100%</button>
+          </div>
+          <div class="ta-slider"><input type="range" min="0" max="100" value="0" id="buy-pct" oninput="setBuyPct(this.value)"></div>
+          <div class="ta-extra" id="buy-stop-box">
+            <div>
+              <div class="ta-label">触发价</div>
+              <div class="ta-input-row"><input type="number" id="buy-trigger-price" placeholder="0.00" step="any"><span>USDT</span></div>
+            </div>
+            <div>
+              <div class="ta-label">触发类型</div>
+              <div class="ta-input-row">
+                <select id="buy-trigger-kind" style="flex:1;background:transparent;border:none;color:var(--t1);padding:6px 8px;outline:none">
+                  <option value="stop_loss">止损</option>
+                  <option value="take_profit">止盈</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="ta-info">
+            <span style="color:var(--t3)">成交额</span>
+            <span style="color:var(--t2)"><span id="buy-total">0</span> USDT</span>
+          </div>
+          <button class="ta-btn tb-buy" onclick="doTrade('buy')" id="btn-buy">买入 --</button>
+        </div>
+        <div class="ta-side">
+          <div class="ta-avail">
+            <span style="color:var(--t3);font-size:9px;text-transform:uppercase;letter-spacing:.2px">可用余额</span>
+            <span style="color:var(--t1)">0 <span id="sell-unit2" style="color:var(--t3)">--</span></span>
+          </div>
+          <div>
+            <div class="ta-label">卖出价格</div>
+            <div class="ta-input-row">
+              <input type="number" id="sell-price" placeholder="0.00" step="any">
+              <span>USDT</span>
+              <span class="bbo-btn" onclick="setBBO('sell')">BBO</span>
+            </div>
+          </div>
+          <div>
+            <div class="ta-label">卖出数量</div>
+            <div class="ta-input-row">
+              <input type="number" id="sell-qty" placeholder="0">
+              <span id="sell-unit">--</span>
+            </div>
+          </div>
+          <div class="ta-pcts">
+            <button class="ta-pct" onclick="setTradePct('sell',20,this)">20%</button>
+            <button class="ta-pct" onclick="setTradePct('sell',40,this)">40%</button>
+            <button class="ta-pct" onclick="setTradePct('sell',50,this)">50%</button>
+            <button class="ta-pct" onclick="setTradePct('sell',80,this)">80%</button>
+            <button class="ta-pct" onclick="setTradePct('sell',100,this)">100%</button>
+          </div>
+          <div class="ta-slider"><input type="range" min="0" max="100" value="0" id="sell-pct"></div>
+          <div class="ta-extra" id="sell-stop-box">
+            <div>
+              <div class="ta-label">触发价</div>
+              <div class="ta-input-row"><input type="number" id="sell-trigger-price" placeholder="0.00" step="any"><span>USDT</span></div>
+            </div>
+            <div>
+              <div class="ta-label">触发类型</div>
+              <div class="ta-input-row">
+                <select id="sell-trigger-kind" style="flex:1;background:transparent;border:none;color:var(--t1);padding:6px 8px;outline:none">
+                  <option value="stop_loss">止损</option>
+                  <option value="take_profit">止盈</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="ta-info">
+            <span style="color:var(--t3)">成交额</span>
+            <span style="color:var(--t2)"><span id="sell-total">0</span> USDT</span>
+          </div>
+          <button class="ta-btn tb-sell" onclick="doTrade('sell')" id="btn-sell">卖出 --</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:0 0 auto;border-top:1px solid var(--bd);display:flex;flex-direction:column">
+      <div class="ph" style="background:var(--bg1)">
+        <span class="ph-ttl">最新成交</span>
+        <span class="ph-sub" id="tr-cnt">--</span>
+      </div>
+      <div class="tr-col"><span>价格 (USDT)</span><span>数量</span><span>时间</span></div>
+      <div style="height:80px;overflow-y:auto" id="tr-list"></div>
+    </div>
+
+    <div id="orders-area">
+      <div class="oa-tabs">
+        <div class="oatab act" onclick="oaTab(0,this)">当前委托(0)</div>
+        <div class="oatab" onclick="oaTab(1,this)">历史委托</div>
+        <div class="oatab" onclick="oaTab(2,this)">历史成交</div>
+        <div class="oatab" onclick="oaTab(3,this)">持仓</div>
+        <div class="oatab" onclick="oaTab(4,this)">机器人</div>
+        <button class="oa-cancel-all" id="cancel-all-btn" onclick="cancelAll()">全撤</button>
+      </div>
+      <div class="oa-hdr" id="oa-hdr">
+        <span class="oa-col" style="flex:1.2">日期</span>
+        <span class="oa-col" style="flex:1">交易对</span>
+        <span class="oa-col" style="flex:.8">类型</span>
+        <span class="oa-col" style="flex:.6">方向</span>
+        <span class="oa-col" style="flex:1">价格</span>
+        <span class="oa-col" style="flex:1">数量</span>
+        <span class="oa-col" style="flex:1.2">冰山单</span>
+        <span class="oa-col" style="flex:.8">完成度</span>
+        <span class="oa-col" style="flex:1">金额</span>
+        <span class="oa-col" style="flex:1.2">触发条件</span>
+        <span class="oa-col" style="flex:.6">SOR</span>
+        <span class="oa-col" style="flex:.8">止盈/止损</span>
+      </div>
+      <div class="oa-list" id="oa-list">
+        <div class="oa-empty">暂无当前委托</div>
+      </div>
+    </div>
+  </div>

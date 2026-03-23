@@ -1,0 +1,20 @@
+  <div id="col-alerts">
+    <div class="ra-header">
+      <div class="ra-sec-hdr"><span>实时信号</span><span class="ra-cnt" id="sig-cnt">0</span></div>
+      <div class="ra-sec-hdr"><span>预警通知</span><span class="ra-cnt" id="al-cnt">0</span></div>
+    </div>
+    <div class="filterbar">
+      <button class="filterbtn act" data-window="all" onclick="setSignalWindow('all',this)">全部</button>
+      <button class="filterbtn" data-window="5m" onclick="setSignalWindow('5m',this)">最近5分钟</button>
+      <button class="filterbtn" data-window="15m" onclick="setSignalWindow('15m',this)">最近15分钟</button>
+      <button class="filterbtn" data-window="60m" onclick="setSignalWindow('60m',this)">最近1小时</button>
+    </div>
+    <div class="ra-body">
+      <div class="ra-col">
+        <div class="ra-list" id="sig-list"><div class="empty-p">📡<br>等待信号<br><span style="color:var(--t3)">评分 ≥ 70 触发</span></div></div>
+      </div>
+      <div class="ra-col">
+        <div class="ra-list" id="al-list"><div class="empty-p">🔔<br>等待预警<br><span style="color:var(--t3)">评分 ≥ 75 触发</span></div></div>
+      </div>
+    </div>
+  </div>
