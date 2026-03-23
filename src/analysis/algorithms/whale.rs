@@ -1,16 +1,33 @@
+//! 鲸鱼检测算法实现。
+//!
+//! 这里的核心思想不是“识别某个绝对值的大单”，
+//! 而是识别“相对当前盘口总量占比足够大”的订单。
+
 use super::*;
 
 impl WhaleDetector {
+    /// 创建默认鲸鱼检测器。
     pub fn new() -> Self {
         Self {
             history_size: 100,
             bid_history: VecDeque::with_capacity(100),
             ask_history: VecDeque::with_capacity(100),
-            whale_threshold: dec!(0.05),    // 5%
+            whale_threshold: dec!(0.05), // 5%
         }
     }
 
-    pub fn detect_whales(&mut self, book: &OrderBook, features: &OrderBookFeatures) -> WhaleDetectionResult {
+    /// 基于当前盘口与特征识别鲸鱼活动。
+    ///
+    /// 检测流程：
+    /// 1. 更新最近盘口历史
+    /// 2. 找出超阈值的大单位置
+    /// 3. 计算主导率与吸筹/出货倾向
+    /// 4. 给出鲸鱼类型和置信度
+    pub fn detect_whales(
+        &mut self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> WhaleDetectionResult {
         self.update_history(book);
 
         let mut result = WhaleDetectionResult {
@@ -62,15 +79,16 @@ impl WhaleDetector {
         result
     }
 
+    /// 保存最近若干轮前 50 档快照，供拆单检测使用。
     fn update_history(&mut self, book: &OrderBook) {
-        let bids: Vec<(Decimal, Decimal)> = book.bids.iter()
+        let bids: Vec<(Decimal, Decimal)> = book
+            .bids
+            .iter()
             .take(50)
             .map(|(Reverse(p), q)| (*p, *q))
             .collect();
-        let asks: Vec<(Decimal, Decimal)> = book.asks.iter()
-            .take(50)
-            .map(|(p, q)| (*p, *q))
-            .collect();
+        let asks: Vec<(Decimal, Decimal)> =
+            book.asks.iter().take(50).map(|(p, q)| (*p, *q)).collect();
 
         self.bid_history.push_back(bids);
         self.ask_history.push_back(asks);
@@ -81,7 +99,12 @@ impl WhaleDetector {
         }
     }
 
-    fn find_whale_positions(&self, book: &OrderBook, features: &OrderBookFeatures) -> (Vec<WhalePosition>, Decimal, u32) {
+    /// 在买卖两侧查找相对深度占比足够大的订单。
+    fn find_whale_positions(
+        &self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> (Vec<WhalePosition>, Decimal, u32) {
         let mut positions = Vec::new();
         let mut total_vol = Decimal::ZERO;
         let mut count = 0;
@@ -121,9 +144,16 @@ impl WhaleDetector {
         (positions, total_vol, count)
     }
 
+    /// 判断一个大单是否更像拆单后的“隐形鲸鱼”。
     fn detect_stealth_order(&self, price: Decimal, quantity: Decimal, is_bid: bool) -> bool {
-        let history = if is_bid { &self.bid_history } else { &self.ask_history };
-        if history.is_empty() { return false; }
+        let history = if is_bid {
+            &self.bid_history
+        } else {
+            &self.ask_history
+        };
+        if history.is_empty() {
+            return false;
+        }
 
         let mut nearby_total = Decimal::ZERO;
         let mut similar_orders = 0;
@@ -141,10 +171,27 @@ impl WhaleDetector {
         similar_orders > 3 && (nearby_total - quantity).abs() < quantity * dec!(0.2)
     }
 
-    fn determine_whale_type(&self, result: &WhaleDetectionResult, features: &OrderBookFeatures) -> WhaleType {
-        let bid_whales = result.whale_positions.iter().filter(|p| p.side == OrderSide::Bid).count();
-        let ask_whales = result.whale_positions.iter().filter(|p| p.side == OrderSide::Ask).count();
-        let stealth_count = result.whale_positions.iter().filter(|p| p.is_stealth).count();
+    /// 根据盘口分布和特征判断鲸鱼更偏向吸筹、出货还是高频扰动。
+    fn determine_whale_type(
+        &self,
+        result: &WhaleDetectionResult,
+        features: &OrderBookFeatures,
+    ) -> WhaleType {
+        let bid_whales = result
+            .whale_positions
+            .iter()
+            .filter(|p| p.side == OrderSide::Bid)
+            .count();
+        let ask_whales = result
+            .whale_positions
+            .iter()
+            .filter(|p| p.side == OrderSide::Ask)
+            .count();
+        let stealth_count = result
+            .whale_positions
+            .iter()
+            .filter(|p| p.is_stealth)
+            .count();
 
         if stealth_count > result.whale_positions.len() / 2 {
             return WhaleType::StealthWhale;
@@ -163,21 +210,38 @@ impl WhaleDetector {
         WhaleType::Unknown
     }
 
-    fn calculate_intent_scores(&self, result: &WhaleDetectionResult, features: &OrderBookFeatures) -> (Decimal, Decimal) {
+    /// 计算吸筹分和出货分。
+    ///
+    /// 这里把 OBI、OFI、斜率和鲸鱼位置一起纳入，目标是得到一个更稳定的倾向分数。
+    fn calculate_intent_scores(
+        &self,
+        result: &WhaleDetectionResult,
+        features: &OrderBookFeatures,
+    ) -> (Decimal, Decimal) {
         let mut acc_score = dec!(50);
         let mut dist_score = dec!(50);
 
         // 基于OBI
-        if features.obi > dec!(20) { acc_score += dec!(20); }
-        else if features.obi < dec!(-20) { dist_score += dec!(20); }
+        if features.obi > dec!(20) {
+            acc_score += dec!(20);
+        } else if features.obi < dec!(-20) {
+            dist_score += dec!(20);
+        }
 
         // 基于OFI
-        if features.ofi > dec!(100000) { acc_score += dec!(15); }
-        else if features.ofi < dec!(-100000) { dist_score += dec!(15); }
+        if features.ofi > dec!(100000) {
+            acc_score += dec!(15);
+        } else if features.ofi < dec!(-100000) {
+            dist_score += dec!(15);
+        }
 
         // 基于斜率
-        if features.slope_bid > dec!(1000000) { acc_score += dec!(15); }
-        if features.slope_ask < dec!(-1000000) { dist_score += dec!(15); }
+        if features.slope_bid > dec!(1000000) {
+            acc_score += dec!(15);
+        }
+        if features.slope_ask < dec!(-1000000) {
+            dist_score += dec!(15);
+        }
 
         // 基于鲸鱼位置
         for pos in &result.whale_positions {
@@ -190,13 +254,26 @@ impl WhaleDetector {
         (acc_score.min(dec!(100)), dist_score.min(dec!(100)))
     }
 
-    fn calculate_confidence(&self, result: &WhaleDetectionResult, features: &OrderBookFeatures) -> u8 {
+    /// 给当前鲸鱼判断打置信度分。
+    fn calculate_confidence(
+        &self,
+        result: &WhaleDetectionResult,
+        features: &OrderBookFeatures,
+    ) -> u8 {
         let mut conf = 50;
 
-        if result.detected { conf += 20; }
-        if result.dominance_ratio > dec!(30) { conf += 15; }
-        if (result.accumulation_score - result.distribution_score).abs() > dec!(30) { conf += 15; }
-        if features.whale_entry || features.whale_exit { conf += 10; }
+        if result.detected {
+            conf += 20;
+        }
+        if result.dominance_ratio > dec!(30) {
+            conf += 15;
+        }
+        if (result.accumulation_score - result.distribution_score).abs() > dec!(30) {
+            conf += 15;
+        }
+        if features.whale_entry || features.whale_exit {
+            conf += 10;
+        }
 
         conf.min(100).max(0) as u8
     }

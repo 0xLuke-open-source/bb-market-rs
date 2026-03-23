@@ -17,30 +17,30 @@
 // 4. 信号强度计算改用加权组合，避免单指标爆分
 // ═══════════════════════════════════════════════
 
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use crate::store::l2_book::OrderBookFeatures;
 use chrono;
 use rust_decimal::prelude::ToPrimitive;
-use crate::store::l2_book::OrderBookFeatures;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 #[derive(Debug, Clone)]
 pub struct PumpSignal {
-    pub timestamp:          chrono::DateTime<chrono::Local>,
-    pub symbol:             String,
-    pub strength:           u8,
-    pub pump_probability:   u8,
+    pub timestamp: chrono::DateTime<chrono::Local>,
+    pub symbol: String,
+    pub strength: u8,
+    pub pump_probability: u8,
     pub accumulation_score: u8,
-    pub ofi:                f64,   // 增量 OFI（新版）
-    pub ofi_raw:            f64,   // 深度差 OFI（原版）
-    pub obi:                f64,
-    pub pump_score:         u8,    // 积分制拉盘评分
-    pub dump_score:         u8,
-    pub price:              f64,
-    pub target:             f64,
-    pub bid_volume_change:  f64,
-    pub max_bid_ratio:      f64,
-    pub slope_bid:          f64,
-    pub reasons:            Vec<String>,
+    pub ofi: f64,     // 增量 OFI（新版）
+    pub ofi_raw: f64, // 深度差 OFI（原版）
+    pub obi: f64,
+    pub pump_score: u8, // 积分制拉盘评分
+    pub dump_score: u8,
+    pub price: f64,
+    pub target: f64,
+    pub bid_volume_change: f64,
+    pub max_bid_ratio: f64,
+    pub slope_bid: f64,
+    pub reasons: Vec<String>,
 }
 
 pub struct PumpDetector {
@@ -59,23 +59,24 @@ impl PumpDetector {
 
     pub fn analyze_symbol(
         &self,
-        symbol:             &str,
-        features:           &OrderBookFeatures,
-        pump_probability:   u8,
+        symbol: &str,
+        features: &OrderBookFeatures,
+        pump_probability: u8,
         accumulation_score: u8,
-        target_price:       Decimal,
+        target_price: Decimal,
     ) -> Option<PumpSignal> {
         let mut strength: i32 = 0;
         let mut reasons = Vec::new();
 
-        let ofi_val      = features.ofi.to_f64().unwrap_or(0.0);
-        let ofi_raw_val  = features.ofi_raw.to_f64().unwrap_or(0.0);
-        let obi_val      = features.obi.to_f64().unwrap_or(0.0);
-        let bid_change   = features.bid_volume_change.to_f64().unwrap_or(0.0);
-        let max_bid      = features.max_bid_ratio.to_f64().unwrap_or(0.0);
-        let slope_bid    = features.slope_bid.to_f64().unwrap_or(0.0);
+        let ofi_val = features.ofi.to_f64().unwrap_or(0.0);
+        let ofi_raw_val = features.ofi_raw.to_f64().unwrap_or(0.0);
+        let obi_val = features.obi.to_f64().unwrap_or(0.0);
+        let bid_change = features.bid_volume_change.to_f64().unwrap_or(0.0);
+        let max_bid = features.max_bid_ratio.to_f64().unwrap_or(0.0);
+        let slope_bid = features.slope_bid.to_f64().unwrap_or(0.0);
 
-        let (best_bid, best_ask) = match (features.weighted_bid_price, features.weighted_ask_price) {
+        let (best_bid, best_ask) = match (features.weighted_bid_price, features.weighted_ask_price)
+        {
             (b, a) if b > Decimal::ZERO && a > Decimal::ZERO => {
                 (b.to_f64().unwrap_or(0.0), a.to_f64().unwrap_or(0.0))
             }
@@ -160,20 +161,20 @@ impl PumpDetector {
 
         if strength >= self.min_strength {
             Some(PumpSignal {
-                timestamp:          chrono::Local::now(),
-                symbol:             symbol.to_string(),
+                timestamp: chrono::Local::now(),
+                symbol: symbol.to_string(),
                 strength,
                 pump_probability,
                 accumulation_score,
-                ofi:                ofi_val,
-                ofi_raw:            ofi_raw_val,
-                obi:                obi_val,
-                pump_score:         features.pump_score,
-                dump_score:         features.dump_score,
-                price:              current_price,
-                target:             target_price.to_f64().unwrap_or(0.0),
-                bid_volume_change:  bid_change,
-                max_bid_ratio:      max_bid,
+                ofi: ofi_val,
+                ofi_raw: ofi_raw_val,
+                obi: obi_val,
+                pump_score: features.pump_score,
+                dump_score: features.dump_score,
+                price: current_price,
+                target: target_price.to_f64().unwrap_or(0.0),
+                bid_volume_change: bid_change,
+                max_bid_ratio: max_bid,
                 slope_bid,
                 reasons,
             })

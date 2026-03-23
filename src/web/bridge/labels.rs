@@ -128,3 +128,6 @@ pub fn recommendation_str(r: &TradingRecommendation) -> String {
     }
     .into()
 }
+// labels 模块把内部枚举/分值转换成人类可读的短文本。
+//
+// 这层是纯展示语义层，不参与计算，只负责把算法输出翻译成前端标签。

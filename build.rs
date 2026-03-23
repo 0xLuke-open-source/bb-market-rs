@@ -150,10 +150,7 @@ fn main() -> anyhow::Result<()> {
 
     build_dashboard_html(&partials_dir, &generated_index)?;
 
-    let force_split = std::env::var("DASHBOARD_SPLIT_APP")
-        .ok()
-        .as_deref()
-        == Some("1");
+    let force_split = std::env::var("DASHBOARD_SPLIT_APP").ok().as_deref() == Some("1");
 
     let app_js_src = read_to_string(&app_path)?;
     split_app_js_into_modules(&app_js_src, &module_root, force_split)?;

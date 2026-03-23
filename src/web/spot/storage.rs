@@ -1,3 +1,9 @@
+//! storage 负责 spot 模块的日志读写。
+//!
+//! 这些日志有两个用途：
+//! 1. 给前端提供 replay 能力
+//! 2. 方便人工排查撮合与止损触发过程
+
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 

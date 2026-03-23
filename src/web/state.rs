@@ -1,26 +1,30 @@
 // src/web/state.rs
+//
+// 这一层定义的是“前端展示模型”，而不是算法内部模型。
+// 换句话说，这里的结构体是为了让 Dashboard 和 API 更容易消费，
+// 所以字段会偏平坦、偏 JSON 化。
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct KlineJson {
     pub interval: String, // "1m","5m","1h"...
-    pub t:   u64,
-    pub o:   f64,
-    pub h:   f64,
-    pub l:   f64,
-    pub c:   f64,
-    pub v:   f64,
+    pub t: u64,
+    pub o: f64,
+    pub h: f64,
+    pub l: f64,
+    pub c: f64,
+    pub v: f64,
     pub tbr: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BigTradeJson {
-    pub t:   u64,   // time_ms
-    pub p:   f64,   // price
-    pub q:   f64,   // qty
+    pub t: u64, // time_ms
+    pub p: f64, // price
+    pub q: f64, // qty
     pub buy: bool,
 }
 
@@ -38,50 +42,50 @@ pub struct SymbolJson {
     pub spread_bps: f64,
 
     // 24h 真实 Ticker（来自 miniTicker）
-    pub change_24h_pct:  f64,
-    pub high_24h:        f64,
-    pub low_24h:         f64,
-    pub volume_24h:      f64,    // 基础资产成交量
-    pub quote_vol_24h:   f64,    // USDT 成交额
+    pub change_24h_pct: f64,
+    pub high_24h: f64,
+    pub low_24h: f64,
+    pub volume_24h: f64,    // 基础资产成交量
+    pub quote_vol_24h: f64, // USDT 成交额
 
     // 订单簿指标
-    pub ofi:             f64,
-    pub ofi_raw:         f64,
-    pub obi:             f64,
-    pub trend_strength:  f64,
+    pub ofi: f64,
+    pub ofi_raw: f64,
+    pub obi: f64,
+    pub trend_strength: f64,
 
     // 成交流（来自 aggTrade）
-    pub cvd:             f64,    // 累计成交量差（正=买方主导）
-    pub taker_buy_ratio: f64,    // 主动买入占比 % (0-100)
+    pub cvd: f64,             // 累计成交量差（正=买方主导）
+    pub taker_buy_ratio: f64, // 主动买入占比 % (0-100)
 
     // 信号评分
-    pub pump_score:  u8,
-    pub dump_score:  u8,
+    pub pump_score: u8,
+    pub dump_score: u8,
     pub pump_signal: bool,
     pub dump_signal: bool,
     pub whale_entry: bool,
-    pub whale_exit:  bool,
-    pub bid_eating:  bool,
+    pub whale_exit: bool,
+    pub bid_eating: bool,
 
     // 深度
     pub total_bid_volume: f64,
     pub total_ask_volume: f64,
-    pub max_bid_ratio:    f64,
-    pub max_ask_ratio:    f64,
+    pub max_bid_ratio: f64,
+    pub max_ask_ratio: f64,
 
     // 盘口
     pub top_bids: Vec<[f64; 2]>,
     pub top_asks: Vec<[f64; 2]>,
 
     // 异动
-    pub anomaly_count_1m:    u32,
+    pub anomaly_count_1m: u32,
     pub anomaly_max_severity: u8,
 
     // 综合分析
-    pub sentiment:      String,
-    pub risk_level:     String,
+    pub sentiment: String,
+    pub risk_level: String,
     pub recommendation: String,
-    pub whale_type:     String,
+    pub whale_type: String,
     pub pump_probability: u8,
 
     // 所有周期K线历史 interval -> Vec<bar>
@@ -97,11 +101,11 @@ pub struct SymbolJson {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FeedEntry {
-    pub time:   String,
+    pub time: String,
     pub symbol: String,
     pub r#type: String,
-    pub score:  Option<u8>,
-    pub desc:   String,
+    pub score: Option<u8>,
+    pub desc: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -152,33 +156,38 @@ pub struct TraderStateJson {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FullSnapshot {
-    pub symbols:       Vec<SymbolJson>,
-    pub feed:          Vec<FeedEntry>,
+    pub symbols: Vec<SymbolJson>,
+    pub feed: Vec<FeedEntry>,
     pub total_updates: u64,
-    pub uptime_secs:   u64,
-    pub trader:        TraderStateJson,
+    pub uptime_secs: u64,
+    pub trader: TraderStateJson,
 }
 
 pub struct DashboardState {
-    pub symbols:       HashMap<String, SymbolJson>,
-    pub sorted_keys:   Vec<String>,
-    pub feed:          VecDeque<FeedEntry>,
+    // 所有币种的最新展示快照。
+    pub symbols: HashMap<String, SymbolJson>,
+    // 前端展示顺序。这里单独存一份，避免每次序列化时临时排序。
+    pub sorted_keys: Vec<String>,
+    // 全局实时 feed，按最新优先排列。
+    pub feed: VecDeque<FeedEntry>,
     pub total_updates: u64,
-    pub start_time:    std::time::Instant,
+    pub start_time: std::time::Instant,
 }
 
 impl DashboardState {
     pub fn new() -> Self {
         Self {
-            symbols:       HashMap::new(),
-            sorted_keys:   Vec::new(),
-            feed:          VecDeque::with_capacity(200),
+            symbols: HashMap::new(),
+            sorted_keys: Vec::new(),
+            feed: VecDeque::with_capacity(200),
             total_updates: 0,
-            start_time:    std::time::Instant::now(),
+            start_time: std::time::Instant::now(),
         }
     }
 
     pub fn upsert(&mut self, snap: SymbolJson) {
+        // 每次更新单个币种后，顺手重建排序。
+        // 当前规则是 pump_score 优先，其次按 symbol 字典序稳定排序。
         let sym = snap.symbol.clone();
         self.symbols.insert(sym.clone(), snap);
         self.total_updates += 1;
@@ -194,12 +203,16 @@ impl DashboardState {
     }
 
     pub fn push_feed(&mut self, entry: FeedEntry) {
-        if self.feed.len() >= 200 { self.feed.pop_back(); }
+        if self.feed.len() >= 200 {
+            self.feed.pop_back();
+        }
         self.feed.push_front(entry);
     }
 
     pub fn to_full_snapshot(&self, trader: TraderStateJson) -> FullSnapshot {
-        let symbols = self.sorted_keys.iter()
+        let symbols = self
+            .sorted_keys
+            .iter()
             .filter_map(|k| self.symbols.get(k).cloned())
             .collect();
         FullSnapshot {
@@ -212,7 +225,11 @@ impl DashboardState {
     }
 
     pub fn to_light_snapshot(&self, trader: TraderStateJson) -> FullSnapshot {
-        let symbols = self.sorted_keys.iter()
+        // 轻量快照会去掉体积最大的 K 线数据，
+        // 适合 WebSocket 高频推送，减轻前端渲染压力。
+        let symbols = self
+            .sorted_keys
+            .iter()
             .filter_map(|k| self.symbols.get(k).cloned())
             .map(|mut symbol| {
                 symbol.klines.clear();

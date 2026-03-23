@@ -72,9 +72,18 @@ impl SpotMarketConfig {
         ensure!(self.tick_size > Decimal::ZERO, "tick_size must be > 0");
         ensure!(self.lot_size > Decimal::ZERO, "lot_size must be > 0");
         ensure!(self.min_qty >= Decimal::ZERO, "min_qty must be >= 0");
-        ensure!(self.min_notional >= Decimal::ZERO, "min_notional must be >= 0");
-        ensure!(self.maker_fee_rate >= Decimal::ZERO, "maker_fee_rate must be >= 0");
-        ensure!(self.taker_fee_rate >= Decimal::ZERO, "taker_fee_rate must be >= 0");
+        ensure!(
+            self.min_notional >= Decimal::ZERO,
+            "min_notional must be >= 0"
+        );
+        ensure!(
+            self.maker_fee_rate >= Decimal::ZERO,
+            "maker_fee_rate must be >= 0"
+        );
+        ensure!(
+            self.taker_fee_rate >= Decimal::ZERO,
+            "taker_fee_rate must be >= 0"
+        );
         Ok(())
     }
 }
@@ -287,7 +296,9 @@ impl SpotMarket {
     }
 
     fn add_to_book(&mut self, order: RestingOrder) -> Result<()> {
-        let price = order.price.ok_or_else(|| anyhow!("resting order missing price"))?;
+        let price = order
+            .price
+            .ok_or_else(|| anyhow!("resting order missing price"))?;
         let order_id = order.order_id;
         let remaining = order.remaining_qty;
         match order.side {
@@ -334,7 +345,13 @@ impl SpotMarket {
         }
     }
 
-    fn reduce_level_qty(&mut self, side: Side, price: Decimal, filled_qty: Decimal, order_id: OrderId) {
+    fn reduce_level_qty(
+        &mut self,
+        side: Side,
+        price: Decimal,
+        filled_qty: Decimal,
+        order_id: OrderId,
+    ) {
         match side {
             Side::Buy => {
                 let key = Reverse(price);
@@ -343,7 +360,8 @@ impl SpotMarket {
                     if level.total_qty < Decimal::ZERO {
                         level.total_qty = Decimal::ZERO;
                     }
-                    level.order_ids.front().copied() == Some(order_id) && level.total_qty == Decimal::ZERO
+                    level.order_ids.front().copied() == Some(order_id)
+                        && level.total_qty == Decimal::ZERO
                 } else {
                     false
                 };
@@ -357,7 +375,8 @@ impl SpotMarket {
                     if level.total_qty < Decimal::ZERO {
                         level.total_qty = Decimal::ZERO;
                     }
-                    level.order_ids.front().copied() == Some(order_id) && level.total_qty == Decimal::ZERO
+                    level.order_ids.front().copied() == Some(order_id)
+                        && level.total_qty == Decimal::ZERO
                 } else {
                     false
                 };
@@ -482,7 +501,10 @@ impl SpotMatchingEngine {
             .ok_or_else(|| anyhow!("order not found: {}", order_id))?;
 
         ensure!(
-            matches!(order.status, OrderStatus::New | OrderStatus::PartiallyFilled),
+            matches!(
+                order.status,
+                OrderStatus::New | OrderStatus::PartiallyFilled
+            ),
             "order is not cancellable"
         );
 
@@ -507,7 +529,11 @@ impl SpotMatchingEngine {
         Ok(result)
     }
 
-    pub fn replace_order(&mut self, symbol: &str, req: ReplaceOrderRequest) -> Result<SubmitOrderResult> {
+    pub fn replace_order(
+        &mut self,
+        symbol: &str,
+        req: ReplaceOrderRequest,
+    ) -> Result<SubmitOrderResult> {
         let old = self.get_order(symbol, req.order_id)?;
         let _ = self.cancel_order(symbol, req.order_id)?;
         self.submit_order(NewOrderRequest {
@@ -538,7 +564,9 @@ impl SpotMatchingEngine {
         self.lock_order_funds(&market.config, &req, locked_funds)?;
 
         if req.time_in_force == TimeInForce::PostOnly {
-            let price = req.price.ok_or_else(|| anyhow!("post only order requires price"))?;
+            let price = req
+                .price
+                .ok_or_else(|| anyhow!("post only order requires price"))?;
             if market.would_cross(req.side, price) {
                 self.unlock_order_funds(&market.config, &req, locked_funds)?;
                 self.markets.insert(symbol, market);
@@ -553,7 +581,9 @@ impl SpotMatchingEngine {
             }
         }
 
-        if req.time_in_force == TimeInForce::Fok && !self.can_fully_fill(&market, &req, original_qty)? {
+        if req.time_in_force == TimeInForce::Fok
+            && !self.can_fully_fill(&market, &req, original_qty)?
+        {
             self.unlock_order_funds(&market.config, &req, locked_funds)?;
             self.markets.insert(symbol, market);
             return Ok(SubmitOrderResult {
@@ -607,7 +637,9 @@ impl SpotMatchingEngine {
             order.locked_funds = Decimal::ZERO;
             if order.filled_qty > Decimal::ZERO {
                 order.status = OrderStatus::Cancelled;
-            } else if order.time_in_force == TimeInForce::Ioc || order.time_in_force == TimeInForce::Fok {
+            } else if order.time_in_force == TimeInForce::Ioc
+                || order.time_in_force == TimeInForce::Fok
+            {
                 order.status = OrderStatus::Cancelled;
             }
         }
@@ -680,8 +712,14 @@ impl SpotMatchingEngine {
                 Side::Sell => quote_qty * market.config.taker_fee_rate,
             };
             let (maker_fee_asset, taker_fee_asset) = match taker.side {
-                Side::Buy => (market.config.quote_asset.clone(), market.config.base_asset.clone()),
-                Side::Sell => (market.config.base_asset.clone(), market.config.quote_asset.clone()),
+                Side::Buy => (
+                    market.config.quote_asset.clone(),
+                    market.config.base_asset.clone(),
+                ),
+                Side::Sell => (
+                    market.config.base_asset.clone(),
+                    market.config.quote_asset.clone(),
+                ),
             };
 
             self.settle_trade(
@@ -735,7 +773,11 @@ impl SpotMatchingEngine {
                     maker.locked_funds -= reserved;
                     let refund = reserved - quote_qty;
                     if refund > Decimal::ZERO {
-                        self.credit_available(maker.account_id, &market.config.quote_asset, refund)?;
+                        self.credit_available(
+                            maker.account_id,
+                            &market.config.quote_asset,
+                            refund,
+                        )?;
                     }
                 } else {
                     maker.locked_funds -= fill_qty;
@@ -806,7 +848,11 @@ impl SpotMatchingEngine {
                     };
                     if release > Decimal::ZERO {
                         taker.locked_funds -= release;
-                        self.credit_available(taker.account_id, &market.config.quote_asset, release)?;
+                        self.credit_available(
+                            taker.account_id,
+                            &market.config.quote_asset,
+                            release,
+                        )?;
                     }
                 } else {
                     taker.locked_funds -= qty;
@@ -818,7 +864,11 @@ impl SpotMatchingEngine {
         }
     }
 
-    fn cancel_resting_maker(&mut self, market: &mut SpotMarket, maker: &RestingOrder) -> Result<()> {
+    fn cancel_resting_maker(
+        &mut self,
+        market: &mut SpotMarket,
+        maker: &RestingOrder,
+    ) -> Result<()> {
         let mut order = market
             .orders
             .remove(&maker.order_id)
@@ -846,11 +896,7 @@ impl SpotMatchingEngine {
     ) -> Result<()> {
         match taker.side {
             Side::Buy => {
-                self.credit_available(
-                    taker.account_id,
-                    &config.base_asset,
-                    qty - taker_fee,
-                )?;
+                self.credit_available(taker.account_id, &config.base_asset, qty - taker_fee)?;
                 self.debit_locked(maker.account_id, &config.base_asset, qty)?;
                 self.credit_available(
                     maker.account_id,
@@ -864,16 +910,16 @@ impl SpotMatchingEngine {
                     &config.quote_asset,
                     quote_qty - taker_fee,
                 )?;
-                self.debit_locked(maker.account_id, &config.quote_asset, maker.price.unwrap_or_default() * qty)?;
+                self.debit_locked(
+                    maker.account_id,
+                    &config.quote_asset,
+                    maker.price.unwrap_or_default() * qty,
+                )?;
                 let maker_release = maker.price.unwrap_or_default() * qty - quote_qty;
                 if maker_release > Decimal::ZERO {
                     self.credit_available(maker.account_id, &config.quote_asset, maker_release)?;
                 }
-                self.credit_available(
-                    maker.account_id,
-                    &config.base_asset,
-                    qty - maker_fee,
-                )?;
+                self.credit_available(maker.account_id, &config.base_asset, qty - maker_fee)?;
                 self.debit_locked(taker.account_id, &config.base_asset, qty)?;
             }
         }
@@ -887,7 +933,9 @@ impl SpotMatchingEngine {
                 Side::Sell => taker.remaining_qty > Decimal::ZERO,
             },
             OrderType::Limit => {
-                let price = taker.price.ok_or_else(|| anyhow!("limit order missing price"))?;
+                let price = taker
+                    .price
+                    .ok_or_else(|| anyhow!("limit order missing price"))?;
                 match taker.side {
                     Side::Buy => price >= maker_price,
                     Side::Sell => price <= maker_price,
@@ -896,7 +944,12 @@ impl SpotMatchingEngine {
         })
     }
 
-    fn can_fully_fill(&self, market: &SpotMarket, req: &NewOrderRequest, qty: Decimal) -> Result<bool> {
+    fn can_fully_fill(
+        &self,
+        market: &SpotMarket,
+        req: &NewOrderRequest,
+        qty: Decimal,
+    ) -> Result<bool> {
         let mut remaining = qty;
         match req.side {
             Side::Buy => {
@@ -948,13 +1001,17 @@ impl SpotMatchingEngine {
         let market = self.market(&req.symbol)?;
         match req.order_type {
             OrderType::Limit => {
-                let price = req.price.ok_or_else(|| anyhow!("limit order requires price"))?;
+                let price = req
+                    .price
+                    .ok_or_else(|| anyhow!("limit order requires price"))?;
                 ensure!(price > Decimal::ZERO, "price must be > 0");
                 ensure!(
                     (price / market.config.tick_size).fract().is_zero(),
                     "price does not align with tick size"
                 );
-                let qty = req.quantity.ok_or_else(|| anyhow!("limit order requires quantity"))?;
+                let qty = req
+                    .quantity
+                    .ok_or_else(|| anyhow!("limit order requires quantity"))?;
                 self.validate_quantity(&market.config, qty, Some(price))?;
             }
             OrderType::Market => match req.side {
@@ -965,7 +1022,9 @@ impl SpotMatchingEngine {
                     ensure!(quote_qty > Decimal::ZERO, "quote_quantity must be > 0");
                 }
                 Side::Sell => {
-                    let qty = req.quantity.ok_or_else(|| anyhow!("market sell requires quantity"))?;
+                    let qty = req
+                        .quantity
+                        .ok_or_else(|| anyhow!("market sell requires quantity"))?;
                     self.validate_quantity(&market.config, qty, None)?;
                 }
             },
@@ -973,7 +1032,12 @@ impl SpotMatchingEngine {
         Ok(())
     }
 
-    fn validate_quantity(&self, config: &SpotMarketConfig, qty: Decimal, price: Option<Decimal>) -> Result<()> {
+    fn validate_quantity(
+        &self,
+        config: &SpotMarketConfig,
+        qty: Decimal,
+        price: Option<Decimal>,
+    ) -> Result<()> {
         ensure!(qty > Decimal::ZERO, "quantity must be > 0");
         ensure!(
             (qty / config.lot_size).fract().is_zero(),
@@ -981,12 +1045,19 @@ impl SpotMatchingEngine {
         );
         ensure!(qty >= config.min_qty, "quantity below min_qty");
         if let Some(price) = price {
-            ensure!(price * qty >= config.min_notional, "notional below min_notional");
+            ensure!(
+                price * qty >= config.min_notional,
+                "notional below min_notional"
+            );
         }
         Ok(())
     }
 
-    fn prepare_funds(&self, config: &SpotMarketConfig, req: &NewOrderRequest) -> Result<(Decimal, Decimal)> {
+    fn prepare_funds(
+        &self,
+        config: &SpotMarketConfig,
+        req: &NewOrderRequest,
+    ) -> Result<(Decimal, Decimal)> {
         match (req.order_type, req.side) {
             (OrderType::Limit, Side::Buy) => {
                 let qty = req.quantity.unwrap_or_default();
@@ -1014,7 +1085,12 @@ impl SpotMatchingEngine {
         }
     }
 
-    fn lock_order_funds(&mut self, config: &SpotMarketConfig, req: &NewOrderRequest, amount: Decimal) -> Result<()> {
+    fn lock_order_funds(
+        &mut self,
+        config: &SpotMarketConfig,
+        req: &NewOrderRequest,
+        amount: Decimal,
+    ) -> Result<()> {
         let asset = match req.side {
             Side::Buy => &config.quote_asset,
             Side::Sell => &config.base_asset,
@@ -1022,7 +1098,12 @@ impl SpotMatchingEngine {
         self.move_available_to_locked(req.account_id, asset, amount)
     }
 
-    fn unlock_order_funds(&mut self, config: &SpotMarketConfig, req: &NewOrderRequest, amount: Decimal) -> Result<()> {
+    fn unlock_order_funds(
+        &mut self,
+        config: &SpotMarketConfig,
+        req: &NewOrderRequest,
+        amount: Decimal,
+    ) -> Result<()> {
         let asset = match req.side {
             Side::Buy => &config.quote_asset,
             Side::Sell => &config.base_asset,
@@ -1030,7 +1111,12 @@ impl SpotMatchingEngine {
         self.release_locked(req.account_id, asset, amount)
     }
 
-    fn release_locked_for_order(&mut self, config: &SpotMarketConfig, order: &RestingOrder, amount: Decimal) -> Result<()> {
+    fn release_locked_for_order(
+        &mut self,
+        config: &SpotMarketConfig,
+        order: &RestingOrder,
+        amount: Decimal,
+    ) -> Result<()> {
         let asset = match order.side {
             Side::Buy => &config.quote_asset,
             Side::Sell => &config.base_asset,
@@ -1038,23 +1124,41 @@ impl SpotMatchingEngine {
         self.release_locked(order.account_id, asset, amount)
     }
 
-    fn move_available_to_locked(&mut self, account_id: AccountId, asset: &str, amount: Decimal) -> Result<()> {
+    fn move_available_to_locked(
+        &mut self,
+        account_id: AccountId,
+        asset: &str,
+        amount: Decimal,
+    ) -> Result<()> {
         if amount <= Decimal::ZERO {
             return Ok(());
         }
         let balance = self.balance_mut(account_id, asset);
-        ensure!(balance.available >= amount, "insufficient available balance for {}", asset);
+        ensure!(
+            balance.available >= amount,
+            "insufficient available balance for {}",
+            asset
+        );
         balance.available -= amount;
         balance.locked += amount;
         Ok(())
     }
 
-    fn release_locked(&mut self, account_id: AccountId, asset: &str, amount: Decimal) -> Result<()> {
+    fn release_locked(
+        &mut self,
+        account_id: AccountId,
+        asset: &str,
+        amount: Decimal,
+    ) -> Result<()> {
         if amount <= Decimal::ZERO {
             return Ok(());
         }
         let balance = self.balance_mut(account_id, asset);
-        ensure!(balance.locked >= amount, "insufficient locked balance for {}", asset);
+        ensure!(
+            balance.locked >= amount,
+            "insufficient locked balance for {}",
+            asset
+        );
         balance.locked -= amount;
         balance.available += amount;
         Ok(())
@@ -1065,12 +1169,21 @@ impl SpotMatchingEngine {
             return Ok(());
         }
         let balance = self.balance_mut(account_id, asset);
-        ensure!(balance.locked >= amount, "insufficient locked balance for {}", asset);
+        ensure!(
+            balance.locked >= amount,
+            "insufficient locked balance for {}",
+            asset
+        );
         balance.locked -= amount;
         Ok(())
     }
 
-    fn credit_available(&mut self, account_id: AccountId, asset: &str, amount: Decimal) -> Result<()> {
+    fn credit_available(
+        &mut self,
+        account_id: AccountId,
+        asset: &str,
+        amount: Decimal,
+    ) -> Result<()> {
         if amount <= Decimal::ZERO {
             return Ok(());
         }
@@ -1169,7 +1282,12 @@ pub fn run_spot_engine_demo() -> Result<()> {
     for trade in &taker.trades {
         println!(
             "trade#{} price={} qty={} maker={} taker={} seq={}",
-            trade.trade_id, trade.price, trade.quantity, trade.maker_order_id, trade.taker_order_id, trade.sequence
+            trade.trade_id,
+            trade.price,
+            trade.quantity,
+            trade.maker_order_id,
+            trade.taker_order_id,
+            trade.sequence
         );
     }
 

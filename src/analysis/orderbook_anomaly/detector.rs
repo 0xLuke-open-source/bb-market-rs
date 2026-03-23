@@ -1,3 +1,9 @@
+//! 订单簿异常检测器实现。
+//!
+//! 检测器会维护两类历史：
+//! - 快照历史：用于价格、深度、流动性等横截面对比
+//! - 订单变化历史：用于撤单、订单流激增等行为模式识别
+
 use std::cmp::Reverse;
 use std::collections::{HashMap, VecDeque};
 
@@ -10,6 +16,10 @@ use crate::store::l2_book::{OrderBook, OrderBookFeatures};
 
 use super::types::{AnomalyConfig, AnomalyEvent, AnomalyStats, AnomalyType, ChangeType, OrderSide};
 
+/// 实时订单簿异常检测器。
+///
+/// 每次收到新的深度特征后都会跑一轮轻量规则扫描，
+/// 适合挂在实时行情链路里持续工作。
 pub struct OrderBookAnomalyDetector {
     snapshot_history: VecDeque<AnomalySnapshot>,
     order_history: VecDeque<OrderChange>,
@@ -18,6 +28,7 @@ pub struct OrderBookAnomalyDetector {
     recent_anomalies: VecDeque<AnomalyEvent>,
 }
 
+/// 每一轮检测前先抽取的盘口截面信息。
 #[derive(Debug, Clone)]
 struct AnomalySnapshot {
     timestamp: DateTime<Local>,
@@ -34,6 +45,7 @@ struct AnomalySnapshot {
     large_ask_count: u32,
 }
 
+/// 订单层面的离散变化记录。
 #[derive(Debug, Clone)]
 struct OrderChange {
     timestamp: DateTime<Local>,
@@ -45,10 +57,12 @@ struct OrderChange {
 }
 
 impl OrderBookAnomalyDetector {
+    /// 使用默认阈值创建检测器。
     pub fn new() -> Self {
         Self::with_config(AnomalyConfig::default())
     }
 
+    /// 使用自定义阈值创建检测器。
     pub fn with_config(config: AnomalyConfig) -> Self {
         Self {
             snapshot_history: VecDeque::with_capacity(600),
@@ -59,6 +73,10 @@ impl OrderBookAnomalyDetector {
         }
     }
 
+    /// 针对当前订单簿执行一轮异常扫描。
+    ///
+    /// 执行顺序遵循“先更新上下文，再跑各子检测器”的模式，
+    /// 这样每个子规则都能拿到最新快照与最近历史。
     pub fn detect(&mut self, book: &OrderBook, features: &OrderBookFeatures) -> Vec<AnomalyEvent> {
         let mut anomalies = Vec::new();
 
@@ -82,7 +100,15 @@ impl OrderBookAnomalyDetector {
         anomalies
     }
 
-    fn detect_mega_orders(&self, book: &OrderBook, features: &OrderBookFeatures) -> Vec<AnomalyEvent> {
+    /// 检测近档中的超大挂单。
+    ///
+    /// 这里按前 10 档相对总深度的占比来判断，而不是绝对数量，
+    /// 这样不同交易对之间更容易复用同一套阈值。
+    fn detect_mega_orders(
+        &self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> Vec<AnomalyEvent> {
         let mut anomalies = Vec::new();
         let total_bid_depth = features.bid_volume_depth;
         let total_ask_depth = features.ask_volume_depth;
@@ -138,10 +164,12 @@ impl OrderBookAnomalyDetector {
         anomalies
     }
 
+    /// 检测短时间内的快速撤单/批量撤单行为。
     fn detect_rapid_cancellations(&mut self) -> Vec<AnomalyEvent> {
         let mut anomalies = Vec::new();
         let now = Local::now();
-        let mut cancel_counts: HashMap<(Decimal, OrderSide), (u32, DateTime<Local>)> = HashMap::new();
+        let mut cancel_counts: HashMap<(Decimal, OrderSide), (u32, DateTime<Local>)> =
+            HashMap::new();
 
         for change in self.order_history.iter().rev().take(100) {
             if change.change_type == ChangeType::Cancel {
@@ -189,6 +217,7 @@ impl OrderBookAnomalyDetector {
         anomalies
     }
 
+    /// 比较连续两个快照的中间价，识别瞬时价格跳变。
     fn detect_price_spikes(&self) -> Vec<AnomalyEvent> {
         let mut anomalies = Vec::new();
         if self.snapshot_history.len() < 2 {
@@ -215,7 +244,11 @@ impl OrderBookAnomalyDetector {
                 severity: (price_change_bps.to_u64().unwrap_or(0) / 5) as u8,
                 confidence: 90,
                 price_level: Some(current.mid_price),
-                side: Some(if is_up { OrderSide::Bid } else { OrderSide::Ask }),
+                side: Some(if is_up {
+                    OrderSide::Bid
+                } else {
+                    OrderSide::Ask
+                }),
                 size: None,
                 percentage: None,
                 duration_ms: None,
@@ -236,6 +269,7 @@ impl OrderBookAnomalyDetector {
         anomalies
     }
 
+    /// 对比最近平均深度与当前深度，识别流动性抽走。
     fn detect_liquidity_drops(&self, features: &OrderBookFeatures) -> Vec<AnomalyEvent> {
         let mut anomalies = Vec::new();
         if self.snapshot_history.len() < 10 {
@@ -281,6 +315,7 @@ impl OrderBookAnomalyDetector {
         anomalies
     }
 
+    /// 检查前几档报价之间是否出现异常大的空档。
     fn detect_depth_gaps(&self, book: &OrderBook) -> Vec<AnomalyEvent> {
         let mut anomalies = Vec::new();
         let (best_bid, best_ask) = match book.best_bid_ask() {
@@ -347,6 +382,7 @@ impl OrderBookAnomalyDetector {
         anomalies
     }
 
+    /// 检查短时间内订单事件数量是否突然放大。
     fn detect_order_surge(&mut self) -> Vec<AnomalyEvent> {
         let mut anomalies = Vec::new();
         let now = Local::now();
@@ -384,7 +420,10 @@ impl OrderBookAnomalyDetector {
                     frequency: Some(recent_count as f64),
                     price_impact: None,
                     volume_impact: None,
-                    description: format!("订单流激增 {:.1}倍 ({} 单/秒)", surge_ratio, recent_count),
+                    description: format!(
+                        "订单流激增 {:.1}倍 ({} 单/秒)",
+                        surge_ratio, recent_count
+                    ),
                     details: HashMap::new(),
                 });
             }
@@ -393,6 +432,7 @@ impl OrderBookAnomalyDetector {
         anomalies
     }
 
+    /// 根据 OBI 尖峰识别盘口失衡突变。
     fn detect_imbalance_spikes(&self, features: &OrderBookFeatures) -> Vec<AnomalyEvent> {
         let mut anomalies = Vec::new();
         let imbalance = features.obi.abs();
@@ -423,7 +463,12 @@ impl OrderBookAnomalyDetector {
         anomalies
     }
 
-    fn detect_whale_walls(&self, book: &OrderBook, features: &OrderBookFeatures) -> Vec<AnomalyEvent> {
+    /// 检测近档是否形成典型的“鲸鱼墙”。
+    fn detect_whale_walls(
+        &self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> Vec<AnomalyEvent> {
         let mut anomalies = Vec::new();
         if let Some(last) = self.recent_anomalies.back() {
             if last.anomaly_type == AnomalyType::WhaleWall
@@ -456,7 +501,10 @@ impl OrderBookAnomalyDetector {
                 frequency: None,
                 price_impact: None,
                 volume_impact: None,
-                description: format!("买单鲸鱼墙: {} 个大单, 总 {:.0} USDT", bid_wall_count, bid_wall_volume),
+                description: format!(
+                    "买单鲸鱼墙: {} 个大单, 总 {:.0} USDT",
+                    bid_wall_count, bid_wall_volume
+                ),
                 details: HashMap::new(),
             });
         }
@@ -484,7 +532,10 @@ impl OrderBookAnomalyDetector {
                 frequency: None,
                 price_impact: None,
                 volume_impact: None,
-                description: format!("卖单鲸鱼墙: {} 个大单, 总 {:.0} USDT", ask_wall_count, ask_wall_volume),
+                description: format!(
+                    "卖单鲸鱼墙: {} 个大单, 总 {:.0} USDT",
+                    ask_wall_count, ask_wall_volume
+                ),
                 details: HashMap::new(),
             });
         }
@@ -492,14 +543,18 @@ impl OrderBookAnomalyDetector {
         anomalies
     }
 
+    /// 组合多个基础异常，识别更高层的复杂模式。
+    ///
+    /// 例如：先出现超大单，随后迅速撤掉，这通常比单独的大单更像 spoofing。
     fn detect_complex_patterns(&self) -> Vec<AnomalyEvent> {
         let mut anomalies = Vec::new();
 
-        if let Some(mega_order) = self
-            .recent_anomalies
-            .iter()
-            .find(|anomaly| matches!(anomaly.anomaly_type, AnomalyType::MegaBid | AnomalyType::MegaAsk))
-        {
+        if let Some(mega_order) = self.recent_anomalies.iter().find(|anomaly| {
+            matches!(
+                anomaly.anomaly_type,
+                AnomalyType::MegaBid | AnomalyType::MegaAsk
+            )
+        }) {
             if let Some(cancel) = self
                 .recent_anomalies
                 .iter()
@@ -516,7 +571,7 @@ impl OrderBookAnomalyDetector {
                         size: mega_order.size,
                         percentage: mega_order.percentage,
                         duration_ms: Some(
-                            (cancel.timestamp - mega_order.timestamp).num_milliseconds() as u64
+                            (cancel.timestamp - mega_order.timestamp).num_milliseconds() as u64,
                         ),
                         frequency: None,
                         price_impact: None,
@@ -566,7 +621,9 @@ impl OrderBookAnomalyDetector {
     }
 
     fn update_snapshot(&mut self, book: &OrderBook) {
-        let (best_bid, best_ask) = book.best_bid_ask().unwrap_or((Decimal::ZERO, Decimal::ZERO));
+        let (best_bid, best_ask) = book
+            .best_bid_ask()
+            .unwrap_or((Decimal::ZERO, Decimal::ZERO));
         let snapshot = AnomalySnapshot {
             timestamp: Local::now(),
             best_bid,
@@ -578,8 +635,16 @@ impl OrderBookAnomalyDetector {
             ask_depth_10: book.asks.iter().take(10).map(|(_, qty)| qty).sum(),
             total_bid_orders: book.bids.len(),
             total_ask_orders: book.asks.len(),
-            large_bid_count: book.bids.iter().filter(|(_, qty)| **qty > dec!(10000)).count() as u32,
-            large_ask_count: book.asks.iter().filter(|(_, qty)| **qty > dec!(10000)).count() as u32,
+            large_bid_count: book
+                .bids
+                .iter()
+                .filter(|(_, qty)| **qty > dec!(10000))
+                .count() as u32,
+            large_ask_count: book
+                .asks
+                .iter()
+                .filter(|(_, qty)| **qty > dec!(10000))
+                .count() as u32,
         };
         self.snapshot_history.push_back(snapshot);
     }
@@ -659,10 +724,19 @@ impl OrderBookAnomalyDetector {
     }
 
     pub fn get_recent_anomalies(&self, limit: usize) -> Vec<AnomalyEvent> {
-        self.recent_anomalies.iter().rev().take(limit).cloned().collect()
+        self.recent_anomalies
+            .iter()
+            .rev()
+            .take(limit)
+            .cloned()
+            .collect()
     }
 
-    pub fn get_anomalies_by_type(&self, anomaly_type: AnomalyType, limit: usize) -> Vec<AnomalyEvent> {
+    pub fn get_anomalies_by_type(
+        &self,
+        anomaly_type: AnomalyType,
+        limit: usize,
+    ) -> Vec<AnomalyEvent> {
         self.recent_anomalies
             .iter()
             .filter(|anomaly| anomaly.anomaly_type == anomaly_type)
@@ -678,7 +752,10 @@ impl OrderBookAnomalyDetector {
 
     pub fn print_summary(&self) {
         println!("\n{}", "⚠️".repeat(30));
-        println!("📊 订单簿异动统计 - {}", Local::now().format("%Y-%m-%d %H:%M:%S"));
+        println!(
+            "📊 订单簿异动统计 - {}",
+            Local::now().format("%Y-%m-%d %H:%M:%S")
+        );
         println!("{}", "⚠️".repeat(30));
 
         println!("\n📈 总体统计:");

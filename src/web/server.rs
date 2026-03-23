@@ -1,35 +1,48 @@
 // src/web/server.rs — 交易员版 Dashboard
 //
+// 这个模块只负责“对外提供接口”，不负责计算业务数据。
+// 它依赖两个上游对象：
+// 1. DashboardState：分析后的展示快照
+// 2. SpotTradingService：本地下单 / 撤单 / 回放服务
+//
 // 设计原则：信号优先，数字为辅
 // ─ 强信号触发时：全屏弹出声音 + 大字提醒
 // ─ 数据平滑：3秒滚动均值，不闪烁
 // ─ 布局：左侧信号墙(最重要) + 右侧币种状态 + 底部详情
 
+use crate::web::spot::{
+    ApiOrderRequest, ApiResponse, CancelAllRequest, CancelAllResult, OrderActionResult,
+    ReplayQuery, ReplayResponse, SpotTradingService,
+};
+use crate::web::state::SharedDashboardState;
 use axum::{
-    Router,
-    extract::{Path, Query, State, WebSocketUpgrade},
     extract::ws::{Message, WebSocket},
+    extract::{Path, Query, State, WebSocketUpgrade},
     http::StatusCode,
     response::{Html, IntoResponse, Json},
     routing::{delete, get, post},
+    Router,
 };
-use tokio::time::{interval, Duration};
 use std::path::PathBuf;
+use tokio::time::{interval, Duration};
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
-use crate::web::spot::{
-    ApiOrderRequest, ApiResponse, CancelAllRequest, CancelAllResult, OrderActionResult, ReplayQuery,
-    ReplayResponse, SpotTradingService,
-};
-use crate::web::state::SharedDashboardState;
 
 #[derive(Clone)]
 struct AppState {
+    // dashboard 是“展示域状态”。
     dashboard: SharedDashboardState,
+    // spot 是“交易域服务”。
     spot: SpotTradingService,
 }
 
-pub async fn run_server(dashboard: SharedDashboardState, spot: SpotTradingService, port: u16) -> anyhow::Result<()> {
+pub async fn run_server(
+    dashboard: SharedDashboardState,
+    spot: SpotTradingService,
+    port: u16,
+) -> anyhow::Result<()> {
+    // 这里把所有前端需要的接口集中挂到一个 Router 上。
+    // Dashboard HTML 是静态内容，实时数据则通过 API / WebSocket 提供。
     let state = AppState { dashboard, spot };
     let dashboard_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/web/dashboard");
     let app = Router::new()
@@ -55,10 +68,15 @@ pub async fn run_server(dashboard: SharedDashboardState, spot: SpotTradingServic
 }
 
 async fn serve_dashboard() -> Html<&'static str> {
-    Html(include_str!(concat!(env!("OUT_DIR"), "/dashboard_index.html")))
+    Html(include_str!(concat!(
+        env!("OUT_DIR"),
+        "/dashboard_index.html"
+    )))
 }
 
-async fn serve_favicon() -> StatusCode { StatusCode::NO_CONTENT }
+async fn serve_favicon() -> StatusCode {
+    StatusCode::NO_CONTENT
+}
 
 async fn api_full_state(State(state): State<AppState>) -> impl IntoResponse {
     let trader = state.spot.snapshot().await;
@@ -160,6 +178,7 @@ async fn ws_loop(mut socket: WebSocket, state: AppState) {
     loop {
         tick.tick().await;
         let json = {
+            // 每次推送都重新抓取一份轻量快照，避免前端维护复杂增量状态。
             let trader = state.spot.snapshot().await;
             let dashboard = state.dashboard.read().await;
             match serde_json::to_string(&dashboard.to_light_snapshot(trader)) {
@@ -167,6 +186,8 @@ async fn ws_loop(mut socket: WebSocket, state: AppState) {
                 Err(_) => continue,
             }
         };
-        if socket.send(Message::Text(json.into())).await.is_err() { break; }
+        if socket.send(Message::Text(json.into())).await.is_err() {
+            break;
+        }
     }
 }

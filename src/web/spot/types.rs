@@ -1,3 +1,7 @@
+//! spot 模块的请求/响应 DTO 与内部辅助结构。
+//!
+//! 这一层把 HTTP 语义和撮合引擎内部状态隔开，避免 service/core 直接依赖 JSON 细节。
+
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};

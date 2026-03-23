@@ -51,7 +51,11 @@ pub fn build_feed_entries(
         });
     }
     if cvd.abs() > 10000.0 {
-        let direction = if cvd > 0.0 { "持续主动买入" } else { "持续主动卖出" };
+        let direction = if cvd > 0.0 {
+            "持续主动买入"
+        } else {
+            "持续主动卖出"
+        };
         feed_entries.push(FeedEntry {
             time,
             symbol: symbol.to_string(),
@@ -63,3 +67,7 @@ pub fn build_feed_entries(
 
     feed_entries
 }
+// feed 生成器负责把复杂信号压缩成适合前端滚动展示的一句话事件。
+//
+// 设计目标不是“完整表达所有指标”，而是优先告诉交易员：
+// 哪个币种现在值得关注、原因是什么、分值大概多少。

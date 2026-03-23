@@ -1,12 +1,21 @@
+//! 订单流 alpha 生成器实现。
+//!
+//! 这里把多个微观结构指标压缩成一个可读的方向性信号，
+//! 方便在 UI 或日志里快速判断当前更偏多还是偏空。
+
 use super::*;
 
 impl OrderFlowAlphaGenerator {
+    /// 创建默认 alpha 生成器。
     pub fn new() -> Self {
         Self {
             history: VecDeque::with_capacity(200),
         }
     }
 
+    /// 汇总多个订单流组件，生成最终 alpha 结果。
+    ///
+    /// 这里不是做机器学习推断，而是把一组启发式分量线性汇总后再归一化。
     pub fn generate(&mut self, book: &OrderBook, features: &OrderBookFeatures) -> OrderFlowAlpha {
         self.update_history(book, features);
 
@@ -50,7 +59,13 @@ impl OrderFlowAlphaGenerator {
         total_score += pressure_score.to_i64().unwrap_or(0);
 
         // 5. 鲸鱼活动
-        let whale_score: i64 = if features.whale_entry { 50 } else if features.whale_exit { -50 } else { 0 };
+        let whale_score: i64 = if features.whale_entry {
+            50
+        } else if features.whale_exit {
+            -50
+        } else {
+            0
+        };
         components.push(AlphaComponent {
             name: "鲸鱼活动".to_string(),
             value: Decimal::from(whale_score),
@@ -68,7 +83,9 @@ impl OrderFlowAlphaGenerator {
         total_score += delta_score.to_i64().unwrap_or(0);
 
         // 7. 微价格偏离
-        let (best_bid, best_ask) = book.best_bid_ask().unwrap_or((Decimal::ZERO, Decimal::ZERO));
+        let (best_bid, best_ask) = book
+            .best_bid_ask()
+            .unwrap_or((Decimal::ZERO, Decimal::ZERO));
         let mid = (best_bid + best_ask) / dec!(2);
         let micro_deviation = (features.microprice - mid) * dec!(10000);
         components.push(AlphaComponent {
@@ -120,8 +137,11 @@ impl OrderFlowAlphaGenerator {
         }
     }
 
+    /// 记录最近 OFI/OBI/中间价变化，供动量计算使用。
     fn update_history(&mut self, book: &OrderBook, features: &OrderBookFeatures) {
-        let (best_bid, best_ask) = book.best_bid_ask().unwrap_or((Decimal::ZERO, Decimal::ZERO));
+        let (best_bid, best_ask) = book
+            .best_bid_ask()
+            .unwrap_or((Decimal::ZERO, Decimal::ZERO));
         let mid = (best_bid + best_ask) / dec!(2);
 
         let snapshot = OrderFlowSnapshot {
@@ -137,6 +157,7 @@ impl OrderFlowAlphaGenerator {
         }
     }
 
+    /// 计算 OFI 相对最近均值的动量变化。
     fn calculate_ofi_momentum(&self, features: &OrderBookFeatures) -> Decimal {
         if self.history.len() < 10 {
             return features.ofi / dec!(1000);

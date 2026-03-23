@@ -1,3 +1,8 @@
+//! TradingCore 是交易域的真正状态容器。
+//!
+//! service 层偏“接口编排”，而 core 层偏“状态变更”：
+//! 它维护 open orders、history、止损单、流动性订单以及 event 序号。
+
 use std::collections::{BTreeSet, HashMap};
 
 use anyhow::Result;
@@ -18,7 +23,9 @@ use super::types::{ArchiveEvent, StopOrder, SymbolLiquidity, TradingState};
 use super::USER_ACCOUNT_ID;
 
 pub(super) struct TradingCore {
+    // 本地撮合引擎，负责真实的订单撮合与余额变更。
     pub engine: SpotMatchingEngine,
+    // 与前端展示和回放相关的附加状态。
     pub state: TradingState,
 }
 
@@ -40,6 +47,7 @@ impl TradingCore {
     }
 
     pub fn snapshot(&self) -> TraderStateJson {
+        // 这里把引擎余额 + 本地订单/成交历史拼成前端需要的 TraderStateJson。
         let mut balances: Vec<TraderBalanceJson> = self
             .state
             .assets
@@ -75,6 +83,10 @@ impl TradingCore {
         req: &NewOrderRequest,
         result: &SubmitOrderResult,
     ) -> Result<Vec<TraderTradeJson>> {
+        // 对提交结果做二次整理：
+        // 1. 捕获用户相关成交
+        // 2. 更新 open order / order history
+        // 3. 同步 maker 订单状态
         let trade_logs = self.capture_user_trades(symbol, &result.trades)?;
 
         match result.status {
@@ -105,7 +117,8 @@ impl TradingCore {
     ) -> Result<Vec<TraderTradeJson>> {
         let mut captured = Vec::new();
         for trade in trades {
-            if trade.taker_account_id == USER_ACCOUNT_ID || trade.maker_account_id == USER_ACCOUNT_ID
+            if trade.taker_account_id == USER_ACCOUNT_ID
+                || trade.maker_account_id == USER_ACCOUNT_ID
             {
                 let trade_json = trader_trade_from_trade(trade);
                 self.state.trade_history.insert(0, trade_json.clone());
@@ -158,6 +171,8 @@ impl TradingCore {
         symbol: &str,
         mid: Decimal,
     ) -> Result<Vec<super::types::OrderActionResult>> {
+        // 这里不是交易所侧的“真实止损单”，而是本地维护的虚拟触发单。
+        // 一旦中间价满足条件，就把虚拟单转换成真实 NewOrderRequest 再送入引擎。
         let ids: Vec<u64> = self
             .state
             .stop_orders

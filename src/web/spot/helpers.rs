@@ -1,3 +1,7 @@
+//! helpers 收纳两类逻辑：
+//! 1. API 文本字段到引擎枚举的解析
+//! 2. 引擎结构到前端展示结构的转换
+
 use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
@@ -5,9 +9,7 @@ use chrono::Local;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
-use crate::engine::{
-    NewOrderRequest, OrderType, Side, SubmitOrderResult, TimeInForce, Trade,
-};
+use crate::engine::{NewOrderRequest, OrderType, Side, SubmitOrderResult, TimeInForce, Trade};
 use crate::web::state::{TraderOrderJson, TraderTradeJson};
 
 use super::types::{ApiOrderRequest, OrderActionResult, ParsedOrderType};

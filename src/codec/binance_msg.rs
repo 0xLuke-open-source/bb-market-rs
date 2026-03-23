@@ -1,8 +1,8 @@
 // src/codec/binance_msg.rs
 // 币安 WebSocket 所有消息类型定义
 
-use serde::Deserialize;
 use rust_decimal::Decimal;
+use serde::Deserialize;
 
 // ── 原有：增量订单簿 ──────────────────────────────────────────────
 #[allow(dead_code)]
@@ -56,7 +56,11 @@ impl AggTrade {
     /// 主动买入量（正值），主动卖出量（负值）—— 用于累计 CVD
     pub fn delta(&self) -> Decimal {
         let q = self.qty_decimal();
-        if self.is_buyer_maker { -q } else { q }
+        if self.is_buyer_maker {
+            -q
+        } else {
+            q
+        }
     }
     pub fn is_taker_buy(&self) -> bool {
         !self.is_buyer_maker
@@ -94,16 +98,32 @@ pub struct MiniTicker {
 }
 
 impl MiniTicker {
-    pub fn close_f64(&self) -> f64 { self.close.parse().unwrap_or(0.0) }
-    pub fn open_f64(&self)  -> f64 { self.open.parse().unwrap_or(0.0) }
-    pub fn high_f64(&self)  -> f64 { self.high.parse().unwrap_or(0.0) }
-    pub fn low_f64(&self)   -> f64 { self.low.parse().unwrap_or(0.0) }
-    pub fn volume_f64(&self) -> f64 { self.volume.parse().unwrap_or(0.0) }
-    pub fn quote_volume_f64(&self) -> f64 { self.quote_volume.parse().unwrap_or(0.0) }
+    pub fn close_f64(&self) -> f64 {
+        self.close.parse().unwrap_or(0.0)
+    }
+    pub fn open_f64(&self) -> f64 {
+        self.open.parse().unwrap_or(0.0)
+    }
+    pub fn high_f64(&self) -> f64 {
+        self.high.parse().unwrap_or(0.0)
+    }
+    pub fn low_f64(&self) -> f64 {
+        self.low.parse().unwrap_or(0.0)
+    }
+    pub fn volume_f64(&self) -> f64 {
+        self.volume.parse().unwrap_or(0.0)
+    }
+    pub fn quote_volume_f64(&self) -> f64 {
+        self.quote_volume.parse().unwrap_or(0.0)
+    }
     pub fn change_pct(&self) -> f64 {
         let o = self.open_f64();
         let c = self.close_f64();
-        if o == 0.0 { 0.0 } else { (c - o) / o * 100.0 }
+        if o == 0.0 {
+            0.0
+        } else {
+            (c - o) / o * 100.0
+        }
     }
 }
 
@@ -169,16 +189,32 @@ impl KlineEvent {
 }
 
 impl KlineData {
-    pub fn open_f64(&self)  -> f64 { self.open.parse().unwrap_or(0.0) }
-    pub fn close_f64(&self) -> f64 { self.close.parse().unwrap_or(0.0) }
-    pub fn high_f64(&self)  -> f64 { self.high.parse().unwrap_or(0.0) }
-    pub fn low_f64(&self)   -> f64 { self.low.parse().unwrap_or(0.0) }
-    pub fn volume_f64(&self) -> f64 { self.volume.parse().unwrap_or(0.0) }
-    pub fn taker_buy_volume_f64(&self) -> f64 { self.taker_buy_volume.parse().unwrap_or(0.0) }
+    pub fn open_f64(&self) -> f64 {
+        self.open.parse().unwrap_or(0.0)
+    }
+    pub fn close_f64(&self) -> f64 {
+        self.close.parse().unwrap_or(0.0)
+    }
+    pub fn high_f64(&self) -> f64 {
+        self.high.parse().unwrap_or(0.0)
+    }
+    pub fn low_f64(&self) -> f64 {
+        self.low.parse().unwrap_or(0.0)
+    }
+    pub fn volume_f64(&self) -> f64 {
+        self.volume.parse().unwrap_or(0.0)
+    }
+    pub fn taker_buy_volume_f64(&self) -> f64 {
+        self.taker_buy_volume.parse().unwrap_or(0.0)
+    }
     /// 主动买入占比 0-100
     pub fn taker_buy_ratio(&self) -> f64 {
         let v = self.volume_f64();
-        if v == 0.0 { 50.0 } else { self.taker_buy_volume_f64() / v * 100.0 }
+        if v == 0.0 {
+            50.0
+        } else {
+            self.taker_buy_volume_f64() / v * 100.0
+        }
     }
 }
 
@@ -203,13 +239,21 @@ impl CombinedMessage {
     pub fn parse(self) -> Option<StreamMsg> {
         let s = &self.stream;
         if s.contains("@depth") {
-            serde_json::from_value::<DepthUpdate>(self.data).ok().map(StreamMsg::Depth)
+            serde_json::from_value::<DepthUpdate>(self.data)
+                .ok()
+                .map(StreamMsg::Depth)
         } else if s.contains("@aggTrade") {
-            serde_json::from_value::<AggTrade>(self.data).ok().map(StreamMsg::Trade)
+            serde_json::from_value::<AggTrade>(self.data)
+                .ok()
+                .map(StreamMsg::Trade)
         } else if s.contains("@miniTicker") {
-            serde_json::from_value::<MiniTicker>(self.data).ok().map(StreamMsg::Ticker)
+            serde_json::from_value::<MiniTicker>(self.data)
+                .ok()
+                .map(StreamMsg::Ticker)
         } else if s.contains("@kline_") {
-            serde_json::from_value::<KlineEvent>(self.data).ok().map(StreamMsg::Kline)
+            serde_json::from_value::<KlineEvent>(self.data)
+                .ok()
+                .map(StreamMsg::Kline)
         } else {
             None
         }

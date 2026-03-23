@@ -1,37 +1,40 @@
 // src/main.rs — 集成 Web Dashboard + 多数据流版本
 //
+// 这是整个程序的总入口，负责把“行情接入、分析层、交易仿真、Web 服务”
+// 这几条链路装配起来。
+//
 // 启动命令：
 //   cargo run --release -- --multi --count 50 --web --port 9527
 //   cargo run --release -- --sync-usdt
 //   cargo run --release -- （单币种调试模式）
 
+mod analysis;
 mod client;
 mod codec;
 mod engine;
 mod store;
-mod analysis;
 mod symbols;
 mod web;
 
-use std::io::Write;
-use std::sync::Arc;
-use crate::codec::binance_msg::{Snapshot, StreamMsg};
-use crate::store::l2_book::OrderBook;
-use reqwest::Client;
-use std::time::Duration;
-use const_format::concatcp;
-use tokio::sync::mpsc;
-use tokio::time::Instant;
-use clap::Parser;
-use crate::engine::run_spot_engine_demo;
 use crate::analysis::algorithms::MarketIntelligence;
-use crate::analysis::MarketAnalysis;
-use crate::symbols::sync_symbols;
 use crate::analysis::multi_monitor::{MultiSymbolMonitor, MultiWebSocketManager};
-use crate::web::state::new_dashboard_state;
-use crate::web::spot::SpotTradingService;
+use crate::analysis::MarketAnalysis;
+use crate::codec::binance_msg::{Snapshot, StreamMsg};
+use crate::engine::run_spot_engine_demo;
+use crate::store::l2_book::OrderBook;
+use crate::symbols::sync_symbols;
 use crate::web::bridge::run_bridge;
 use crate::web::server::run_server;
+use crate::web::spot::SpotTradingService;
+use crate::web::state::new_dashboard_state;
+use clap::Parser;
+use const_format::concatcp;
+use reqwest::Client;
+use std::io::Write;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::mpsc;
+use tokio::time::Instant;
 
 const COIN: &str = "ASTR";
 const SYMBOL: &str = concatcp!(COIN, "USDT");
@@ -108,14 +111,18 @@ async fn main() -> anyhow::Result<()> {
 // 多币种监控
 // ─────────────────────────────────────────────────────────────────
 async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
+    // MultiSymbolMonitor 只负责“币种状态集合”和“消息分发”，
+    // 不关心 Web 展示或交易仿真。
     let monitor = Arc::new(MultiSymbolMonitor::new(20));
-    let port    = args.port;
-    let web_on  = args.web;
+    let port = args.port;
+    let web_on = args.web;
 
     let symbols = if let Some(file) = args.symbol_file {
         monitor.load_symbols_from_file(&file, args.count).await?
     } else {
-        monitor.load_symbols_from_file("usdt_symbols.txt", args.count).await?
+        monitor
+            .load_symbols_from_file("usdt_symbols.txt", args.count)
+            .await?
     };
 
     println!("📋 监控 {} 个币种:", symbols.len());
@@ -139,13 +146,15 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     });
 
     // ── Web Dashboard ─────────────────────────────────────────────
+    // bridge 负责把 monitor 里的复杂运行时状态压平成前端快照，
+    // server 负责把这些快照通过 HTTP / WebSocket 暴露出去。
     if web_on {
         let dash_state = new_dashboard_state();
         let spot_service = SpotTradingService::new(&symbols, "logs/spot")?;
 
         let bridge_monitor = monitor.clone();
-        let bridge_dash    = dash_state.clone();
-        let bridge_spot    = spot_service.clone();
+        let bridge_dash = dash_state.clone();
+        let bridge_spot = spot_service.clone();
         tokio::spawn(async move {
             run_bridge(bridge_monitor, bridge_dash, bridge_spot, 500).await;
         });
@@ -187,8 +196,8 @@ async fn start_monitoring(client: Client) -> anyhow::Result<()> {
         loop {
             let t0 = Instant::now();
             match client::websocket::run_client(&sym_task, tx_clone.clone()).await {
-                Ok(())  => println!("WebSocket exited normally"),
-                Err(e)  => eprintln!("WebSocket Error: {}", e),
+                Ok(()) => println!("WebSocket exited normally"),
+                Err(e) => eprintln!("WebSocket Error: {}", e),
             }
             if t0.elapsed() >= max_connection_duration {
                 println!("Connection 24h limit, forcing reconnect");
@@ -204,12 +213,13 @@ async fn start_monitoring(client: Client) -> anyhow::Result<()> {
     book.init_from_snapshot(snapshot);
     println!("Snapshot initialized. ID: {}", book.last_update_id);
 
-    let mut last_print  = Instant::now();
+    let mut last_print = Instant::now();
     let mut last_report = Instant::now();
-    let print_interval  = Duration::from_millis(100);
+    let print_interval = Duration::from_millis(100);
     let report_interval = Duration::from_secs(20);
 
-    // 单币种模式：按消息类型分发处理
+    // 单币种模式不经过 bridge / dashboard，而是直接在终端打印分析结果。
+    // 这样便于调试订单簿特征和分析算法本身。
     while let Some(msg) = rx.recv().await {
         match msg {
             StreamMsg::Depth(update) => {
@@ -227,7 +237,7 @@ async fn start_monitoring(client: Client) -> anyhow::Result<()> {
                         let features = book.compute_features(10);
                         book.auto_sample(&features);
                         let analysis = MarketAnalysis::new(&book, &features);
-                        let comp     = market_intel.analyze(&book, &features);
+                        let comp = market_intel.analyze(&book, &features);
                         analysis.display();
                         market_intel.display_summary(&comp);
                     }
@@ -238,27 +248,40 @@ async fn start_monitoring(client: Client) -> anyhow::Result<()> {
                 // 单币种模式：打印大单成交
                 let qty = trade.qty.parse::<f64>().unwrap_or(0.0);
                 if qty > 100000.0 {
-                    let dir = if trade.is_taker_buy() { "🟢 主动买" } else { "🔴 主动卖" };
-                    println!("[{}] {} {} @ {}",
-                             trade.symbol, dir,
-                             trade.qty, trade.price);
+                    let dir = if trade.is_taker_buy() {
+                        "🟢 主动买"
+                    } else {
+                        "🔴 主动卖"
+                    };
+                    println!("[{}] {} {} @ {}", trade.symbol, dir, trade.qty, trade.price);
                 }
             }
             StreamMsg::Ticker(ticker) => {
                 // 单币种模式：定期打印24h数据
                 if last_report.elapsed() >= report_interval {
-                    println!("[24h] {} 涨跌:{:.2}% 高:{} 低:{} 量:{}",
-                             ticker.symbol, ticker.change_pct(),
-                             ticker.high, ticker.low, ticker.volume);
+                    println!(
+                        "[24h] {} 涨跌:{:.2}% 高:{} 低:{} 量:{}",
+                        ticker.symbol,
+                        ticker.change_pct(),
+                        ticker.high,
+                        ticker.low,
+                        ticker.volume
+                    );
                 }
             }
             StreamMsg::Kline(kline) => {
                 // 单币种模式：K线收盘时打印
                 if kline.kline.is_closed {
                     let k = &kline.kline;
-                    println!("[1m K线] {} O:{} H:{} L:{} C:{} 买入占比:{:.1}%",
-                             kline.symbol, k.open, k.high, k.low, k.close,
-                             k.taker_buy_ratio());
+                    println!(
+                        "[1m K线] {} O:{} H:{} L:{} C:{} 买入占比:{:.1}%",
+                        kline.symbol,
+                        k.open,
+                        k.high,
+                        k.low,
+                        k.close,
+                        k.taker_buy_ratio()
+                    );
                 }
             }
         }
@@ -269,8 +292,8 @@ async fn start_monitoring(client: Client) -> anyhow::Result<()> {
 // ── 工具函数 ──────────────────────────────────────────────────────
 
 async fn fetch_snapshot_with_retry(
-    client:      &Client,
-    symbol:      &str,
+    client: &Client,
+    symbol: &str,
     max_retries: u32,
 ) -> anyhow::Result<Snapshot> {
     let endpoints = [

@@ -1,6 +1,12 @@
+//! 综合市场智能分析器实现。
+//!
+//! 这一层是“算法编排器”，负责把多个子算法的判断汇总为统一结论，
+//! 并补充多周期背离、趋势共振等更高层摘要能力。
+
 use super::*;
 
 impl MarketIntelligence {
+    /// 创建一套默认的综合分析器。
     pub fn new() -> Self {
         Self {
             whale_detector: WhaleDetector::new(),
@@ -11,7 +17,12 @@ impl MarketIntelligence {
         }
     }
 
-    pub fn analyze(&mut self, book: &OrderBook, features: &OrderBookFeatures) -> ComprehensiveAnalysis {
+    /// 运行全部子算法并输出综合分析结果。
+    pub fn analyze(
+        &mut self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> ComprehensiveAnalysis {
         // 运行所有算法
         let whale_result = self.whale_detector.detect_whales(book, features);
         let spoofing_result = self.spoofing_detector.detect_spoofing(book, features);
@@ -20,9 +31,11 @@ impl MarketIntelligence {
         let alpha_result = self.alpha_generator.generate(book, features);
 
         // 计算综合评分
-        let overall_sentiment = self.calculate_overall_sentiment(&whale_result, &pumpdump_result, &alpha_result);
+        let overall_sentiment =
+            self.calculate_overall_sentiment(&whale_result, &pumpdump_result, &alpha_result);
         let risk_level = self.calculate_risk_level(&spoofing_result, &mm_result, features);
-        let recommendation = self.generate_recommendation(&overall_sentiment, &risk_level, &pumpdump_result);
+        let recommendation =
+            self.generate_recommendation(&overall_sentiment, &risk_level, &pumpdump_result);
 
         ComprehensiveAnalysis {
             timestamp: chrono::Local::now(),
@@ -37,10 +50,13 @@ impl MarketIntelligence {
         }
     }
 
-    fn calculate_overall_sentiment(&self,
-                                   whale: &WhaleDetectionResult,
-                                   pumpdump: &PumpDumpPrediction,
-                                   alpha: &OrderFlowAlpha) -> OverallSentiment {
+    /// 综合鲸鱼、pump/dump 和 alpha 结果，给出整体情绪。
+    fn calculate_overall_sentiment(
+        &self,
+        whale: &WhaleDetectionResult,
+        pumpdump: &PumpDumpPrediction,
+        alpha: &OrderFlowAlpha,
+    ) -> OverallSentiment {
         let mut score = 0;
 
         // 鲸鱼贡献
@@ -75,10 +91,13 @@ impl MarketIntelligence {
         }
     }
 
-    fn calculate_risk_level(&self,
-                            spoofing: &SpoofingDetectionResult,
-                            mm: &MarketMakerBehavior,
-                            features: &OrderBookFeatures) -> RiskLevel {
+    /// 结合欺骗行为、库存偏向和流动性水平评估风险等级。
+    fn calculate_risk_level(
+        &self,
+        spoofing: &SpoofingDetectionResult,
+        mm: &MarketMakerBehavior,
+        features: &OrderBookFeatures,
+    ) -> RiskLevel {
         let mut risk_score = 0;
 
         // Spoofing风险
@@ -110,10 +129,13 @@ impl MarketIntelligence {
         }
     }
 
-    fn generate_recommendation(&self,
-                               sentiment: &OverallSentiment,
-                               risk: &RiskLevel,
-                               pumpdump: &PumpDumpPrediction) -> TradingRecommendation {
+    /// 把情绪、风险和 pump/dump 结果映射为最终交易建议。
+    fn generate_recommendation(
+        &self,
+        sentiment: &OverallSentiment,
+        risk: &RiskLevel,
+        pumpdump: &PumpDumpPrediction,
+    ) -> TradingRecommendation {
         match (sentiment, risk) {
             (OverallSentiment::StrongBullish, RiskLevel::VeryLow | RiskLevel::Low) => {
                 if pumpdump.pump_probability > 70 {
@@ -121,23 +143,21 @@ impl MarketIntelligence {
                 } else {
                     TradingRecommendation::Buy
                 }
-            },
+            }
             (OverallSentiment::Bullish, RiskLevel::VeryLow | RiskLevel::Low) => {
                 TradingRecommendation::Buy
-            },
+            }
             (OverallSentiment::StrongBearish, RiskLevel::VeryLow | RiskLevel::Low) => {
                 if pumpdump.dump_probability > 70 {
                     TradingRecommendation::StrongSell
                 } else {
                     TradingRecommendation::Sell
                 }
-            },
+            }
             (OverallSentiment::Bearish, RiskLevel::VeryLow | RiskLevel::Low) => {
                 TradingRecommendation::Sell
-            },
-            (_, RiskLevel::High | RiskLevel::VeryHigh) => {
-                TradingRecommendation::Wait
-            },
+            }
+            (_, RiskLevel::High | RiskLevel::VeryHigh) => TradingRecommendation::Wait,
             _ => TradingRecommendation::Neutral,
         }
     }
@@ -164,8 +184,14 @@ impl MarketIntelligence {
         signals
     }
 
-    fn check_period_divergence(&self, book: &OrderBook, period: TrendPeriod,
-                               name: &str, threshold: f64) -> Option<DivergenceSignal> {
+    /// 检查单个周期是否出现“价格和 OBI 反向”的背离。
+    fn check_period_divergence(
+        &self,
+        book: &OrderBook,
+        period: TrendPeriod,
+        name: &str,
+        threshold: f64,
+    ) -> Option<DivergenceSignal> {
         let samples = match period {
             TrendPeriod::Micro => &book.history.samples_5s,
             TrendPeriod::Short => &book.history.samples_1m,
@@ -173,7 +199,9 @@ impl MarketIntelligence {
             TrendPeriod::Long => &book.history.samples_1h,
         };
 
-        if samples.len() < 10 { return None; }
+        if samples.len() < 10 {
+            return None;
+        }
 
         let current = samples.back().unwrap();
         let older = samples.front().unwrap();
@@ -186,25 +214,38 @@ impl MarketIntelligence {
             return Some(DivergenceSignal {
                 period: name.to_string(),
                 direction: "看跌背离".to_string(),
-                strength: ((older.obi - current.obi) / dec!(10)).round().to_u8().unwrap_or(50).min(100),
-                description: format!("价格↑ {:.4} 但买盘↓ {:.1}%",
-                                     current.mid_price - older.mid_price,
-                                     older.obi - current.obi),
+                strength: ((older.obi - current.obi) / dec!(10))
+                    .round()
+                    .to_u8()
+                    .unwrap_or(50)
+                    .min(100),
+                description: format!(
+                    "价格↑ {:.4} 但买盘↓ {:.1}%",
+                    current.mid_price - older.mid_price,
+                    older.obi - current.obi
+                ),
             });
         }
 
         // 价格跌了但OBI涨了 → 看涨背离
-        let price_down = current.mid_price < older.mid_price - Decimal::from_f64(threshold).unwrap();
+        let price_down =
+            current.mid_price < older.mid_price - Decimal::from_f64(threshold).unwrap();
         let obi_up = current.obi > older.obi + dec!(10);
 
         if price_down && obi_up {
             return Some(DivergenceSignal {
                 period: name.to_string(),
                 direction: "看涨背离".to_string(),
-                strength: ((current.obi - older.obi) / dec!(10)).round().to_u8().unwrap_or(50).min(100),
-                description: format!("价格↓ {:.4} 但买盘↑ {:.1}%",
-                                     older.mid_price - current.mid_price,
-                                     current.obi - older.obi),
+                strength: ((current.obi - older.obi) / dec!(10))
+                    .round()
+                    .to_u8()
+                    .unwrap_or(50)
+                    .min(100),
+                description: format!(
+                    "价格↓ {:.4} 但买盘↑ {:.1}%",
+                    older.mid_price - current.mid_price,
+                    current.obi - older.obi
+                ),
             });
         }
 
@@ -230,10 +271,13 @@ impl MarketIntelligence {
         // 计算趋势一致性
         let trends = [micro_trend, short_trend, medium_trend];
         let avg = trends.iter().sum::<Decimal>() / Decimal::from(3);
-        let variance = trends.iter()
+        let variance = trends
+            .iter()
             .map(|&t| (t - avg) * (t - avg))
-            .sum::<Decimal>() / Decimal::from(3);
-        let std = Decimal::from_f64_retain(variance.to_f64().unwrap_or(0.0).sqrt()).unwrap_or(Decimal::ZERO);
+            .sum::<Decimal>()
+            / Decimal::from(3);
+        let std = Decimal::from_f64_retain(variance.to_f64().unwrap_or(0.0).sqrt())
+            .unwrap_or(Decimal::ZERO);
 
         let coherence = if std < dec!(0.5) {
             "高度共振"
@@ -254,9 +298,13 @@ impl MarketIntelligence {
         }
     }
 
+    /// 将综合分析结果打印为适合终端阅读的摘要。
     pub fn display_summary(&self, analysis: &ComprehensiveAnalysis) {
         println!("\n{}", "🔬".repeat(30));
-        println!("📊 市场智能综合分析 - {}", analysis.timestamp.format("%Y-%m-%d %H:%M:%S"));
+        println!(
+            "📊 市场智能综合分析 - {}",
+            analysis.timestamp.format("%Y-%m-%d %H:%M:%S")
+        );
         println!("{}", "🔬".repeat(30));
 
         // 1. 鲸鱼检测结果
@@ -265,15 +313,22 @@ impl MarketIntelligence {
             println!("  发现 {} 只鲸鱼", analysis.whale.whale_count);
             println!("  类型: {:?}", analysis.whale.whale_type);
             println!("  主导率: {:.1}%", analysis.whale.dominance_ratio);
-            println!("  吸筹评分: {:.1}, 出货评分: {:.1}",
-                     analysis.whale.accumulation_score,
-                     analysis.whale.distribution_score);
+            println!(
+                "  吸筹评分: {:.1}, 出货评分: {:.1}",
+                analysis.whale.accumulation_score, analysis.whale.distribution_score
+            );
             println!("  置信度: {}%", analysis.whale.intent_confidence);
 
             for (i, pos) in analysis.whale.whale_positions.iter().enumerate().take(3) {
-                println!("    {}. {:?} {:.6} 数量:{:.0} ({:.1}%){}",
-                         i+1, pos.side, pos.price, pos.quantity, pos.percentage,
-                         if pos.is_stealth { " [拆单]" } else { "" });
+                println!(
+                    "    {}. {:?} {:.6} 数量:{:.0} ({:.1}%){}",
+                    i + 1,
+                    pos.side,
+                    pos.price,
+                    pos.quantity,
+                    pos.percentage,
+                    if pos.is_stealth { " [拆单]" } else { "" }
+                );
             }
         } else {
             println!("  未检测到明显鲸鱼活动");
@@ -284,7 +339,10 @@ impl MarketIntelligence {
         if analysis.spoofing.detected {
             println!("  检测到! 类型: {:?}", analysis.spoofing.spoofing_type);
             println!("  置信度: {}%", analysis.spoofing.confidence);
-            println!("  估计价格操纵: {:.6}", analysis.spoofing.estimated_manipulation);
+            println!(
+                "  估计价格操纵: {:.6}",
+                analysis.spoofing.estimated_manipulation
+            );
         } else {
             println!("  未检测到明显Spoofing行为");
         }
@@ -298,13 +356,22 @@ impl MarketIntelligence {
         println!("  置信度: {}%", analysis.pump_dump.confidence);
 
         for signal in &analysis.pump_dump.signals {
-            println!("    [{:?}] 强度:{}% - {}",
-                     signal.signal_type, signal.strength, signal.description);
+            println!(
+                "    [{:?}] 强度:{}% - {}",
+                signal.signal_type, signal.strength, signal.description
+            );
         }
 
         // 4. 做市商行为
         println!("\n🏦 做市商行为:");
-        println!("  活跃度: {}", if analysis.market_maker.is_active { "是" } else { "否" });
+        println!(
+            "  活跃度: {}",
+            if analysis.market_maker.is_active {
+                "是"
+            } else {
+                "否"
+            }
+        );
         println!("  类型: {:?}", analysis.market_maker.mm_type);
         println!("  策略: {:?}", analysis.market_maker.strategy);
         println!("  库存偏向: {:.1}%", analysis.market_maker.inventory_bias);
@@ -312,8 +379,10 @@ impl MarketIntelligence {
 
         // 5. Alpha信号
         println!("\n⚡ Alpha信号:");
-        println!("  信号: {:?} (强度:{}%)",
-                 analysis.alpha.signal, analysis.alpha.strength);
+        println!(
+            "  信号: {:?} (强度:{}%)",
+            analysis.alpha.signal, analysis.alpha.strength
+        );
         println!("  置信度: {}%", analysis.alpha.confidence);
         println!("  预期收益: {:.4}%", analysis.alpha.expected_return);
 

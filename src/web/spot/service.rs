@@ -1,3 +1,8 @@
+//! service 层提供 SpotTradingService 的对外接口。
+//!
+//! 前端/HTTP handler 只应该依赖这一层，而不直接碰 TradingCore，
+//! 这样业务流程、日志记录、回放归档都能集中在一个地方维护。
+
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
@@ -21,10 +26,12 @@ use super::types::{
     ApiOrderRequest, ArchiveEvent, CancelAllRequest, CancelAllResult, OrderActionResult,
     ParsedOrderType, ReplayEventJson, ReplayQuery, ReplayResponse, StopOrder,
 };
-use super::{LIQUIDITY_ACCOUNT_ID, SpotTradingService, USER_ACCOUNT_ID};
+use super::{SpotTradingService, LIQUIDITY_ACCOUNT_ID, USER_ACCOUNT_ID};
 
 impl SpotTradingService {
     pub fn new(symbols: &[String], log_dir: impl AsRef<Path>) -> Result<Self> {
+        // 启动时顺手创建一个“带流动性账户”的本地市场。
+        // 用户账户和流动性账户都预存资产，这样前端下单后立刻可以成交。
         let log_dir = log_dir.as_ref().to_path_buf();
         fs::create_dir_all(&log_dir)?;
 
@@ -67,6 +74,7 @@ impl SpotTradingService {
     }
 
     pub async fn replay(&self, query: ReplayQuery) -> Result<ReplayResponse> {
+        // replay 不重放引擎状态机，而是基于 archive 日志构造某个时间点附近的快照与事件。
         let mut events = self.load_archive_events()?;
         events.sort_by(|left, right| left.ts.cmp(&right.ts).then(left.seq.cmp(&right.seq)));
 
@@ -104,10 +112,14 @@ impl SpotTradingService {
     }
 
     pub async fn submit_order(&self, req: ApiOrderRequest) -> Result<OrderActionResult> {
+        // 先把前端请求翻译成引擎请求，再统一做状态刷新与日志落盘。
         let symbol = req.symbol.to_uppercase();
         let side = parse_side(&req.side)?;
         let order_type = parse_order_type(&req.order_type)?;
-        if matches!(order_type, ParsedOrderType::StopLimit | ParsedOrderType::StopMarket) {
+        if matches!(
+            order_type,
+            ParsedOrderType::StopLimit | ParsedOrderType::StopMarket
+        ) {
             return self.submit_stop_order(req).await;
         }
 
@@ -159,7 +171,10 @@ impl SpotTradingService {
             archive_events.push(core.archive_event(
                 "submit",
                 Some(symbol.clone()),
-                format!("submit {:?} {:?} {} qty={}", side, order_type, symbol, req.quantity),
+                format!(
+                    "submit {:?} {:?} {} qty={}",
+                    side, order_type, symbol, req.quantity
+                ),
                 Some(snapshot.clone()),
                 None,
                 None,
@@ -416,6 +431,8 @@ impl SpotTradingService {
         bids: &[(Decimal, Decimal)],
         asks: &[(Decimal, Decimal)],
     ) -> Result<()> {
+        // bridge 每轮都会把盘口前几档同步进来。
+        // 这里的策略是“先清空旧流动性，再重建新流动性”，保证模拟深度和最新行情近似一致。
         let symbol = symbol.to_uppercase();
         let mut core = self.inner.lock().await;
         let mut entry = core.liquidity_entry(&symbol);
@@ -470,7 +487,9 @@ impl SpotTradingService {
 
         core.store_liquidity_entry(symbol.clone(), entry);
         let mid = match (bids.first(), asks.first()) {
-            (Some((bid_price, _)), Some((ask_price, _))) => Some((*bid_price + *ask_price) / dec!(2)),
+            (Some((bid_price, _)), Some((ask_price, _))) => {
+                Some((*bid_price + *ask_price) / dec!(2))
+            }
             _ => None,
         };
         let stop_trigger_results = if let Some(mid) = mid {
@@ -530,6 +549,8 @@ impl SpotTradingService {
     }
 
     async fn submit_stop_order(&self, req: ApiOrderRequest) -> Result<OrderActionResult> {
+        // 止损单在本项目里是“虚拟挂单”：
+        // 先记录在 open_orders + stop_orders，等价格触发后再转换成真实订单提交给引擎。
         let trigger_price = decimal_from_f64(
             req.trigger_price
                 .ok_or_else(|| anyhow!("trigger_price is required"))?,
@@ -552,7 +573,11 @@ impl SpotTradingService {
                 .to_ascii_uppercase(),
             price: req.price,
             trigger_price: Some(trigger_price.to_f64().unwrap_or(0.0)),
-            trigger_kind: Some(req.trigger_kind.clone().unwrap_or_else(|| "stop_loss".to_string())),
+            trigger_kind: Some(
+                req.trigger_kind
+                    .clone()
+                    .unwrap_or_else(|| "stop_loss".to_string()),
+            ),
             quantity: req.quantity,
             remaining_qty: req.quantity,
             filled_qty: 0.0,

@@ -1,13 +1,28 @@
+//! Spoofing / layering / wash trading 识别实现。
+//!
+//! 这里是启发式规则，不是交易所级取证逻辑，重点在于提供实时预警。
+
 use super::*;
 
 impl SpoofingDetector {
+    /// 创建默认 spoofing 检测器。
     pub fn new() -> Self {
         Self {
             order_history: VecDeque::with_capacity(100),
         }
     }
 
-    pub fn detect_spoofing(&mut self, book: &OrderBook, features: &OrderBookFeatures) -> SpoofingDetectionResult {
+    /// 执行一轮 spoofing 检测。
+    ///
+    /// 这里会并行尝试识别：
+    /// - 买盘/卖盘欺骗挂单
+    /// - 分层挂单
+    /// - 对倒特征
+    pub fn detect_spoofing(
+        &mut self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> SpoofingDetectionResult {
         self.update_history(book);
 
         let mut result = SpoofingDetectionResult {
@@ -54,10 +69,16 @@ impl SpoofingDetector {
         result
     }
 
+    /// 缓存最近盘口快照，供之后的行为识别使用。
     fn update_history(&mut self, book: &OrderBook) {
         let snapshot = OrderBookSnapshot {
             timestamp: Local::now(),
-            bids: book.bids.iter().take(20).map(|(Reverse(p), q)| (*p, *q)).collect(),
+            bids: book
+                .bids
+                .iter()
+                .take(20)
+                .map(|(Reverse(p), q)| (*p, *q))
+                .collect(),
             asks: book.asks.iter().take(20).map(|(p, q)| (*p, *q)).collect(),
         };
 
@@ -67,21 +88,30 @@ impl SpoofingDetector {
         }
     }
 
-    fn detect_bid_spoofing(&self, book: &OrderBook, features: &OrderBookFeatures) -> SpoofingDetection {
+    /// 检测买盘远端的大额诱多挂单。
+    fn detect_bid_spoofing(
+        &self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> SpoofingDetection {
         let mut detection = SpoofingDetection::new();
-        let (best_bid, _) = book.best_bid_ask().unwrap_or((Decimal::ZERO, Decimal::ZERO));
+        let (best_bid, _) = book
+            .best_bid_ask()
+            .unwrap_or((Decimal::ZERO, Decimal::ZERO));
 
         for (Reverse(price), qty) in book.bids.iter().take(10) {
             // 检查是否是大单且远离盘口
             let distance = (best_bid - *price).abs();
-            if qty > &(features.total_bid_volume * dec!(0.1)) && distance > features.spread * dec!(5) {
+            if qty > &(features.total_bid_volume * dec!(0.1))
+                && distance > features.spread * dec!(5)
+            {
                 detection.detected = true;
                 detection.levels.push(SpoofingLevel {
                     price: *price,
                     quantity: *qty,
                     side: OrderSide::Bid,
                     lifetime_secs: 5.0, // 简化值
-                    cancel_rate: 0.4,    // 简化值
+                    cancel_rate: 0.4,   // 简化值
                 });
             }
         }
@@ -89,13 +119,22 @@ impl SpoofingDetector {
         detection
     }
 
-    fn detect_ask_spoofing(&self, book: &OrderBook, features: &OrderBookFeatures) -> SpoofingDetection {
+    /// 检测卖盘远端的大额诱空挂单。
+    fn detect_ask_spoofing(
+        &self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> SpoofingDetection {
         let mut detection = SpoofingDetection::new();
-        let (_, best_ask) = book.best_bid_ask().unwrap_or((Decimal::ZERO, Decimal::ZERO));
+        let (_, best_ask) = book
+            .best_bid_ask()
+            .unwrap_or((Decimal::ZERO, Decimal::ZERO));
 
         for (price, qty) in book.asks.iter().take(10) {
             let distance = (*price - best_ask).abs();
-            if qty > &(features.total_ask_volume * dec!(0.1)) && distance > features.spread * dec!(5) {
+            if qty > &(features.total_ask_volume * dec!(0.1))
+                && distance > features.spread * dec!(5)
+            {
                 detection.detected = true;
                 detection.levels.push(SpoofingLevel {
                     price: *price,
@@ -110,26 +149,33 @@ impl SpoofingDetector {
         detection
     }
 
+    /// 检测是否出现多个价格层级同时堆出大单。
     fn detect_layering(&self, book: &OrderBook) -> bool {
         // 检测分层挂单（多个价格层级都有大单）
         let mut bid_layers = 0;
         let mut ask_layers = 0;
 
         for (_, qty) in book.bids.iter().take(5) {
-            if qty > &dec!(100000) { bid_layers += 1; }
+            if qty > &dec!(100000) {
+                bid_layers += 1;
+            }
         }
         for (_, qty) in book.asks.iter().take(5) {
-            if qty > &dec!(100000) { ask_layers += 1; }
+            if qty > &dec!(100000) {
+                ask_layers += 1;
+            }
         }
 
         bid_layers >= 3 || ask_layers >= 3
     }
 
+    /// 检测高 OFI 但价格基本不动的异常成交行为。
     fn detect_wash_trading(&self, features: &OrderBookFeatures) -> bool {
         // 检测对倒：高OFI但价格不变
         features.ofi.abs() > dec!(500000) && features.price_change.abs() < dec!(0.1)
     }
 
+    /// 基于浓度和假突破特征计算欺骗行为置信度。
     fn calculate_spoofing_confidence(&self, features: &OrderBookFeatures) -> u8 {
         let mut conf = 50;
 
@@ -144,7 +190,7 @@ impl SpoofingDetector {
         conf.min(100).max(0) as u8
     }
 
-
+    /// 粗略估计这些可疑挂单可能带来的价格操纵幅度。
     fn estimate_price_manipulation(&self, result: &SpoofingDetectionResult) -> Decimal {
         let mut manipulation = Decimal::ZERO;
 
@@ -156,6 +202,7 @@ impl SpoofingDetector {
     }
 }
 
+/// 内部中间结构，用来统一买盘/卖盘 spoofing 的检测返回值。
 #[derive(Debug, Clone)]
 struct SpoofingDetection {
     detected: bool,

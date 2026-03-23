@@ -1,6 +1,12 @@
+//! Pump / Dump 预测实现。
+//!
+//! 该模块会把多个短线特征组合成概率分：
+//! 成交量、OFI、鲸鱼活动、价格加速、支撑阻力突破。
+
 use super::*;
 
 impl PumpDumpPredictor {
+    /// 创建默认预测器。
     pub fn new() -> Self {
         Self {
             history: VecDeque::with_capacity(100),
@@ -8,7 +14,15 @@ impl PumpDumpPredictor {
         }
     }
 
-    pub fn predict(&mut self, book: &OrderBook, features: &OrderBookFeatures) -> PumpDumpPrediction {
+    /// 生成当前盘口的短线拉升/砸盘预测。
+    ///
+    /// 注意这里的概率不是统计学意义上的真实概率，
+    /// 而是启发式评分，适合作为预警和排序依据。
+    pub fn predict(
+        &mut self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> PumpDumpPrediction {
         self.update_history(book, features);
 
         let mut signals = Vec::new();
@@ -62,7 +76,6 @@ impl PumpDumpPredictor {
             signals.push(break_signal);
         }
 
-
         // 计算目标位
         let (pump_target, dump_target) = self.calculate_targets(book, features);
 
@@ -80,8 +93,11 @@ impl PumpDumpPredictor {
         }
     }
 
+    /// 记录最近价格与深度，用于后续识别量能放大。
     fn update_history(&mut self, book: &OrderBook, features: &OrderBookFeatures) {
-        let (best_bid, best_ask) = book.best_bid_ask().unwrap_or((Decimal::ZERO, Decimal::ZERO));
+        let (best_bid, best_ask) = book
+            .best_bid_ask()
+            .unwrap_or((Decimal::ZERO, Decimal::ZERO));
         let mid_price = (best_bid + best_ask) / dec!(2);
 
         let snapshot = PriceVolumeSnapshot {
@@ -96,6 +112,7 @@ impl PumpDumpPredictor {
         }
     }
 
+    /// 检测当前深度是否相对最近历史显著放大。
     fn detect_volume_surge(&self, features: &OrderBookFeatures) -> Option<PumpDumpSignal> {
         if self.history.len() < 10 {
             return None;
@@ -116,21 +133,29 @@ impl PumpDumpPredictor {
         }
     }
 
+    /// 检测订单流是否明显向某一方向倾斜。
     fn detect_orderflow_imbalance(&self, features: &OrderBookFeatures) -> Option<PumpDumpSignal> {
         if features.ofi.abs() > dec!(200000) {
             let strength = (features.ofi.abs() / dec!(10000)).to_u64().unwrap_or(50) as u8;
             Some(PumpDumpSignal {
                 signal_type: SignalType::OrderFlowImbalance,
                 strength: strength.min(100),
-                description: format!("订单流{} {:.0}",
-                                     if features.ofi > Decimal::ZERO { "偏多" } else { "偏空" },
-                                     features.ofi),
+                description: format!(
+                    "订单流{} {:.0}",
+                    if features.ofi > Decimal::ZERO {
+                        "偏多"
+                    } else {
+                        "偏空"
+                    },
+                    features.ofi
+                ),
             })
         } else {
             None
         }
     }
 
+    /// 读取上游特征中的鲸鱼进出场标记。
     fn detect_whale_activity(&self, features: &OrderBookFeatures) -> Option<PumpDumpSignal> {
         if features.whale_entry {
             Some(PumpDumpSignal {
@@ -149,8 +174,15 @@ impl PumpDumpPredictor {
         }
     }
 
-    fn detect_level_break(&self, book: &OrderBook, features: &OrderBookFeatures) -> Option<PumpDumpSignal> {
-        let (best_bid, best_ask) = book.best_bid_ask().unwrap_or((Decimal::ZERO, Decimal::ZERO));
+    /// 用近档薄弱程度和 OFI 方向判断是否可能突破支撑/阻力。
+    fn detect_level_break(
+        &self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> Option<PumpDumpSignal> {
+        let (best_bid, best_ask) = book
+            .best_bid_ask()
+            .unwrap_or((Decimal::ZERO, Decimal::ZERO));
 
         // 检测阻力突破
         for (price, qty) in book.asks.iter().take(3) {
@@ -177,18 +209,31 @@ impl PumpDumpPredictor {
         None
     }
 
-    fn calculate_targets(&self, book: &OrderBook, _features: &OrderBookFeatures) -> (Decimal, Decimal) {
-        let (best_bid, best_ask) = book.best_bid_ask().unwrap_or((Decimal::ZERO, Decimal::ZERO));
+    /// 给出默认的上/下目标位。
+    ///
+    /// 这里优先取下一个有效档位，取不到时才退化成按百分比外推。
+    fn calculate_targets(
+        &self,
+        book: &OrderBook,
+        _features: &OrderBookFeatures,
+    ) -> (Decimal, Decimal) {
+        let (best_bid, best_ask) = book
+            .best_bid_ask()
+            .unwrap_or((Decimal::ZERO, Decimal::ZERO));
 
         // 泵目标：下一个阻力位
-        let pump_target = book.asks.iter()
+        let pump_target = book
+            .asks
+            .iter()
             .skip(2)
             .next()
             .map(|(p, _)| *p)
             .unwrap_or(best_ask * dec!(1.05));
 
         // 砸目标：下一个支撑位
-        let dump_target = book.bids.iter()
+        let dump_target = book
+            .bids
+            .iter()
             .skip(2)
             .next()
             .map(|(Reverse(p), _)| *p)

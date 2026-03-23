@@ -1,10 +1,10 @@
 // src/sync_symbols.rs
-use std::fs::File;
-use std::io::{Write, BufWriter};
-use std::path::Path;
 use anyhow::{Context, Result};
 use reqwest::Client;
 use serde::Deserialize;
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::Path;
 
 // 定义我们需要的响应结构体（只解析我们关心的字段）
 #[derive(Debug, Deserialize)]
@@ -45,9 +45,7 @@ pub async fn sync_usdt_symbols(client: &Client, output_file: &str) -> Result<()>
     let usdt_symbols: Vec<String> = exchange_info
         .symbols
         .into_iter()
-        .filter(|s| {
-            s.quote_asset == "USDT" && s.status == "TRADING"
-        })
+        .filter(|s| s.quote_asset == "USDT" && s.status == "TRADING")
         .map(|s| s.base_asset) // 只取基础币种名称，如 BTC、ETH
         .collect();
 
@@ -75,7 +73,7 @@ pub async fn sync_usdt_symbols(client: &Client, output_file: &str) -> Result<()>
     println!("\n📋 前10个币种示例:");
     let content = std::fs::read_to_string(output_file)?;
     for (i, line) in content.lines().take(10).enumerate() {
-        println!("  {}. {}", i+1, line);
+        println!("  {}. {}", i + 1, line);
     }
     if count > 10 {
         println!("  ... 共 {} 个币种", count);

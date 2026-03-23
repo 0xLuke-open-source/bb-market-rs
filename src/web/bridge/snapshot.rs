@@ -1,7 +1,12 @@
+//! snapshot 构建器负责把 `SymbolMonitor` 转成前端使用的 `SymbolJson`。
+//!
+//! 这里是 bridge 层最重要的映射点：算法域字段很多、层级也深，
+//! 但前端真正需要的是一份扁平、完整、稳定的快照。
+
 use std::collections::HashMap;
 
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 use crate::analysis::algorithms::ComprehensiveAnalysis;
 use crate::analysis::multi_monitor::SymbolMonitor;
@@ -14,17 +19,23 @@ use super::labels::{
 };
 
 pub struct BridgeUpdate {
+    // 给前端的完整 symbol 快照。
     pub snapshot: SymbolJson,
+    // 需要追加到信号流中的事件列表。
     pub feed_entries: Vec<FeedEntry>,
+    // 原始盘口深度，供 spot 模块同步成模拟流动性。
     pub top_bids_raw: Vec<(Decimal, Decimal)>,
     pub top_asks_raw: Vec<(Decimal, Decimal)>,
 }
 
 pub fn build_bridge_update(symbol: &str, monitor: &mut SymbolMonitor) -> BridgeUpdate {
+    // 先统一计算一次特征，避免在同一轮桥接里重复跑多次 compute_features。
     let features = monitor.book.compute_features(10);
     let (top_bids_raw, top_asks_raw) = monitor.book.top_n(25);
-    let mid =
-        (features.weighted_bid_price + features.weighted_ask_price).to_f64().unwrap_or(0.0) / 2.0;
+    let mid = (features.weighted_bid_price + features.weighted_ask_price)
+        .to_f64()
+        .unwrap_or(0.0)
+        / 2.0;
 
     let (anomaly_count_1m, anomaly_max_severity) = {
         let stats = monitor.anomaly_detector.get_stats();
@@ -141,8 +152,16 @@ pub fn build_bridge_update(symbol: &str, monitor: &mut SymbolMonitor) -> BridgeU
     }
 }
 
-fn analyze_monitor(monitor: &mut SymbolMonitor, features: &OrderBookFeatures) -> ComprehensiveAnalysis {
-    let mut intel = monitor.market_intel.take().expect("market_intel should be initialized");
+fn analyze_monitor(
+    monitor: &mut SymbolMonitor,
+    features: &OrderBookFeatures,
+) -> ComprehensiveAnalysis {
+    // `MarketIntelligence::analyze` 需要可变借用。
+    // 这里用 take/put 回填的方式，避免与 monitor 其它字段借用冲突。
+    let mut intel = monitor
+        .market_intel
+        .take()
+        .expect("market_intel should be initialized");
     let result = intel.analyze(&monitor.book, features);
     monitor.market_intel = Some(intel);
     result

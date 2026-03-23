@@ -1,13 +1,24 @@
+//! 做市商行为识别实现。
+//!
+//! 这里的目标不是判断“市场里有没有做市商”，而是从盘口形态粗略估计
+//! 当前更像哪种报价风格和库存管理策略。
+
 use super::*;
 
 impl MarketMakerDetector {
+    /// 创建默认做市行为检测器。
     pub fn new() -> Self {
         Self {
             quote_history: VecDeque::with_capacity(1000),
         }
     }
 
-    pub fn detect(&mut self, book: &OrderBook, features: &OrderBookFeatures) -> MarketMakerBehavior {
+    /// 基于当前盘口输出一份做市行为总结。
+    pub fn detect(
+        &mut self,
+        book: &OrderBook,
+        features: &OrderBookFeatures,
+    ) -> MarketMakerBehavior {
         self.update_history(book);
 
         let mm_type = self.determine_mm_type(features);
@@ -26,6 +37,7 @@ impl MarketMakerDetector {
         }
     }
 
+    /// 保存最近的最优买卖价轨迹，用于估算报价频率。
     fn update_history(&mut self, book: &OrderBook) {
         if let Some((bid, ask)) = book.best_bid_ask() {
             let snapshot = QuoteSnapshot {
@@ -41,6 +53,7 @@ impl MarketMakerDetector {
         }
     }
 
+    /// 根据盘口斜率和大单占比判断更像哪类做市主体。
     fn determine_mm_type(&self, features: &OrderBookFeatures) -> MarketMakerType {
         if features.slope_bid.abs() < dec!(100000) && features.slope_ask.abs() < dec!(100000) {
             MarketMakerType::HighFrequencyMM
@@ -51,6 +64,7 @@ impl MarketMakerDetector {
         }
     }
 
+    /// 根据价差与库存偏向推测做市策略。
     fn determine_strategy(&self, features: &OrderBookFeatures) -> MMStrategy {
         let spread = features.spread_bps;
         let inventory_bias = self.calculate_inventory_bias(features);
@@ -66,6 +80,7 @@ impl MarketMakerDetector {
         }
     }
 
+    /// 用买卖两侧深度差近似估算库存偏向。
     fn calculate_inventory_bias(&self, features: &OrderBookFeatures) -> Decimal {
         let bid_depth = features.bid_volume_depth;
         let ask_depth = features.ask_volume_depth;
@@ -78,6 +93,7 @@ impl MarketMakerDetector {
         }
     }
 
+    /// 按 bps 把做市报价风格分成紧、正常、宽三类。
     fn determine_spread_policy(&self, features: &OrderBookFeatures) -> SpreadPolicy {
         let bps = features.spread_bps;
 
@@ -90,13 +106,15 @@ impl MarketMakerDetector {
         }
     }
 
+    /// 用历史报价快照密度近似估算做市活跃度。
     fn calculate_quote_frequency(&self) -> f64 {
         if self.quote_history.len() < 2 {
             return 0.0;
         }
 
-        let time_span = (self.quote_history.back().unwrap().timestamp -
-            self.quote_history.front().unwrap().timestamp).num_seconds();
+        let time_span = (self.quote_history.back().unwrap().timestamp
+            - self.quote_history.front().unwrap().timestamp)
+            .num_seconds();
 
         if time_span > 0 {
             self.quote_history.len() as f64 / time_span as f64

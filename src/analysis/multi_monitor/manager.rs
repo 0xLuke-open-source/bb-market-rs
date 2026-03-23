@@ -1,3 +1,11 @@
+//! 多币种监控调度器。
+//!
+//! `MultiSymbolMonitor` 是运行时的中心注册表：
+//! - 启动时从文件加载 symbol 列表
+//! - 为每个 symbol 创建独立的 `SymbolMonitor`
+//! - 收到流数据后按 symbol 分发到对应状态机
+//! - 定时汇总每个 symbol 的拉盘/砸盘信号
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -10,12 +18,22 @@ use crate::analysis::multi_monitor::signal;
 use crate::analysis::multi_monitor::SymbolMonitor;
 use crate::codec::binance_msg::StreamMsg;
 
+/// 全局多币种监控器。
+///
+/// 外层用 `Arc<Mutex<...>>` 是因为：
+/// - WebSocket 任务会并发写入不同 symbol 的监控状态
+/// - 信号扫描任务也会周期性读取并修改内部统计
+/// - 这里优先追求实现直接和状态集中，而不是做更细粒度的 lock-free 拆分
 pub struct MultiSymbolMonitor {
     pub monitors: Arc<Mutex<HashMap<String, Arc<Mutex<SymbolMonitor>>>>>,
     pub report_interval: Duration,
 }
 
 impl MultiSymbolMonitor {
+    /// 创建空监控器。
+    ///
+    /// `report_interval` 控制订单簿采样与部分统计的刷新频率，
+    /// 避免每一笔深度更新都触发较重的历史采样。
     pub fn new(report_interval_secs: u64) -> Self {
         Self {
             monitors: Arc::new(Mutex::new(HashMap::new())),
@@ -23,6 +41,10 @@ impl MultiSymbolMonitor {
         }
     }
 
+    /// 从文件中读取 symbol 列表。
+    ///
+    /// 这里保留了项目现有的输入格式：文件中每行一个基础币名，
+    /// 读取后自动补成 `XXXUSDT` 交易对，并限制最大数量。
     pub async fn load_symbols_from_file(
         &self,
         path: &str,
@@ -45,6 +67,10 @@ impl MultiSymbolMonitor {
         Ok(symbols)
     }
 
+    /// 为每个 symbol 初始化独立监控状态。
+    ///
+    /// 每个 `SymbolMonitor` 持有该交易对自己的订单簿、K 线缓存、
+    /// 成交统计与信号冷却状态，互不影响。
     pub async fn init_monitors(&self, symbols: Vec<String>) {
         let mut monitors = self.monitors.lock().await;
         for symbol in symbols {
@@ -55,6 +81,10 @@ impl MultiSymbolMonitor {
         }
     }
 
+    /// 按 symbol 分发一条流消息。
+    ///
+    /// 这里不直接在全局层做业务判断，而是把状态更新下沉到
+    /// `SymbolMonitor`，让每个交易对自己维护完整上下文。
     pub async fn handle_msg(&self, symbol: &str, msg: StreamMsg) -> anyhow::Result<()> {
         let monitor = {
             let monitors = self.monitors.lock().await;
@@ -77,10 +107,15 @@ impl MultiSymbolMonitor {
         Ok(())
     }
 
+    /// 返回当前已注册的交易对列表，供外部展示或调试使用。
     pub async fn get_active_symbols(&self) -> Vec<String> {
         self.monitors.lock().await.keys().cloned().collect()
     }
 
+    /// 扫描所有 symbol 的拉盘/砸盘信号。
+    ///
+    /// 这个方法通常由上层定时任务驱动。它只收集本轮触发的信号，
+    /// 最终由 `signal::flush_signal_batch` 统一落盘，降低频繁 IO。
     pub async fn detect_pump_signals(&self) -> anyhow::Result<()> {
         let monitors: Vec<Arc<Mutex<SymbolMonitor>>> = {
             let guard = self.monitors.lock().await;

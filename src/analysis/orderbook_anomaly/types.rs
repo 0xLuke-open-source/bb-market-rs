@@ -1,8 +1,14 @@
+//! 订单簿异常检测的类型定义。
+//!
+//! 这些类型刻意保持为“检测器内部可复用的数据模型”，
+//! 方便后续把异常事件直接输出到日志、前端或告警系统。
+
 use std::collections::HashMap;
 
 use chrono::{DateTime, Local};
 use rust_decimal::Decimal;
 
+/// 支持识别的异常类型集合。
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AnomalyType {
     MegaBid,
@@ -26,6 +32,9 @@ pub enum AnomalyType {
     ComplexPattern,
 }
 
+/// 一条标准化异常事件。
+///
+/// 结构里同时保留数值字段和自由描述，便于后续既能展示，也能做机器处理。
 #[derive(Debug, Clone)]
 pub struct AnomalyEvent {
     pub timestamp: DateTime<Local>,
@@ -44,6 +53,7 @@ pub struct AnomalyEvent {
     pub details: HashMap<String, String>,
 }
 
+/// 异常对应的盘口方向。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum OrderSide {
     Bid,
@@ -51,6 +61,7 @@ pub enum OrderSide {
     Both,
 }
 
+/// 检测器运行期统计信息。
 #[derive(Debug, Clone, Default)]
 pub struct AnomalyStats {
     pub total_events: u32,
@@ -61,6 +72,9 @@ pub struct AnomalyStats {
     pub last_hour_count: u32,
 }
 
+/// 异常检测阈值配置。
+///
+/// 大多数阈值是经验值，目标不是学术上最优，而是让实时扫描先具备可用性。
 #[derive(Debug, Clone)]
 pub struct AnomalyConfig {
     pub mega_bid_threshold: Decimal,
@@ -98,6 +112,7 @@ impl Default for AnomalyConfig {
     }
 }
 
+/// 订单层面的变化类别，用于撤单/新增/修改行为分析。
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ChangeType {
     New,
