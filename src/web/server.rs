@@ -1431,6 +1431,8 @@ function renderDetail(sym){
   const cvd=sv(sym,'cvd'),ps=sv(sym,'ps'),ds=sv(sym,'ds');
   const obi=sv(sym,'obi'),ofi=sv(sym,'ofi'),tbr=sv(sym,'tbr');
   const symShort=sym.replace('USDT','');
+  const watchLevel=s.watch_level||'观察';
+  const levelColor=watchLevel==='强提醒'?'var(--r)':watchLevel==='重点关注'?'var(--y)':watchLevel==='普通关注'?'var(--b)':'var(--t2)';
 
   // 顶部导航
   e('nav-sym',sym.replace('USDT','/USDT'));
@@ -1505,20 +1507,25 @@ function renderDetail(sym){
   es('rd-chg',(chg>=0?'+':'')+chg.toFixed(2)+'%',null,gc);
   e('rd-vol',fN(s.volume_24h||0));e('rd-hi',fP(s.high_24h||0));e('rd-lo',fP(s.low_24h||0));
   e('rd-ps',Math.round(ps));e('rd-ds',Math.round(ds));
+  e('rd-watch-level',watchLevel);
+  document.getElementById('rd-watch-level').style.color=levelColor;
+  document.getElementById('rd-watch-level').style.borderColor=levelColor;
+  e('rd-summary',s.status_summary||'当前没有明显的主导方向，先继续观察。');
+  e('rd-reason',s.signal_reason||'当前没有特别突出的异常信号。');
   es('cvd-v',fN(cvd),null,cvd>=0?'var(--g)':'var(--r)');
   drawCVD(sym);
 
   // 因子
   const factors=[
-    {n:'拉盘评分',v:`${Math.round(ps)}/100`,bw:Math.min(100,ps),bc:'gf',vc:ps>=60?'fg':ps>=30?'fy':'fn',tip:ps>=70?'强烈看涨':ps>=60?'看涨信号':ps>=30?'偏多':'无信号'},
-    {n:'砸盘评分',v:`${Math.round(ds)}/100`,bw:Math.min(100,ds),bc:'rf2',vc:ds>=60?'fr':ds>=30?'fy':'fn',tip:ds>=70?'强烈看跌':ds>=60?'砸盘压力大':'无砸盘'},
-    {n:'订单簿失衡',v:`${obi>=0?'+':''}${obi.toFixed(1)}%`,bw:Math.min(100,Math.abs(obi)*2),bc:obi>=0?'gf':'rf2',vc:obi>10?'fg':obi<-10?'fr':'fn',tip:obi>20?'买方压倒优势':obi>10?'买单偏多':obi<-20?'卖方主导':obi<-10?'卖单偏多':'买卖平衡'},
+    {n:'上涨动能',v:`${Math.round(ps)}/100`,bw:Math.min(100,ps),bc:'gf',vc:ps>=60?'fg':ps>=30?'fy':'fn',tip:ps>=70?'上涨力量很强':ps>=60?'上涨信号明显':ps>=30?'略偏强':'暂不明显'},
+    {n:'下跌压力',v:`${Math.round(ds)}/100`,bw:Math.min(100,ds),bc:'rf2',vc:ds>=60?'fr':ds>=30?'fy':'fn',tip:ds>=70?'下跌压力很强':ds>=60?'回落风险偏高':ds>=30?'略偏弱':'暂不明显'},
+    {n:'买卖盘失衡',v:`${obi>=0?'+':''}${obi.toFixed(1)}%`,bw:Math.min(100,Math.abs(obi)*2),bc:obi>=0?'gf':'rf2',vc:obi>10?'fg':obi<-10?'fr':'fn',tip:obi>20?'买盘明显压过卖盘':obi>10?'买盘偏多':obi<-20?'卖盘明显压过买盘':obi<-10?'卖盘偏多':'买卖比较均衡'},
     {n:'主动买入占比',v:`${tbr.toFixed(1)}%`,bw:tbr,bc:tbr>60?'gf':tbr<40?'rf2':'yf',vc:tbr>60?'fg':tbr<40?'fr':'fy',tip:tbr>70?'主动买入很强':tbr>60?'偏多':tbr<30?'主动卖出很强':'偏空'},
     {n:'主动买卖量差',v:fN(cvd),bw:Math.min(100,Math.abs(cvd)/500),bc:cvd>=0?'gf':'rf2',vc:cvd>0?'fg':'fr',tip:cvd>50000?'大量净流入':cvd>0?'净买入':cvd<-50000?'大量净流出':'净卖出'},
     {n:'挂单变化强度',v:fN(ofi),bw:Math.min(100,Math.abs(ofi)/100),bc:ofi>0?'gf':'rf2',vc:ofi>3000?'fg':ofi<-3000?'fr':'fn',tip:ofi>5000?'买方挂单明显增强':ofi>2000?'买方在持续加单':ofi<-5000?'卖方挂单明显增强':'买卖挂单较平衡'},
     {n:'买卖价差',v:`${s.spread_bps.toFixed(1)} 基点`,bw:Math.min(100,s.spread_bps*3),bc:s.spread_bps<20?'gf':'yf',vc:s.spread_bps<10?'fg':s.spread_bps<30?'fy':'fn',tip:s.spread_bps<10?'成交环境很好':s.spread_bps<20?'正常':'价差偏大'},
-    {n:'鲸鱼',v:s.whale_entry?'进场':s.whale_exit?'离场':'观望',bw:s.whale_entry?80:s.whale_exit?60:20,bc:s.whale_entry?'gf':s.whale_exit?'rf2':'yf',vc:s.whale_entry?'fg':s.whale_exit?'fr':'fn',tip:s.whale_entry?`大单占比${s.max_bid_ratio.toFixed(1)}%`:s.whale_exit?'大户离场':'暂无动作'},
-    {n:'1m异动',v:`${s.anomaly_count_1m}次`,bw:Math.min(100,s.anomaly_count_1m),bc:s.anomaly_count_1m>50?'rf2':'yf',vc:s.anomaly_count_1m>100?'fr':s.anomaly_count_1m>50?'fy':'fn',tip:s.anomaly_count_1m>200?'极不稳定':s.anomaly_count_1m>50?'较多异动':'平稳'},
+    {n:'大户资金',v:s.whale_entry?'进场':s.whale_exit?'离场':'观望',bw:s.whale_entry?80:s.whale_exit?60:20,bc:s.whale_entry?'gf':s.whale_exit?'rf2':'yf',vc:s.whale_entry?'fg':s.whale_exit?'fr':'fn',tip:s.whale_entry?`大单占比${s.max_bid_ratio.toFixed(1)}%`:s.whale_exit?'大户有离场迹象':'暂无明显动作'},
+    {n:'异常波动',v:`${s.anomaly_count_1m}次`,bw:Math.min(100,s.anomaly_count_1m),bc:s.anomaly_count_1m>50?'rf2':'yf',vc:s.anomaly_count_1m>100?'fr':s.anomaly_count_1m>50?'fy':'fn',tip:s.anomaly_count_1m>200?'波动非常剧烈':s.anomaly_count_1m>50?'波动偏多':'整体平稳'},
   ];
   document.getElementById('rf-list').innerHTML=factors.map(f=>`
     <div class="fi"><div class="fi-n">${f.n}</div>
@@ -1553,7 +1560,7 @@ function renderSigs(){
         desc:`评分${Math.round(ds)} 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`,fresh:false});
   });
   e('sig-cnt',sigs.length);
-  const lbl={pump:'🚀 拉盘',dump:'📉 砸盘',whale:'🐋 鲸鱼',anomaly:'⚠️ 异动',cvd:'📊 主动买卖量差'};
+  const lbl={pump:'🚀 上涨异动',dump:'📉 下跌异动',whale:'🐋 大户动向',anomaly:'⚠️ 异常波动',cvd:'📊 主动买卖量差'};
   setHtmlIfChanged(
     'sig-list',
     sigs.slice(0,20).map((s,i)=>`
@@ -1566,7 +1573,7 @@ function renderSigs(){
           <div class="sc-score-bar"><div class="sc-score-fill" style="width:${Math.min(100,s.score)}%;background:${s.type==='pump'?'var(--g)':s.type==='dump'?'var(--r)':s.type==='whale'?'var(--b)':'var(--p)'}"></div></div>
           <span class="sc-score-v">${s.score}</span>
         </div>`:''}
-      </div>`).join('')||'<div class="empty-p">📡<br>等待信号<br><span style="color:var(--t3)">评分 ≥ 70 触发</span></div>',
+      </div>`).join('')||'<div class="empty-p">📡<br>等待信号<br><span style="color:var(--t3)">系统会在有明显异动时提醒</span></div>',
     'signals'
   );
 }
@@ -1577,13 +1584,13 @@ function checkAlerts(){
     const ps=sv(s.symbol,'ps'),ds=sv(s.symbol,'ds'),sym=s.symbol.replace('USDT',''),t=nowT();
     if(ps>=75){const id=`p-${s.symbol}-${Math.floor(Date.now()/30000)}`;
       if(!S.seen.has(id)){S.seen.add(id);S.alerts.unshift({type:'pump',sym,full:s.symbol,
-        tag:'🚀 拉盘',time:t,desc:`评分${Math.round(ps)}/100 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`,fresh:true});}}
+        tag:'🚀 上涨异动',time:t,desc:`评分${Math.round(ps)}/100 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`,fresh:true});}}
     if(ds>=75){const id=`d-${s.symbol}-${Math.floor(Date.now()/30000)}`;
       if(!S.seen.has(id)){S.seen.add(id);S.alerts.unshift({type:'dump',sym,full:s.symbol,
-        tag:'📉 砸盘',time:t,desc:`评分${Math.round(ds)}/100 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`,fresh:true});}}
+        tag:'📉 下跌异动',time:t,desc:`评分${Math.round(ds)}/100 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`,fresh:true});}}
     if(s.whale_entry){const id=`w-${s.symbol}-${Math.floor(Date.now()/60000)}`;
       if(!S.seen.has(id)){S.seen.add(id);S.alerts.unshift({type:'whale',sym,full:s.symbol,
-        tag:'🐋 鲸鱼进场',time:t,desc:`大单${s.max_bid_ratio.toFixed(1)}% 主动买卖量差${fN(sv(s.symbol,'cvd'))}`,fresh:true});}}
+        tag:'🐋 大户资金进场',time:t,desc:`大单${s.max_bid_ratio.toFixed(1)}% 主动买卖量差${fN(sv(s.symbol,'cvd'))}`,fresh:true});}}
     const cvd=sv(s.symbol,'cvd');
     if(Math.abs(cvd)>50000){const id=`c-${s.symbol}-${Math.floor(Date.now()/120000)}`;
       if(!S.seen.has(id)){S.seen.add(id);S.alerts.unshift({type:'cvd',sym,full:s.symbol,
@@ -1598,7 +1605,7 @@ function checkAlerts(){
       <div class="sc-h"><span class="sc-sym">${a.sym}</span><span class="sc-t">${a.time}</span></div>
       <div class="sc-tag">${a.tag}</div>
       <div class="sc-desc">${a.desc}</div>
-    </div>`).join('')||'<div class="empty-p">🔔<br>等待预警<br><span style="color:var(--t3)">评分 ≥ 75 触发</span></div>','alerts');
+    </div>`).join('')||'<div class="empty-p">🔔<br>等待预警<br><span style="color:var(--t3)">出现高风险变化时会在这里提示</span></div>','alerts');
 }
 
 // ── 工具 ─────────────────────────────────────────────────────────
@@ -1625,6 +1632,9 @@ function selectedDetailKey(sym){
   const baseBal=getBalance(sym.replace('USDT',''));
   return JSON.stringify({
     sym,
+    summary:s.status_summary,
+    level:s.watch_level,
+    reason:s.signal_reason,
     mid:sv(sym,'mid'),
     bid:s.bid,ask:s.ask,chg:s.change_24h_pct,cvd:sv(sym,'cvd'),ps:sv(sym,'ps'),ds:sv(sym,'ds'),
     obi:sv(sym,'obi'),ofi:sv(sym,'ofi'),tbr:sv(sym,'tbr'),
