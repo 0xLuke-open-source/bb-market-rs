@@ -19,8 +19,6 @@
 
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use std::fs::OpenOptions;
-use std::io::Write;
 use chrono;
 use rust_decimal::prelude::ToPrimitive;
 use crate::store::l2_book::OrderBookFeatures;
@@ -46,32 +44,12 @@ pub struct PumpSignal {
 }
 
 pub struct PumpDetector {
-    output_file: String,
     min_strength: u8,
 }
 
 impl PumpDetector {
-    pub fn new(output_file: &str) -> Self {
-        let output_file = format!("PumpDetector/{}", output_file);
-        std::fs::create_dir_all("PumpDetector").unwrap_or_default();
-
-        let _ = OpenOptions::new()
-            .create(true).write(true).truncate(true)
-            .open(&output_file)
-            .and_then(|mut f| {
-                writeln!(f, "{}", "=".repeat(160))?;
-                writeln!(f, "🚀 拉盘信号实时监测报告 - {}",
-                         chrono::Local::now().format("%Y-%m-%d %H:%M:%S"))?;
-                writeln!(f, "{}", "=".repeat(160))?;
-                writeln!(f,
-                         "{:<8} | {:<10} | {:<6} | {:<6} | {:<6} | {:<6} | {:<8} | {:<8} | {:<10} | {:<12} | {:<10} | {:<10} | {:<30}",
-                         "时间", "币种", "强度", "概率", "P分", "D分", "OFI增量", "OBI%",
-                         "价格", "目标", "买单变%", "大单比%", "信号原因"
-                )?;
-                writeln!(f, "{}", "-".repeat(160))
-            });
-
-        Self { output_file, min_strength: 30 }
+    pub fn new(_output_file: &str) -> Self {
+        Self { min_strength: 30 }
     }
 
     pub fn with_min_strength(mut self, min: u8) -> Self {
@@ -205,78 +183,16 @@ impl PumpDetector {
     }
 
     pub fn write_pump_signal(&self, s: &PumpSignal) -> std::io::Result<()> {
-        let mut file = OpenOptions::new()
-            .create(true).append(true)
-            .open(&self.output_file)?;
-
-        let emoji = if s.strength >= 80 { "🔥🔥" }
-        else if s.strength >= 60 { "🚀🚀" }
-        else if s.strength >= 40 { "📈📈" }
-        else { "⬆️" };
-
-        writeln!(file,
-                 "{} | {:<10} | {:<2}%{} | {:<3}% | {:<3} | {:<3} | {:<8.0} | {:<+6.1}% | {:<10.4} | {:<10.4} | {:<+6.1}% | {:<6.1}% | {}",
-                 s.timestamp.format("%H:%M:%S"),
-                 s.symbol,
-                 s.strength, emoji,
-                 s.pump_probability,
-                 s.pump_score, s.dump_score,
-                 s.ofi,
-                 s.obi,
-                 s.price, s.target,
-                 s.bid_volume_change, s.max_bid_ratio,
-                 s.reasons.join(" ")
-        )?;
-        file.flush()
+        let _ = s;
+        Ok(())
     }
 
     pub fn write_top_signals(&self, signals: &mut Vec<PumpSignal>) -> std::io::Result<()> {
-        if signals.is_empty() { return Ok(()); }
-        signals.sort_by(|a, b| b.strength.cmp(&a.strength));
-
-        let mut file = OpenOptions::new()
-            .create(true).append(true)
-            .open(&self.output_file)?;
-
-        writeln!(file)?;
-        writeln!(file, "{}", "=".repeat(160))?;
-        writeln!(file, "📊 当前最强拉盘信号 TOP {} - {}",
-                 signals.len(), chrono::Local::now().format("%H:%M:%S"))?;
-        writeln!(file, "{}", "-".repeat(160))?;
-
-        for (rank, s) in signals.iter().enumerate() {
-            let medal = if rank == 0 { "🥇" } else if rank == 1 { "🥈" } else if rank == 2 { "🥉" } else { "  " };
-            writeln!(file,
-                     "{} {} | {:<10} | 强度{:>2}% | 概率{:>2}% | P:{} D:{} | OFI={:<8.0} | OBI={:+.1}% | 目标:{:.4} | {}",
-                     medal,
-                     s.timestamp.format("%H:%M:%S"),
-                     s.symbol, s.strength, s.pump_probability,
-                     s.pump_score, s.dump_score,
-                     s.ofi, s.obi, s.target,
-                     s.reasons.join(" ")
-            )?;
-        }
-        writeln!(file, "{}", "=".repeat(160))?;
-        file.flush()
+        let _ = signals;
+        Ok(())
     }
 
     pub fn print_top_signals(&self, signals: &[PumpSignal], top_n: usize) {
-        if signals.is_empty() { return; }
-        println!("\n{}", "🔥".repeat(10));
-        println!("🔥 当前最强拉盘信号 TOP {}", top_n.min(signals.len()));
-        println!("{}", "🔥".repeat(10));
-
-        for (i, s) in signals.iter().take(top_n).enumerate() {
-            let medal = if i == 0 { "🥇" } else if i == 1 { "🥈" } else if i == 2 { "🥉" } else { "  " };
-            let emoji = if s.strength >= 80 { "🔥" } else if s.strength >= 60 { "🚀" } else { "📈" };
-            println!(
-                "{} {} {:<10} 强度:{:>2}%{} 概率:{:>2}%  OFI(增量):{:<8.0} OBI:{:+.1}% P:{} 目标:{:.4}",
-                medal,
-                s.timestamp.format("%H:%M:%S"),
-                s.symbol, s.strength, emoji, s.pump_probability,
-                s.ofi, s.obi, s.pump_score, s.target
-            );
-        }
-        println!("{}", "🔥".repeat(10));
+        let _ = (signals, top_n);
     }
 }

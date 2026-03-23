@@ -36,7 +36,6 @@ pub async fn run_client(symbol: &str, tx: Sender<StreamMsg>) -> anyhow::Result<(
         let url = format!("{}/stream?streams={}", base_url, streams_param);
         match tokio::time::timeout(Duration::from_secs(10), connect_async(&url)).await {
             Ok(Ok((ws_stream, _))) => {
-                println!("✅ [{}] WS connected ({} streams)", symbol, streams.len());
                 return handle_combined(ws_stream, tx).await;
             }
             Ok(Err(e)) => { last_error = Some(e.to_string()); }

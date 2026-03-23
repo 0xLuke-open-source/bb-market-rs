@@ -7,12 +7,12 @@
 
 mod client;
 mod codec;
+mod engine;
 mod store;
 mod analysis;
 mod symbols;
 mod web;
 
-use std::fs;
 use std::io::Write;
 use std::sync::Arc;
 use crate::codec::binance_msg::{Snapshot, StreamMsg};
@@ -23,11 +23,13 @@ use const_format::concatcp;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 use clap::Parser;
+use crate::engine::run_spot_engine_demo;
 use crate::analysis::algorithms::MarketIntelligence;
 use crate::analysis::MarketAnalysis;
 use crate::symbols::sync_symbols;
 use crate::analysis::multi_monitor::{MultiSymbolMonitor, MultiWebSocketManager};
 use crate::web::state::new_dashboard_state;
+use crate::web::spot::SpotTradingService;
 use crate::web::bridge::run_bridge;
 use crate::web::server::run_server;
 
@@ -69,6 +71,10 @@ struct Args {
     /// Web Dashboard 端口（默认 9527）
     #[clap(long, default_value_t = 9527)]
     port: u16,
+
+    /// 运行内置现货撮合引擎 demo
+    #[clap(long, action)]
+    spot_match_demo: bool,
 }
 
 #[tokio::main]
@@ -79,6 +85,10 @@ async fn main() -> anyhow::Result<()> {
         .install_default()
         .expect("Failed to install rustls crypto provider");
     tracing_subscriber::fmt::init();
+
+    if args.spot_match_demo {
+        return run_spot_engine_demo();
+    }
 
     let client = Client::builder().timeout(Duration::from_secs(15)).build()?;
 
@@ -98,9 +108,6 @@ async fn main() -> anyhow::Result<()> {
 // 多币种监控
 // ─────────────────────────────────────────────────────────────────
 async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
-    fs::create_dir_all("reports")?;
-    fs::create_dir_all("anomaly")?;
-
     let monitor = Arc::new(MultiSymbolMonitor::new(20));
     let port    = args.port;
     let web_on  = args.web;
@@ -119,35 +126,6 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     monitor.init_monitors(symbols.clone()).await;
     let mut manager = MultiWebSocketManager::new(monitor.clone());
 
-    // ── 异动汇总任务（每10秒）────────────────────────────────────
-    let anomaly_monitor = monitor.clone();
-    let web_on_clone = web_on;
-    tokio::spawn(async move {
-        let mut tick = tokio::time::interval(Duration::from_secs(10));
-        loop {
-            tick.tick().await;
-            write_global_anomaly_summary(&anomaly_monitor).await.ok();
-
-            if !web_on_clone {
-                // 控制台模式才打印 TOP5
-                let monitors = anomaly_monitor.monitors.lock().await;
-                let mut top: Vec<(String, u32)> = Vec::new();
-                for (sym, arc) in monitors.iter() {
-                    let m = arc.lock().await;
-                    let cnt = m.anomaly_detector.get_stats().last_minute_count;
-                    if cnt > 0 { top.push((sym.clone(), cnt)); }
-                }
-                top.sort_by(|a, b| b.1.cmp(&a.1));
-                if !top.is_empty() {
-                    println!("\n🔥 异动 TOP5:");
-                    for (i, (s, c)) in top.iter().take(5).enumerate() {
-                        println!("  {}. {}: {} 次", i + 1, s, c);
-                    }
-                }
-            }
-        }
-    });
-
     // ── 拉盘检测任务（每10秒）
     // ⚠️ 注意：detect_pump_signals 现在是 MultiSymbolMonitor 的方法，
     //          不再是 MultiWebSocketManager 的方法
@@ -163,16 +141,19 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     // ── Web Dashboard ─────────────────────────────────────────────
     if web_on {
         let dash_state = new_dashboard_state();
+        let spot_service = SpotTradingService::new(&symbols, "logs/spot")?;
 
         let bridge_monitor = monitor.clone();
         let bridge_dash    = dash_state.clone();
+        let bridge_spot    = spot_service.clone();
         tokio::spawn(async move {
-            run_bridge(bridge_monitor, bridge_dash, 500).await;
+            run_bridge(bridge_monitor, bridge_dash, bridge_spot, 500).await;
         });
 
         let server_dash = dash_state.clone();
+        let server_spot = spot_service.clone();
         tokio::spawn(async move {
-            if let Err(e) = run_server(server_dash, port).await {
+            if let Err(e) = run_server(server_dash, server_spot, port).await {
                 eprintln!("❌ Web 服务器错误: {}", e);
             }
         });
@@ -286,30 +267,6 @@ async fn start_monitoring(client: Client) -> anyhow::Result<()> {
 }
 
 // ── 工具函数 ──────────────────────────────────────────────────────
-
-async fn write_global_anomaly_summary(monitor: &MultiSymbolMonitor) -> std::io::Result<()> {
-    let mut file = std::fs::OpenOptions::new()
-        .create(true).append(true)
-        .open("reports/global_anomalies.txt")?;
-
-    writeln!(file, "\n{}", "=".repeat(100))?;
-    writeln!(file, "📊 全局异动汇总 - {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"))?;
-    writeln!(file, "{}", "=".repeat(100))?;
-
-    let monitors = monitor.monitors.lock().await;
-    for (symbol, arc) in monitors.iter() {
-        let guard = arc.lock().await;
-        let stats = guard.anomaly_detector.get_stats();
-        if stats.total_events > 0 {
-            writeln!(file,
-                     "{}: 总异动 {} | 近1分 {} | 严重度 {:.1} | 最高 {}",
-                     symbol, stats.total_events, stats.last_minute_count,
-                     stats.avg_severity, stats.max_severity
-            )?;
-        }
-    }
-    file.flush()
-}
 
 async fn fetch_snapshot_with_retry(
     client:      &Client,

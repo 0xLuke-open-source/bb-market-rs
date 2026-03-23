@@ -27,6 +27,9 @@ pub struct BigTradeJson {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SymbolJson {
     pub symbol: String,
+    pub status_summary: String,
+    pub watch_level: String,
+    pub signal_reason: String,
 
     // 价格
     pub bid: f64,
@@ -101,12 +104,59 @@ pub struct FeedEntry {
     pub desc:   String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TraderBalanceJson {
+    pub asset: String,
+    pub available: f64,
+    pub locked: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TraderOrderJson {
+    pub time: String,
+    pub order_id: u64,
+    pub symbol: String,
+    pub side: String,
+    pub order_type: String,
+    pub time_in_force: String,
+    pub price: Option<f64>,
+    pub trigger_price: Option<f64>,
+    pub trigger_kind: Option<String>,
+    pub quantity: f64,
+    pub remaining_qty: f64,
+    pub filled_qty: f64,
+    pub filled_quote_qty: f64,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TraderTradeJson {
+    pub time: String,
+    pub trade_id: u64,
+    pub symbol: String,
+    pub side: String,
+    pub price: f64,
+    pub quantity: f64,
+    pub quote_quantity: f64,
+    pub liquidity: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TraderStateJson {
+    pub account_id: u64,
+    pub balances: Vec<TraderBalanceJson>,
+    pub open_orders: Vec<TraderOrderJson>,
+    pub order_history: Vec<TraderOrderJson>,
+    pub trade_history: Vec<TraderTradeJson>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FullSnapshot {
     pub symbols:       Vec<SymbolJson>,
     pub feed:          Vec<FeedEntry>,
     pub total_updates: u64,
     pub uptime_secs:   u64,
+    pub trader:        TraderStateJson,
 }
 
 pub struct DashboardState {
@@ -148,7 +198,7 @@ impl DashboardState {
         self.feed.push_front(entry);
     }
 
-    pub fn to_full_snapshot(&self) -> FullSnapshot {
+    pub fn to_full_snapshot(&self, trader: TraderStateJson) -> FullSnapshot {
         let symbols = self.sorted_keys.iter()
             .filter_map(|k| self.symbols.get(k).cloned())
             .collect();
@@ -157,7 +207,30 @@ impl DashboardState {
             feed: self.feed.iter().cloned().collect(),
             total_updates: self.total_updates,
             uptime_secs: self.start_time.elapsed().as_secs(),
+            trader,
         }
+    }
+
+    pub fn to_light_snapshot(&self, trader: TraderStateJson) -> FullSnapshot {
+        let symbols = self.sorted_keys.iter()
+            .filter_map(|k| self.symbols.get(k).cloned())
+            .map(|mut symbol| {
+                symbol.klines.clear();
+                symbol.current_kline.clear();
+                symbol
+            })
+            .collect();
+        FullSnapshot {
+            symbols,
+            feed: self.feed.iter().cloned().collect(),
+            total_updates: self.total_updates,
+            uptime_secs: self.start_time.elapsed().as_secs(),
+            trader,
+        }
+    }
+
+    pub fn get_symbol(&self, symbol: &str) -> Option<SymbolJson> {
+        self.symbols.get(symbol).cloned()
     }
 }
 

@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::sync::Arc;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -54,9 +54,7 @@ pub struct SymbolMonitor {
     pub market_intel:     Option<MarketIntelligence>,
     pub last_report:      Instant,
     pub update_count:     u64,
-    pub report_file:      String,
     pub anomaly_detector: OrderBookAnomalyDetector,
-    pub anomaly_file:     String,
 
     // ── 新增：成交流数据 ───────────────────────────────────────
     /// 累计成交量差（主动买 − 主动卖），滚动保留最近 1 分钟
@@ -89,22 +87,12 @@ pub struct SymbolMonitor {
 
 impl SymbolMonitor {
     pub fn new(symbol: &str) -> Self {
-        let ts = chrono::Local::now().format("%Y%m%d_%H%M%S");
-        let report_file  = format!("reports/{}_{}.txt", symbol.to_lowercase(), ts);
-        let anomaly_file = format!("anomaly/{}_{}.txt", symbol.to_lowercase(), ts);
-        std::fs::create_dir_all("reports").unwrap_or_default();
-        std::fs::create_dir_all("anomaly").unwrap_or_default();
-        Self::init_file(symbol, &anomaly_file, "异动日志");
-        Self::init_file(symbol, &report_file,  "市场分析报告");
-
         Self {
             symbol: symbol.to_string(),
             book: OrderBook::new(symbol),
             market_intel: Some(MarketIntelligence::new()),
             last_report: Instant::now(),
             update_count: 0,
-            report_file,
-            anomaly_file,
             anomaly_detector: OrderBookAnomalyDetector::new(),
             cvd: Decimal::ZERO,
             taker_buy_vol_1m:  Decimal::ZERO,
@@ -122,12 +110,6 @@ impl SymbolMonitor {
             last_pump_signal_at: None,
             last_dump_signal_at: None,
         }
-    }
-
-    fn init_file(symbol: &str, path: &str, label: &str) {
-        let _ = std::fs::OpenOptions::new()
-            .create(true).write(true).truncate(true).open(path)
-            .map(|mut f| { let _ = writeln!(f, "=== {} {} ===", symbol, label); });
     }
 
     // ── 处理归集成交 ────────────────────────────────────────────
@@ -259,7 +241,6 @@ impl MultiSymbolMonitor {
                 if symbols.len() >= max { break; }
             }
         }
-        println!("✅ 加载 {} 个币种", symbols.len());
         Ok(symbols)
     }
 
@@ -268,7 +249,6 @@ impl MultiSymbolMonitor {
         for symbol in symbols {
             monitors.insert(symbol.clone(), Arc::new(Mutex::new(SymbolMonitor::new(&symbol))));
         }
-        println!("🚀 初始化 {} 个监控器", monitors.len());
     }
 
     // ── 统一处理所有 stream 消息 ─────────────────────────────────
@@ -282,10 +262,7 @@ impl MultiSymbolMonitor {
 
         match msg {
             StreamMsg::Depth(update) => {
-                if let Err(e) = guard.book.apply_incremental_update(update) {
-                    eprintln!("[{}] depth error: {}", symbol, e);
-                    return Ok(());
-                }
+                if guard.book.apply_incremental_update(update).is_err() { return Ok(()); }
                 guard.update_count += 1;
 
                 // 异动检测（每次深度更新都跑）
@@ -293,7 +270,7 @@ impl MultiSymbolMonitor {
                 // let anomalies = guard.anomaly_detector.detect(&guard.book, &features);
 
 
-                let anomalies = {
+                let _anomalies = {
                     let sm_ptr: *mut SymbolMonitor = &mut *guard;
                     unsafe {
                         let book_ref = &(*sm_ptr).book;
@@ -301,12 +278,6 @@ impl MultiSymbolMonitor {
                         detector.detect(book_ref, &features)
                     }
                 };
-
-                for a in &anomalies {
-                    if a.severity >= 60 {
-                        eprintln!("[{}] ⚠️ {:?} sev:{} {}", symbol, a.anomaly_type, a.severity, a.description);
-                    }
-                }
 
                 // 定期生成分析报告
                 if guard.last_report.elapsed() >= self.report_interval {
@@ -416,18 +387,13 @@ impl MultiWebSocketManager {
                     let ws_sym = sym_clone.clone();
                     let ws_task = tokio::spawn(async move {
                         loop {
-                            match crate::client::websocket::run_client(&ws_sym, tx.clone()).await {
-                                Ok(())  => eprintln!("[{}] WS exited", ws_sym),
-                                Err(e)  => eprintln!("[{}] WS error: {}", ws_sym, e),
-                            }
+                            let _ = crate::client::websocket::run_client(&ws_sym, tx.clone()).await;
                             tokio::time::sleep(Duration::from_secs(5)).await;
                         }
                     });
 
                     while let Some(msg) = rx.recv().await {
-                        if let Err(e) = monitors.handle_msg(&sym_clone, msg).await {
-                            eprintln!("[{}] handle error: {}", sym_clone, e);
-                        }
+                        let _ = monitors.handle_msg(&sym_clone, msg).await;
                     }
 
                     ws_task.abort();
@@ -441,7 +407,7 @@ impl MultiWebSocketManager {
 
     pub async fn wait(&mut self) {
         while let Some(r) = self.tasks.join_next().await {
-            if let Err(e) = r { eprintln!("task error: {}", e); }
+            let _ = r;
         }
     }
 }
