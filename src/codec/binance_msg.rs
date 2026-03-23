@@ -1,7 +1,7 @@
 // src/codec/binance_msg.rs
 // 币安 WebSocket 所有消息类型定义
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use rust_decimal::Decimal;
 
 // ── 原有：增量订单簿 ──────────────────────────────────────────────
@@ -50,9 +50,6 @@ pub struct AggTrade {
 }
 
 impl AggTrade {
-    pub fn price_decimal(&self) -> Decimal {
-        self.price.parse().unwrap_or(Decimal::ZERO)
-    }
     pub fn qty_decimal(&self) -> Decimal {
         self.qty.parse().unwrap_or(Decimal::ZERO)
     }
@@ -182,12 +179,6 @@ impl KlineData {
     pub fn taker_buy_ratio(&self) -> f64 {
         let v = self.volume_f64();
         if v == 0.0 { 50.0 } else { self.taker_buy_volume_f64() / v * 100.0 }
-    }
-    /// 涨跌幅 %
-    pub fn change_pct(&self) -> f64 {
-        let o = self.open_f64();
-        let c = self.close_f64();
-        if o == 0.0 { 0.0 } else { (c - o) / o * 100.0 }
     }
 }
 

@@ -1,14 +1,11 @@
 // analysis.rs
 // 市场分析报告模块 - 增强版（60+专业指标）
 
-use std::collections::BTreeMap;
 use std::cmp::Reverse;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::path::Path;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use colored::*;
 use chrono;
 use rust_decimal::prelude::ToPrimitive;
 use crate::store::l2_book::{OrderBook, OrderBookFeatures};
@@ -1034,7 +1031,7 @@ impl MarketAnalysis {
     }
 
     // 高级风险提示
-    fn generate_risk_warnings_advanced(features: &OrderBookFeatures, advanced: &AdvancedMetrics) -> Vec<String> {
+    fn generate_risk_warnings_advanced(_features: &OrderBookFeatures, advanced: &AdvancedMetrics) -> Vec<String> {
         let mut warnings = Vec::new();
 
         // 流动性风险

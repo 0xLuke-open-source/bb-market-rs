@@ -1,0 +1,209 @@
+use std::collections::HashMap;
+
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
+
+use crate::analysis::algorithms::ComprehensiveAnalysis;
+use crate::analysis::multi_monitor::SymbolMonitor;
+use crate::store::l2_book::OrderBookFeatures;
+use crate::web::state::{BigTradeJson, FeedEntry, KlineJson, SymbolJson};
+
+use super::feed::build_feed_entries;
+use super::labels::{
+    recommendation_str, risk_str, sentiment_str, signal_reason, status_summary, watch_level_label,
+};
+
+pub struct BridgeUpdate {
+    pub snapshot: SymbolJson,
+    pub feed_entries: Vec<FeedEntry>,
+    pub top_bids_raw: Vec<(Decimal, Decimal)>,
+    pub top_asks_raw: Vec<(Decimal, Decimal)>,
+}
+
+pub fn build_bridge_update(symbol: &str, monitor: &mut SymbolMonitor) -> BridgeUpdate {
+    let features = monitor.book.compute_features(10);
+    let (top_bids_raw, top_asks_raw) = monitor.book.top_n(25);
+    let mid =
+        (features.weighted_bid_price + features.weighted_ask_price).to_f64().unwrap_or(0.0) / 2.0;
+
+    let (anomaly_count_1m, anomaly_max_severity) = {
+        let stats = monitor.anomaly_detector.get_stats();
+        (stats.last_minute_count, stats.max_severity)
+    };
+
+    let analysis = analyze_monitor(monitor, &features);
+    let update_count = monitor.update_count;
+
+    let cvd = monitor.cvd.to_f64().unwrap_or(0.0);
+    let taker_buy_ratio = monitor.taker_buy_ratio;
+    let change_24h_pct = monitor.change_24h_pct;
+    let high_24h = monitor.price_24h_high;
+    let low_24h = monitor.price_24h_low;
+    let volume_24h = monitor.volume_24h;
+    let quote_vol_24h = monitor.quote_vol_24h;
+
+    let watch_level = watch_level_label(
+        features.pump_score,
+        features.dump_score,
+        anomaly_max_severity,
+        features.whale_entry,
+    )
+    .to_string();
+    let summary = status_summary(
+        features.pump_score,
+        features.dump_score,
+        taker_buy_ratio,
+        cvd,
+        features.obi.to_f64().unwrap_or(0.0),
+        anomaly_max_severity,
+        features.whale_entry,
+        features.whale_exit,
+    );
+    let reason = signal_reason(
+        features.pump_score,
+        features.dump_score,
+        taker_buy_ratio,
+        cvd,
+        features.obi.to_f64().unwrap_or(0.0),
+        anomaly_count_1m,
+        features.whale_entry,
+        features.whale_exit,
+    );
+
+    let snapshot = SymbolJson {
+        symbol: symbol.to_string(),
+        status_summary: summary,
+        watch_level: watch_level.clone(),
+        signal_reason: reason.clone(),
+        bid: features.weighted_bid_price.to_f64().unwrap_or(0.0),
+        ask: features.weighted_ask_price.to_f64().unwrap_or(0.0),
+        mid,
+        spread_bps: features.spread_bps.to_f64().unwrap_or(0.0),
+        change_24h_pct,
+        high_24h,
+        low_24h,
+        volume_24h,
+        quote_vol_24h,
+        ofi: features.ofi.to_f64().unwrap_or(0.0),
+        ofi_raw: features.ofi_raw.to_f64().unwrap_or(0.0),
+        obi: features.obi.to_f64().unwrap_or(0.0),
+        trend_strength: features.trend_strength.to_f64().unwrap_or(0.0),
+        cvd,
+        taker_buy_ratio,
+        pump_score: features.pump_score,
+        dump_score: features.dump_score,
+        pump_signal: features.pump_signal,
+        dump_signal: features.dump_signal,
+        whale_entry: features.whale_entry,
+        whale_exit: features.whale_exit,
+        bid_eating: features.bid_eating,
+        total_bid_volume: features.total_bid_volume.to_f64().unwrap_or(0.0),
+        total_ask_volume: features.total_ask_volume.to_f64().unwrap_or(0.0),
+        max_bid_ratio: features.max_bid_ratio.to_f64().unwrap_or(0.0),
+        max_ask_ratio: features.max_ask_ratio.to_f64().unwrap_or(0.0),
+        top_bids: top_bids_raw
+            .iter()
+            .take(12)
+            .map(|(price, qty)| [price.to_f64().unwrap_or(0.0), qty.to_f64().unwrap_or(0.0)])
+            .collect(),
+        top_asks: top_asks_raw
+            .iter()
+            .take(12)
+            .map(|(price, qty)| [price.to_f64().unwrap_or(0.0), qty.to_f64().unwrap_or(0.0)])
+            .collect(),
+        anomaly_count_1m,
+        anomaly_max_severity,
+        sentiment: sentiment_str(&analysis.overall_sentiment),
+        risk_level: risk_str(&analysis.risk_level),
+        recommendation: recommendation_str(&analysis.trading_recommendation),
+        whale_type: format!("{:?}", analysis.whale.whale_type),
+        pump_probability: analysis.pump_dump.pump_probability,
+        klines: map_klines(monitor),
+        current_kline: map_current_klines(monitor),
+        big_trades: map_big_trades(monitor),
+        update_count,
+    };
+
+    let feed_entries = build_feed_entries(
+        symbol,
+        &watch_level,
+        &reason,
+        &features,
+        anomaly_max_severity,
+        cvd,
+    );
+
+    BridgeUpdate {
+        snapshot,
+        feed_entries,
+        top_bids_raw,
+        top_asks_raw,
+    }
+}
+
+fn analyze_monitor(monitor: &mut SymbolMonitor, features: &OrderBookFeatures) -> ComprehensiveAnalysis {
+    let mut intel = monitor.market_intel.take().expect("market_intel should be initialized");
+    let result = intel.analyze(&monitor.book, features);
+    monitor.market_intel = Some(intel);
+    result
+}
+
+fn map_klines(monitor: &SymbolMonitor) -> HashMap<String, Vec<KlineJson>> {
+    monitor
+        .klines
+        .iter()
+        .map(|(interval, bars)| {
+            let items = bars
+                .iter()
+                .map(|bar| KlineJson {
+                    interval: bar.interval.clone(),
+                    t: bar.open_time,
+                    o: bar.open,
+                    h: bar.high,
+                    l: bar.low,
+                    c: bar.close,
+                    v: bar.volume,
+                    tbr: bar.taker_buy_ratio,
+                })
+                .collect();
+            (interval.clone(), items)
+        })
+        .collect()
+}
+
+fn map_current_klines(monitor: &SymbolMonitor) -> HashMap<String, KlineJson> {
+    monitor
+        .current_kline
+        .iter()
+        .map(|(interval, bar)| {
+            (
+                interval.clone(),
+                KlineJson {
+                    interval: bar.interval.clone(),
+                    t: bar.open_time,
+                    o: bar.open,
+                    h: bar.high,
+                    l: bar.low,
+                    c: bar.close,
+                    v: bar.volume,
+                    tbr: bar.taker_buy_ratio,
+                },
+            )
+        })
+        .collect()
+}
+
+fn map_big_trades(monitor: &SymbolMonitor) -> Vec<BigTradeJson> {
+    monitor
+        .big_trades
+        .iter()
+        .rev()
+        .take(10)
+        .map(|trade| BigTradeJson {
+            t: trade.time_ms,
+            p: trade.price,
+            q: trade.qty,
+            buy: trade.is_buy,
+        })
+        .collect()
+}
