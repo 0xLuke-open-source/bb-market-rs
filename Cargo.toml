@@ -43,6 +43,9 @@ tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "fs"] }
 tokio-stream = "0.1"
 
+[build-dependencies]
+anyhow = "1.0.102"
+
 [profile.release]
 opt-level = 3
 lto = "thin"
