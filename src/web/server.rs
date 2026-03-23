@@ -275,6 +275,13 @@ body{display:flex;flex-direction:column;height:100vh}
 .ls-vsec-list{flex:1;overflow-y:auto;min-height:0}
 .ls-vsec-list::-webkit-scrollbar{width:3px}
 .ls-vsec-list::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+.sortbar,.filterbar,.quickbar{display:flex;gap:5px;padding:6px 8px;border-bottom:1px solid var(--bd);background:var(--bg1);flex-wrap:wrap}
+.sortbtn,.filterbtn,.quickbtn{padding:3px 8px;border-radius:999px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);font-size:10px;font-weight:700;cursor:pointer;transition:all .12s}
+.sortbtn:hover,.filterbtn:hover,.quickbtn:hover{color:var(--t1);border-color:var(--bd2)}
+.sortbtn.act,.filterbtn.act,.quickbtn.act{color:var(--y);border-color:rgba(240,185,11,.35);background:var(--y-glow)}
+.favbtn{padding:4px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);transition:all .12s}
+.favbtn:hover{color:var(--t1);border-color:var(--bd2)}
+.favbtn.act{color:var(--y);border-color:rgba(240,185,11,.35);background:var(--y-glow)}
 
 /* ══ 成交记录（保留样式供成交列表使用）══ */
 .tr-col{display:flex;justify-content:space-between;padding:3px 8px;
@@ -418,11 +425,28 @@ body{display:flex;flex-direction:column;height:100vh}
 .cst-v{font-weight:700;font-variant-numeric:tabular-nums;font-size:11px}
 .ca-cvd{padding:8px 10px;border-bottom:1px solid var(--bd)}
 .ca-summary{padding:10px;border-bottom:1px solid var(--bd);background:linear-gradient(180deg,rgba(240,185,11,.06),rgba(240,185,11,.01))}
+.ca-summary.flash{box-shadow:inset 0 0 0 1px rgba(240,185,11,.35);background:linear-gradient(180deg,rgba(240,185,11,.14),rgba(240,185,11,.04))}
 .cas-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .cas-lvl{padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;background:var(--bg2);border:1px solid var(--bd);color:var(--y)}
 .cas-title{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px}
 .cas-main{font-size:13px;font-weight:700;color:var(--t1);line-height:1.55}
 .cas-reason{font-size:11px;color:var(--t2);line-height:1.55;margin-top:6px}
+.sigdetail{padding:10px;border-bottom:1px solid var(--bd);background:var(--bg1)}
+.sigdetail-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.sigdetail-title{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px}
+.sigdetail-tag{padding:2px 8px;border-radius:999px;border:1px solid var(--bd);background:var(--bg2);font-size:10px;font-weight:800;color:var(--y)}
+.sigdetail-main{font-size:12px;color:var(--t1);line-height:1.6}
+.sigdetail-meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.sigdetail-recents{margin-top:8px;border-top:1px solid var(--bd);padding-top:8px}
+.sigdetail-subttl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px}
+.sigdetail-empty{font-size:11px;color:var(--t3);padding:6px 0}
+.sigdetail-item{display:grid;grid-template-columns:auto 1fr;gap:8px;padding:5px 0;border-bottom:1px solid rgba(36,41,48,.5)}
+.sigdetail-item:last-child{border-bottom:none}
+.sigdetail-time{font-size:10px;color:var(--t3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sigdetail-desc{font-size:11px;color:var(--t2);line-height:1.5}
+.sigmeta{padding:6px 8px;border-radius:6px;background:var(--bg0);border:1px solid var(--bd)}
+.sigmeta-l{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px}
+.sigmeta-v{font-size:11px;color:var(--t1);font-weight:700;margin-top:2px}
 .cvd-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
 .cvd-ttl{font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.3px}
 .cvd-v{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
@@ -442,6 +466,26 @@ body{display:flex;flex-direction:column;height:100vh}
 .fi-v{font-size:11px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
 .fg{color:var(--g)}.fr{color:var(--r)}.fy{color:var(--y)}.fn{color:var(--t2)}.fb{color:var(--b)}
 .fi-tip{font-size:9px;color:var(--t3);margin-top:1px;line-height:1.3}
+.ca-enterprise{padding:8px 10px;border-bottom:1px solid var(--bd);background:linear-gradient(180deg,rgba(255,255,255,.01),transparent)}
+.cae-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.cae-title{font-size:11px;font-weight:800;color:var(--t2);text-transform:uppercase;letter-spacing:.35px}
+.cae-sub{font-size:10px;color:var(--t3)}
+.cae-grid{display:grid;grid-template-columns:1fr;gap:8px}
+.cae-sec{border:1px solid var(--bd);border-radius:8px;overflow:hidden;background:var(--bg0)}
+.cae-sec-h{padding:7px 9px;background:var(--bg1);border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center}
+.cae-sec-t{font-size:11px;font-weight:700;color:var(--t1)}
+.cae-sec-s{font-size:10px;color:var(--t3)}
+.cae-list{padding:4px 8px}
+.cae-row{display:grid;grid-template-columns:88px 1fr 64px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(36,41,48,.45)}
+.cae-row:last-child{border-bottom:none}
+.cae-name{font-size:10px;color:var(--t2)}
+.cae-tip{font-size:9px;color:var(--t3);line-height:1.4}
+.cae-val{font-size:10px;font-weight:700;color:var(--t1);text-align:right}
+.cae-bar{height:5px;border-radius:999px;background:var(--bg2);overflow:hidden}
+.cae-fill{height:100%;border-radius:999px;transition:width .35s ease}
+.cae-good{background:linear-gradient(90deg,var(--g),rgba(14,203,129,.55))}
+.cae-warn{background:linear-gradient(90deg,var(--y),rgba(240,185,11,.55))}
+.cae-bad{background:linear-gradient(90deg,var(--r),rgba(246,70,93,.55))}
 .ca-bt-hdr{display:flex;justify-content:space-between;align-items:center;
   padding:6px 10px;border-bottom:1px solid var(--bd);font-size:11px;font-weight:700;color:var(--t3);
   text-transform:uppercase;letter-spacing:.3px}
@@ -537,12 +581,17 @@ body{display:flex;flex-direction:column;height:100vh}
 .coin-card.cc-pump{border-left-color:var(--g)}
 .coin-card.cc-dump{border-left-color:var(--r)}
 .coin-card.cc-whale{border-left-color:var(--b)}
-.cc-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.cc-h{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;gap:6px}
+.cc-head-main{min-width:0;display:flex;flex-direction:column;gap:2px}
+.cc-head-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .cc-sym{font-size:12px;font-weight:800;color:var(--t1)}
 .cc-pump .cc-sym{color:var(--g)}.cc-dump .cc-sym{color:var(--r)}.cc-whale .cc-sym{color:var(--b)}
 .cc-price-wrap{display:flex;align-items:center;gap:4px}
 .cc-price{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
 .cc-chg{font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px}
+.cc-fav{width:24px;height:24px;border-radius:999px;border:1px solid var(--bd);background:var(--bg2);color:var(--t3);font-size:13px;font-weight:900;cursor:pointer;transition:all .12s}
+.cc-fav:hover{color:var(--y);border-color:rgba(240,185,11,.35)}
+.cc-fav.act{color:var(--y);background:var(--y-glow);border-color:rgba(240,185,11,.35)}
 .cc-tag{font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;
   display:inline-block;margin-bottom:3px}
 .cc-stats{font-size:10px;color:var(--t2);line-height:1.5;margin-top:1px}
@@ -641,6 +690,21 @@ body{display:flex;flex-direction:column;height:100vh}
       <div class="srch-wrap">
         <input type="text" placeholder="搜索币对..." id="srch" oninput="filterP(this.value)">
       </div>
+    </div>
+    <div class="sortbar">
+      <button class="sortbtn act" data-sort="focus" onclick="setMarketSort('focus',this)">综合优先</button>
+      <button class="sortbtn" data-sort="up" onclick="setMarketSort('up',this)">最强上涨</button>
+      <button class="sortbtn" data-sort="down" onclick="setMarketSort('down',this)">最强下跌</button>
+      <button class="sortbtn" data-sort="whale" onclick="setMarketSort('whale',this)">大户优先</button>
+      <button class="sortbtn" data-sort="anomaly" onclick="setMarketSort('anomaly',this)">异常优先</button>
+    </div>
+    <div class="quickbar">
+      <button class="quickbtn act" data-filter="all" onclick="setMarketQuickFilter('all',this)">全部</button>
+      <button class="quickbtn" data-filter="fav" onclick="setMarketQuickFilter('fav',this)">只看自选</button>
+      <button class="quickbtn" data-filter="key" onclick="setMarketQuickFilter('key',this)">重点以上</button>
+      <button class="quickbtn" data-filter="strong" onclick="setMarketQuickFilter('strong',this)">只看强提醒</button>
+      <button class="quickbtn" data-filter="whale" onclick="setMarketQuickFilter('whale',this)">只看大户</button>
+      <button class="quickbtn" data-filter="anomaly" onclick="setMarketQuickFilter('anomaly',this)">只看异常</button>
     </div>
     <!-- 鲸鱼区域（上，固定高度） -->
     <div class="ls-vsec" style="flex:0 0 22%">
@@ -838,6 +902,12 @@ body{display:flex;flex-direction:column;height:100vh}
       <div class="ra-sec-hdr"><span>实时信号</span><span class="ra-cnt" id="sig-cnt">0</span></div>
       <div class="ra-sec-hdr"><span>预警通知</span><span class="ra-cnt" id="al-cnt">0</span></div>
     </div>
+    <div class="filterbar">
+      <button class="filterbtn act" data-window="all" onclick="setSignalWindow('all',this)">全部</button>
+      <button class="filterbtn" data-window="5m" onclick="setSignalWindow('5m',this)">最近5分钟</button>
+      <button class="filterbtn" data-window="15m" onclick="setSignalWindow('15m',this)">最近15分钟</button>
+      <button class="filterbtn" data-window="60m" onclick="setSignalWindow('60m',this)">最近1小时</button>
+    </div>
     <div class="ra-body">
       <div class="ra-col">
         <div class="ra-list" id="sig-list"><div class="empty-p">📡<br>等待信号<br><span style="color:var(--t3)">评分 ≥ 70 触发</span></div></div>
@@ -867,6 +937,7 @@ body{display:flex;flex-direction:column;height:100vh}
             <div class="cap-btns">
               <button class="cbtn ccp" id="rbcp" onclick="copySym()">复制代码</button>
               <button class="cbtn cbn" onclick="openBN()">币安交易</button>
+              <button class="favbtn" id="rbfav" onclick="toggleFavorite()">☆ 加入自选</button>
             </div>
             <div class="cap-stats">
               <div class="cst"><span class="cst-l">买一</span><span class="cst-v cup" id="rd-bid">--</span></div>
@@ -887,6 +958,35 @@ body{display:flex;flex-direction:column;height:100vh}
             <div class="cas-main" id="rd-summary">等待市场数据...</div>
             <div class="cas-reason" id="rd-reason">有新信号时，这里会直接告诉你为什么触发。</div>
           </div>
+          <div class="sigdetail">
+            <div class="sigdetail-h">
+              <span class="sigdetail-title">信号详情</span>
+              <span class="sigdetail-tag" id="signal-detail-tag">等待信号</span>
+            </div>
+            <div class="sigdetail-main" id="signal-detail-text">点左侧币种、信号卡或预警卡后，这里会显示当前最值得注意的原因。</div>
+            <div class="sigdetail-meta">
+              <div class="sigmeta">
+                <div class="sigmeta-l">当前级别</div>
+                <div class="sigmeta-v" id="signal-detail-level">观察</div>
+              </div>
+              <div class="sigmeta">
+                <div class="sigmeta-l">最近价格</div>
+                <div class="sigmeta-v" id="signal-detail-price">--</div>
+              </div>
+              <div class="sigmeta">
+                <div class="sigmeta-l">24h 涨跌</div>
+                <div class="sigmeta-v" id="signal-detail-change">--</div>
+              </div>
+              <div class="sigmeta">
+                <div class="sigmeta-l">主动买入占比</div>
+                <div class="sigmeta-v" id="signal-detail-tbr">--</div>
+              </div>
+            </div>
+            <div class="sigdetail-recents">
+              <div class="sigdetail-subttl">最近同类提醒</div>
+              <div id="signal-detail-history"><div class="sigdetail-empty">点开信号后，这里会显示同一币种最近几次相近提醒。</div></div>
+            </div>
+          </div>
           <div class="ca-cvd">
             <div class="cvd-hdr">
               <span class="cvd-ttl">主动买卖量差</span>
@@ -897,6 +997,13 @@ body{display:flex;flex-direction:column;height:100vh}
           <div class="ca-fac">
             <div class="caf-ttl">信号因子</div>
             <div id="rf-list"></div>
+          </div>
+          <div class="ca-enterprise">
+            <div class="cae-head">
+              <span class="cae-title">企业级盯盘指标</span>
+              <span class="cae-sub">成交 / 盘口 / 价格 / 资金 / 跨周期 / 市场 / 质量</span>
+            </div>
+            <div class="cae-grid" id="enterprise-metrics"></div>
           </div>
           <div class="ca-bt-hdr">
             <span>近期大单</span>
@@ -939,12 +1046,14 @@ body{display:flex;flex-direction:column;height:100vh}
 <div class="ctip" id="ctip"></div>
 
 <script>
-const S={syms:[],feed:[],sel:null,sm:{},cvdH:{},seen:new Set(),alerts:[],tr:{},
+const S={syms:[],feed:[],sel:null,sm:{},cvdH:{},metricH:{},signalPerf:{},seen:new Set(),alerts:[],tr:{},detailSignal:null,favorites:[],
   trader:{account_id:0,balances:[],open_orders:[],order_history:[],trade_history:[]},
   ui:{pairAll:'',pairSig:'',pairWhale:'',pairMini:'',ticker:'',signals:'',alerts:'',detailKey:''}};
 const A=0.25,HL=60;
 let curIv='60',tvSym='',oaTabMode=0,tradeType=0,searchQ='';
+let marketSort='focus',signalWindow='all',marketQuickFilter='all';
 let tvLoadingPromise=null;
+const VIEW_PREF_KEY='bb_market_view_prefs_v1';
 const IVMAP={'1':'1m','3':'3m','5':'5m','15':'15m','30':'30m',
   '60':'1h','120':'2h','240':'4h','360':'6h','480':'8h','720':'12h',
   'D':'1d','3D':'3d','W':'1w','M':'1M'};
@@ -994,6 +1103,7 @@ document.querySelectorAll('.kt[data-iv]').forEach(t=>{
   t.onclick=async ()=>{
     document.querySelectorAll('.kt[data-iv]').forEach(x=>x.classList.remove('act'));
     t.classList.add('act');curIv=t.dataset.iv;
+    saveViewPrefs();
     if(S.sel){
       initTV(S.sel,curIv);
       await loadSymbolDetail(S.sel,true);
@@ -1005,6 +1115,86 @@ document.querySelectorAll('.kt[data-iv]').forEach(t=>{
 // ── 左侧搜索 ─────────────────────────────────────────────────────
 function filterP(q){searchQ=q.toUpperCase();renderPairList();}
 
+function saveViewPrefs(){
+  try{
+    localStorage.setItem(VIEW_PREF_KEY,JSON.stringify({
+      marketSort,signalWindow,marketQuickFilter,
+      favorites:S.favorites||[],
+      selectedSymbol:S.sel||null,
+      selectedInterval:curIv||'60'
+    }));
+  }catch(_){}
+}
+
+function loadViewPrefs(){
+  try{
+    const raw=localStorage.getItem(VIEW_PREF_KEY);
+    if(!raw)return;
+    const pref=JSON.parse(raw);
+    if(pref.marketSort)marketSort=pref.marketSort;
+    if(pref.signalWindow)signalWindow=pref.signalWindow;
+    if(pref.marketQuickFilter)marketQuickFilter=pref.marketQuickFilter;
+    if(Array.isArray(pref.favorites))S.favorites=pref.favorites;
+    if(pref.selectedSymbol)S.sel=pref.selectedSymbol;
+    if(pref.selectedInterval)curIv=pref.selectedInterval;
+  }catch(_){}
+}
+
+function syncViewControls(){
+  document.querySelectorAll('.sortbtn').forEach(btn=>btn.classList.toggle('act',btn.dataset.sort===marketSort));
+  document.querySelectorAll('.filterbtn').forEach(btn=>btn.classList.toggle('act',btn.dataset.window===signalWindow));
+  document.querySelectorAll('.quickbtn').forEach(btn=>btn.classList.toggle('act',btn.dataset.filter===marketQuickFilter));
+  document.querySelectorAll('.kt[data-iv]').forEach(btn=>btn.classList.toggle('act',btn.dataset.iv===curIv));
+}
+
+function setMarketSort(mode,el){
+  marketSort=mode;
+  document.querySelectorAll('.sortbtn').forEach(btn=>btn.classList.toggle('act',btn===el));
+  saveViewPrefs();
+  renderPairList();
+}
+
+function setSignalWindow(windowKey,el){
+  signalWindow=windowKey;
+  document.querySelectorAll('.filterbtn').forEach(btn=>btn.classList.toggle('act',btn===el));
+  saveViewPrefs();
+  renderSigs();
+  checkAlerts();
+}
+
+function setMarketQuickFilter(mode,el){
+  marketQuickFilter=mode;
+  document.querySelectorAll('.quickbtn').forEach(btn=>btn.classList.toggle('act',btn===el));
+  saveViewPrefs();
+  renderPairList();
+}
+
+function isFavorite(sym){
+  return (S.favorites||[]).includes(sym);
+}
+
+function toggleFavorite(sym=S.sel){
+  if(!sym)return;
+  if(isFavorite(sym)){
+    S.favorites=(S.favorites||[]).filter(x=>x!==sym);
+  }else{
+    S.favorites=[...(S.favorites||[]),sym];
+  }
+  saveViewPrefs();
+  renderPairList();
+  renderPairMini();
+  renderTicker();
+  refreshFavoriteButton();
+}
+
+function refreshFavoriteButton(){
+  const btn=document.getElementById('rbfav');
+  if(!btn||!S.sel)return;
+  const act=isFavorite(S.sel);
+  btn.textContent=act?'★ 已加入自选':'☆ 加入自选';
+  btn.classList.toggle('act',act);
+}
+
 function mergeSymbols(next){
   const prevMap=new Map((S.syms||[]).map(s=>[s.symbol,s]));
   return (next||[]).map(symbol=>{
@@ -1015,6 +1205,36 @@ function mergeSymbols(next){
     if((!symbol.big_trades||symbol.big_trades.length===0)&&prev.big_trades)symbol.big_trades=prev.big_trades;
     return symbol;
   });
+}
+
+function signalTypeFromTag(tag=''){
+  const t=String(tag||'').toLowerCase();
+  if(t.includes('上涨'))return 'pump';
+  if(t.includes('下跌'))return 'dump';
+  if(t.includes('大户'))return 'whale';
+  if(t.includes('异常'))return 'anomaly';
+  if(t.includes('主动买卖量差')||t.includes('主动买入')||t.includes('主动卖出'))return 'cvd';
+  return '';
+}
+
+function parseFeedAgeMinutes(timeText){
+  if(timeText==='实时')return 0;
+  if(!timeText||!timeText.includes(':'))return Number.MAX_SAFE_INTEGER;
+  const now=new Date();
+  const [h,m,s]=(timeText||'').split(':').map(v=>parseInt(v,10)||0);
+  const dt=new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,s||0,0);
+  let diff=(now.getTime()-dt.getTime())/60000;
+  if(diff<0)diff+=24*60;
+  return diff;
+}
+
+function withinWindow(timeText){
+  if(signalWindow==='all')return true;
+  const age=parseFeedAgeMinutes(timeText);
+  if(signalWindow==='5m')return age<=5;
+  if(signalWindow==='15m')return age<=15;
+  if(signalWindow==='60m')return age<=60;
+  return true;
 }
 
 function upsertSymbolDetail(detail){
@@ -1264,6 +1484,278 @@ async function cancelAll(){
 function ema(sym,k,v){if(!S.sm[sym])S.sm[sym]={};const p=S.sm[sym][k];if(p===undefined){S.sm[sym][k]=v;return v;}const r=A*v+(1-A)*p;S.sm[sym][k]=r;return r;}
 function sv(sym,k){return S.sm[sym]?.[k]??0;}
 
+function pct(v,total){return total>0?(v/total*100):0;}
+function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+function avg(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0;}
+function sum(arr){return arr.reduce((a,b)=>a+b,0);}
+function fmtMetricValue(v,unit=''){
+  if(typeof v==='string')return v;
+  if(!Number.isFinite(v))return '--';
+  if(unit==='%')return `${v.toFixed(1)}%`;
+  if(unit==='x')return `${v.toFixed(2)}x`;
+  if(unit==='bps')return `${v.toFixed(1)} 基点`;
+  if(unit==='count')return `${Math.round(v)}`;
+  if(unit==='ratio')return `${v.toFixed(2)}`;
+  if(unit==='compact')return fN(v);
+  return `${v.toFixed(2)}${unit}`;
+}
+function metricTone(score,invert=false){
+  const s=invert?(100-score):score;
+  return s>=70?'cae-good':s>=40?'cae-warn':'cae-bad';
+}
+function calcReturnPct(bars){
+  if(!bars||bars.length<2)return 0;
+  const first=bars[0]?.o||bars[0]?.c||0;
+  const last=bars[bars.length-1]?.c||0;
+  return first?((last-first)/first*100):0;
+}
+function getBars(sym,interval,count){
+  const s=S.syms.find(x=>x.symbol===sym);
+  const bars=s?.klines?.[interval]||[];
+  return bars.slice(Math.max(0,bars.length-count));
+}
+function getCurrentBar(sym,interval){
+  const s=S.syms.find(x=>x.symbol===sym);
+  return s?.current_kline?.[interval]||null;
+}
+function depthTotals(levels,n){
+  return (levels||[]).slice(0,n).reduce((acc,[p,q])=>acc+((+p||0)*(+q||0)),0);
+}
+function depthGap(levels){
+  const list=(levels||[]).slice(0,8).map(x=>+x[0]||0).filter(Boolean);
+  if(list.length<3)return 0;
+  const gaps=[];
+  for(let i=1;i<list.length;i++){
+    const prev=list[i-1],cur=list[i];
+    gaps.push(Math.abs(cur-prev)/(prev||1)*10000);
+  }
+  return Math.max(...gaps,0);
+}
+function walkBookCost(levels,notionalTarget){
+  let remain=notionalTarget;
+  let filledQty=0,spent=0,lastPx=0;
+  for(const [p,q] of (levels||[])){
+    const px=+p||0,qty=+q||0;
+    if(px<=0||qty<=0)continue;
+    const levelNotional=px*qty;
+    const take=Math.min(remain,levelNotional);
+    spent+=take;
+    filledQty+=take/px;
+    remain-=take;
+    lastPx=px;
+    if(remain<=0)break;
+  }
+  return {spent,filledQty,remain,lastPx};
+}
+function ensureMetricHistory(sym,s){
+  if(!S.metricH[sym])S.metricH[sym]=[];
+  const bids=s.top_bids||[],asks=s.top_asks||[];
+  const item={
+    t:Date.now(),
+    mid:sv(sym,'mid'),
+    cvd:sv(sym,'cvd'),
+    tbr:sv(sym,'tbr'),
+    ps:sv(sym,'ps'),
+    ds:sv(sym,'ds'),
+    bid5:depthTotals(bids,5),
+    ask5:depthTotals(asks,5),
+    bid10:depthTotals(bids,10),
+    ask10:depthTotals(asks,10),
+    bid20:depthTotals(bids,20),
+    ask20:depthTotals(asks,20),
+    wallBid:s.max_bid_ratio||0,
+    wallAsk:s.max_ask_ratio||0,
+    spread:s.spread_bps||0,
+    anomaly:s.anomaly_max_severity||0
+  };
+  const hist=S.metricH[sym];
+  const prev=hist[hist.length-1];
+  if(!prev || item.t-prev.t>4000){
+    hist.push(item);
+    if(hist.length>180)hist.shift();
+  }else{
+    hist[hist.length-1]=item;
+  }
+}
+function metricDeltaPct(cur,prev){
+  if(!prev)return 0;
+  return prev?((cur-prev)/prev*100):0;
+}
+function buildMetricRow(name,score,value,tip,invert=false){
+  const width=clamp(score,0,100);
+  return `<div class="cae-row">
+    <div class="cae-name">${name}</div>
+    <div>
+      <div class="cae-bar"><div class="cae-fill ${metricTone(score,invert)}" style="width:${width}%"></div></div>
+      <div class="cae-tip">${tip}</div>
+    </div>
+    <div class="cae-val">${value}</div>
+  </div>`;
+}
+function buildMetricSection(title,sub,items){
+  return `<div class="cae-sec">
+    <div class="cae-sec-h"><span class="cae-sec-t">${title}</span><span class="cae-sec-s">${sub}</span></div>
+    <div class="cae-list">${items.map(item=>buildMetricRow(item.name,item.score,item.value,item.tip,item.invert)).join('')}</div>
+  </div>`;
+}
+function getSignalPerf(sym){
+  const list=(S.signalPerf[sym]||[]).filter(x=>x.done5||x.done15);
+  const five=list.filter(x=>x.done5);
+  const fifteen=list.filter(x=>x.done15);
+  const win5=five.length?pct(five.filter(x=>x.win5).length,five.length):0;
+  const win15=fifteen.length?pct(fifteen.filter(x=>x.win15).length,fifteen.length):0;
+  const decay=avg(list.map(x=>x.decayMinutes||0));
+  return {win5,win15,count5:five.length,count15:fifteen.length,decay};
+}
+function recordSignalPerf(sym,type,startPrice,score){
+  if(!S.signalPerf[sym])S.signalPerf[sym]=[];
+  S.signalPerf[sym].unshift({type,startPrice,score,createdAt:Date.now(),done5:false,done15:false,win5:false,win15:false,decayMinutes:null});
+  if(S.signalPerf[sym].length>80)S.signalPerf[sym].pop();
+}
+function updateSignalPerfStats(){
+  const now=Date.now();
+  Object.entries(S.signalPerf).forEach(([sym,list])=>{
+    const s=S.syms.find(x=>x.symbol===sym);
+    const current=sv(sym,'mid') || s?.mid || 0;
+    const levelScore=Math.max(s?.pump_score||0,s?.dump_score||0);
+    list.forEach(item=>{
+      const elapsedMin=(now-item.createdAt)/60000;
+      const dir=item.type==='dump'?-1:1;
+      if(!item.done5 && elapsedMin>=5){
+        item.done5=true;
+        item.win5=((current-item.startPrice)*dir)>=0;
+      }
+      if(!item.done15 && elapsedMin>=15){
+        item.done15=true;
+        item.win15=((current-item.startPrice)*dir)>=0;
+      }
+      if(item.decayMinutes==null && levelScore<Math.max(45,(item.score||60)-20)){
+        item.decayMinutes=elapsedMin;
+      }
+    });
+  });
+}
+function renderEnterpriseMetrics(sym){
+  const s=S.syms.find(x=>x.symbol===sym);
+  if(!s){e('enterprise-metrics','');return;}
+  const hist=S.metricH[sym]||[];
+  const last=hist[hist.length-1]||null;
+  const prev=hist[Math.max(0,hist.length-6)]||null;
+  const bars1m=getBars(sym,'1m',20);
+  const bars5m=getBars(sym,'5m',20);
+  const bars15m=getBars(sym,'15m',20);
+  const bars1h=getBars(sym,'1h',20);
+  const cur1m=getCurrentBar(sym,'1m');
+  const currentPx=sv(sym,'mid');
+  const bigTrades=s.big_trades||[];
+  const now=Date.now();
+  const recentBig=bigTrades.filter(t=>now-(+t.t||0)<=60000);
+  const prevBig=bigTrades.filter(t=>now-(+t.t||0)>60000 && now-(+t.t||0)<=120000);
+  const bigRecentNotional=sum(recentBig.map(t=>(+t.p||0)*(+t.q||0)));
+  const bigPrevNotional=sum(prevBig.map(t=>(+t.p||0)*(+t.q||0)));
+  const estMinuteQuote=(s.quote_vol_24h||0)/1440;
+  const largeTradeRatio=pct(bigRecentNotional,Math.max(estMinuteQuote,1));
+  const continuity=100-Math.min(100,avg((hist.slice(-8)).map(x=>Math.abs((x.tbr||50)-50)*2)));
+  const directionalContinuity=Math.abs(avg(hist.slice(-8).map(x=>(x.tbr||50)-50))*2);
+  const tradeDensity=clamp(recentBig.length*16,0,100);
+  const countSurge=prevBig.length?clamp((recentBig.length/prevBig.length)*25,0,100):clamp(recentBig.length*20,0,100);
+  const amountSurge=bigPrevNotional?clamp((bigRecentNotional/bigPrevNotional)*25,0,100):clamp(bigRecentNotional/Math.max(estMinuteQuote,1)*100,0,100);
+  const wallStrength=clamp(Math.max(s.max_bid_ratio||0,s.max_ask_ratio||0)*2.2,0,100);
+  const cancelRatioEst=clamp(Math.abs(s.ofi_raw||0)/(Math.abs(s.ofi||0)+1)*30,0,100);
+  const recoverySpeed=clamp(100-((s.spread_bps||0)*2)+Math.min(30,Math.abs(metricDeltaPct(last?.bid10||0,prev?.bid10||0))*0.3),0,100);
+  const depth5Delta=metricDeltaPct((last?.bid5||0)+(last?.ask5||0),(prev?.bid5||0)+(prev?.ask5||0));
+  const depth10Delta=metricDeltaPct((last?.bid10||0)+(last?.ask10||0),(prev?.bid10||0)+(prev?.ask10||0));
+  const depth20Delta=metricDeltaPct((last?.bid20||0)+(last?.ask20||0),(prev?.bid20||0)+(prev?.ask20||0));
+  const depthGapBps=Math.max(depthGap(s.top_bids),depthGap(s.top_asks));
+  const ret1=calcReturnPct(bars1m.slice(-5));
+  const ret5=calcReturnPct(bars5m.slice(-6));
+  const ret15=calcReturnPct(bars15m.slice(-6));
+  const ret60=calcReturnPct(bars1h.slice(-6));
+  const sameDir=[ret1,ret5,ret15,ret60].filter(v=>v!==0);
+  const multiTfConsistency=sameDir.length?clamp(Math.abs(sum(sameDir.map(v=>Math.sign(v))))/sameDir.length*100,0,100):0;
+  const rangeNow=cur1m?((cur1m.h-cur1m.l)/(cur1m.o||1)*100):0;
+  const rangeAvg=avg(bars1m.slice(-10).map(b=>((b.h-b.l)/(b.o||1)*100)));
+  const volExpand=rangeAvg?clamp(rangeNow/rangeAvg*35,0,100):0;
+  const prevHigh=Math.max(...bars1m.slice(-12).map(b=>b.h||0),0);
+  const prevLow=Math.min(...bars1m.slice(-12).map(b=>b.l||Number.MAX_SAFE_INTEGER));
+  const falseBreak=(currentPx>prevHigh && (cur1m?.c||currentPx)<prevHigh) || (currentPx<prevLow && (cur1m?.c||currentPx)>prevLow);
+  const recentSpikeBase=bars1m.slice(-10)[0]?.o||currentPx;
+  const recentExtreme=Math.max(...bars1m.slice(-10).map(b=>Math.abs((b.h-recentSpikeBase)/(recentSpikeBase||1))*100),0);
+  const pullback=Math.abs(recentExtreme-Math.abs((currentPx-recentSpikeBase)/(recentSpikeBase||1)*100));
+  const acceptance=(currentPx>=prevHigh*0.998 || currentPx<=prevLow*1.002)?clamp((s.taker_buy_ratio||50),0,100):45;
+  const accumulation=((s.cvd>0?1:-1)*((s.taker_buy_ratio||50)-50)>=0 && (s.obi||0)>0)?78:((s.cvd<0 && (s.obi||0)<0)?25:52);
+  const whaleFollow=s.whale_entry?clamp(((s.pump_score||0)+(s.taker_buy_ratio||50))/1.5,0,100):s.whale_exit?clamp(((s.dump_score||0)+(100-(s.taker_buy_ratio||50)))/1.5,0,100):45;
+  const wallDwell=hist.length>=3?clamp(avg(hist.slice(-6).map(x=>Math.max(x.wallBid,x.wallAsk)))*2,0,100):0;
+  const cvdSlope=hist.length>=2?((last?.cvd||0)-(prev?.cvd||0))/Math.max(Math.abs(prev?.cvd||0),1000)*100:0;
+  const resonance=clamp((multiTfConsistency + Math.max(s.pump_score||0,s.dump_score||0))/2,0,100);
+  const confirmation=(Math.abs(ret1)>0.2 && Math.abs(ret5)>0.2 && Math.sign(ret1)===Math.sign(ret5))?78:38;
+  const upCount=S.syms.filter(x=>(x.change_24h_pct||0)>0).length;
+  const downCount=S.syms.filter(x=>(x.change_24h_pct||0)<0).length;
+  const strongShare=pct(S.syms.filter(x=>Math.max(x.pump_score||0,x.dump_score||0)>=70).length,Math.max(S.syms.length,1));
+  const anomalyShare=pct(S.syms.filter(x=>(x.anomaly_max_severity||0)>=75).length,Math.max(S.syms.length,1));
+  const linkage=clamp(Math.abs(upCount-downCount)/Math.max(S.syms.length,1)*100 + strongShare*0.4,0,100);
+  const spreadLevel=clamp(100-(s.spread_bps||0)*2.5,0,100);
+  const bookImpact=walkBookCost(s.top_asks,1000);
+  const buyAvgPx=bookImpact.filledQty?bookImpact.spent/bookImpact.filledQty:currentPx;
+  const slippageRisk=Math.abs(buyAvgPx-currentPx)/(currentPx||1)*10000;
+  const executableDepth=clamp((1-(bookImpact.remain/1000))*100,0,100);
+  const liquidityWarning=clamp(((s.spread_bps||0)*1.6)+(100-executableDepth)+(s.anomaly_max_severity||0)*0.35,0,100);
+  const perf=getSignalPerf(sym);
+
+  const sections=[
+    buildMetricSection('成交结构','大单与主动成交',[
+      {name:'大单成交占比',score:clamp(largeTradeRatio,0,100),value:fmtMetricValue(largeTradeRatio,'%'),tip:`最近1分钟大单成交额相当于日均每分钟成交额的 ${largeTradeRatio.toFixed(1)}%。`},
+      {name:'买卖连续性',score:clamp(directionalContinuity,0,100),value:fmtMetricValue(directionalContinuity,'%'),tip:`主动买卖方向连续程度，越高说明一边更持续。`},
+      {name:'短时成交密度',score:tradeDensity,value:fmtMetricValue(recentBig.length,'count'),tip:`最近1分钟捕捉到 ${recentBig.length} 笔大额成交。`},
+      {name:'笔数突变',score:countSurge,value:fmtMetricValue(recentBig.length-prevBig.length,'count'),tip:`对比前1分钟，大单笔数变化更明显。`},
+      {name:'成交额突变',score:amountSurge,value:fmtMetricValue(bigRecentNotional,'compact'),tip:`最近1分钟大单成交额与前1分钟对比。`}
+    ]),
+    buildMetricSection('盘口结构','深度与挂单质量',[
+      {name:'买卖墙强度',score:wallStrength,value:fmtMetricValue(Math.max(s.max_bid_ratio||0,s.max_ask_ratio||0),'%'),tip:`大额挂单在前排深度中的占比。`},
+      {name:'挂撤单比',score:cancelRatioEst,value:fmtMetricValue(cancelRatioEst,'%'),tip:`根据深度净变化和原始订单流估算，数值高说明撤改单更频繁。`,invert:true},
+      {name:'恢复速度',score:recoverySpeed,value:fmtMetricValue(recoverySpeed,'%'),tip:`点差与深度恢复综合估算，越高越容易迅速回补。`},
+      {name:'前5/10/20档变化',score:clamp((Math.abs(depth5Delta)+Math.abs(depth10Delta)+Math.abs(depth20Delta))/3,0,100),value:`${depth5Delta.toFixed(0)} / ${depth10Delta.toFixed(0)} / ${depth20Delta.toFixed(0)}%`,tip:`对比约 20-30 秒前的深度变化。`},
+      {name:'深度断层',score:clamp(depthGapBps/2,0,100),value:fmtMetricValue(depthGapBps,'bps'),tip:`相邻档位价格跳空越大，深度断层越明显。`,invert:true}
+    ]),
+    buildMetricSection('价格行为','多周期价格状态',[
+      {name:'多周期一致性',score:multiTfConsistency,value:fmtMetricValue(multiTfConsistency,'%'),tip:`1m / 5m / 15m / 1h 涨跌方向一致程度。`},
+      {name:'波动扩张/收缩',score:volExpand,value:fmtMetricValue(volExpand,'%'),tip:`当前 1m 波动相对最近 10 根 1m 的放大程度。`},
+      {name:'假突破识别',score:falseBreak?82:28,value:falseBreak?'疑似假突破':'暂未发现',tip:`刚破高/破低又收回时更需要防追单。`,invert:!falseBreak?false:true},
+      {name:'回吐幅度',score:clamp(pullback*10,0,100),value:fmtMetricValue(pullback,'%'),tip:`急拉急砸后已经回吐的幅度，越大越需要谨慎。`,invert:true},
+      {name:'新高/低承接',score:acceptance,value:fmtMetricValue(acceptance,'%'),tip:`新高或新低附近是否仍有主动承接。`}
+    ]),
+    buildMetricSection('资金痕迹','吸筹、派发与大户跟随',[
+      {name:'持续吸筹/派发',score:accumulation,value:s.cvd>=0?'偏吸筹':'偏派发',tip:`结合主动买卖量差、主动买入占比和盘口失衡。`},
+      {name:'大户跟随强度',score:whaleFollow,value:fmtMetricValue(whaleFollow,'%'),tip:`大户信号出现后，盘口和主动成交是否继续跟随。`},
+      {name:'大单停留时间',score:wallDwell,value:fmtMetricValue(wallDwell,'%'),tip:`根据大墙连续出现历史估算，越高说明挂单停留更久。`},
+      {name:'主动买卖量差斜率',score:clamp(Math.abs(cvdSlope),0,100),value:fmtMetricValue(cvdSlope,'%'),tip:`主动买卖量差增长或衰减速度。`}
+    ]),
+    buildMetricSection('跨周期指标','信号共振与确认',[
+      {name:'1m/5m/15m/1h共振',score:resonance,value:fmtMetricValue(resonance,'%'),tip:`短中周期信号是否同时偏向同一方向。`},
+      {name:'短期获中期确认',score:confirmation,value:confirmation>=60?'已确认':'待确认',tip:`短周期异动是否已得到 5m / 15m 方向确认。`}
+    ]),
+    buildMetricSection('市场广度','全市场同步状态',[
+      {name:'上涨/下跌家数',score:pct(Math.max(upCount,downCount),Math.max(S.syms.length,1)),value:`${upCount} / ${downCount}`,tip:`当前全市场上涨家数与下跌家数。`},
+      {name:'强势币占比',score:strongShare,value:fmtMetricValue(strongShare,'%'),tip:`拉升或下跌评分达到 70 分以上的币占比。`},
+      {name:'异常币占比',score:anomalyShare,value:fmtMetricValue(anomalyShare,'%'),tip:`异常波动严重的币占比。`},
+      {name:'板块联动强弱',score:linkage,value:fmtMetricValue(linkage,'%'),tip:`全市场方向集中度和强势币占比综合估算。`}
+    ]),
+    buildMetricSection('交易质量','可成交性与流动性',[
+      {name:'点差水平',score:spreadLevel,value:fmtMetricValue(s.spread_bps||0,'bps'),tip:`点差越小，短线执行质量越好。`},
+      {name:'深度可成交性',score:executableDepth,value:fmtMetricValue(executableDepth,'%'),tip:`按 1000 USDT 试算，盘口可立即承接的程度。`},
+      {name:'滑点风险估计',score:clamp(slippageRisk*6,0,100),value:fmtMetricValue(slippageRisk,'bps'),tip:`按 1000 USDT 吃单估算的买入滑点。`,invert:true},
+      {name:'流动性恶化预警',score:liquidityWarning,value:liquidityWarning>=70?'偏高':'正常',tip:`结合点差、可成交深度和异常波动的综合风险。`,invert:true}
+    ]),
+    buildMetricSection('信号质量','最近触发后的表现',[
+      {name:'过去5分钟表现',score:perf.win5,value:perf.count5?`${perf.win5.toFixed(0)}%`:'样本少',tip:`当前页面运行期间，信号触发 5 分钟后方向正确的比例。`},
+      {name:'过去15分钟表现',score:perf.win15,value:perf.count15?`${perf.win15.toFixed(0)}%`:'样本少',tip:`当前页面运行期间，信号触发 15 分钟后方向正确的比例。`},
+      {name:'胜率/误报率',score:perf.win15||perf.win5,value:perf.count15?`${perf.win15.toFixed(0)} / ${(100-perf.win15).toFixed(0)}%`:'待积累',tip:`胜率越高说明信号更稳定；误报率越低越好。`},
+      {name:'信号衰减速度',score:clamp(100-(perf.decay||0)*6,0,100),value:perf.decay?`${perf.decay.toFixed(1)} 分钟`:'待积累',tip:`信号从强提醒回落到普通关注的平均时间。`}
+    ])
+  ];
+  setHtmlIfChanged('enterprise-metrics',sections.join(''),'enterprise');
+}
+
 // ── CVD Canvas ───────────────────────────────────────────────────
 function drawCVD(sym){
   const c=document.getElementById('cvd-c');const ctx=c.getContext('2d');
@@ -1300,6 +1792,7 @@ function render(data){
     ema(s.symbol,'ds',s.dump_score||0);ema(s.symbol,'ofi',s.ofi||0);ema(s.symbol,'mid',s.mid||0);
     if(!S.sm[s.symbol])S.sm[s.symbol]={};
     S.sm[s.symbol].cvd=s.cvd||0;S.sm[s.symbol].tbr=s.taker_buy_ratio||50;
+    ensureMetricHistory(s.symbol,s);
     if(!S.cvdH[s.symbol])S.cvdH[s.symbol]=[];
     S.cvdH[s.symbol].push({t:nowT(),v:s.cvd||0});
     if(S.cvdH[s.symbol].length>HL)S.cvdH[s.symbol].shift();
@@ -1312,12 +1805,16 @@ function render(data){
 
   const act=S.syms.filter(s=>sv(s.symbol,'ps')>=60||sv(s.symbol,'ds')>=60).length;
   e('nc',S.syms.length);e('ns2',act);
+  updateSignalPerfStats();
 
   renderPairList();renderPairMini();renderTicker();renderSigs();checkAlerts();
 
   const cur=S.sel||(S.syms[0]?.symbol);
   if(cur){
-    if(!S.sel){S.sel=cur;initTV(cur,curIv);}
+    if(!S.sel){S.sel=cur;saveViewPrefs();}
+    if(tvSym!==('BINANCE:'+cur) || !document.getElementById('tv-widget').children.length){
+      initTV(cur,curIv);
+    }
     renderDetail(cur);
     const selected=S.syms.find(x=>x.symbol===cur);
     if(selected&&(!selected.klines||Object.keys(selected.klines).length===0)){
@@ -1330,7 +1827,30 @@ function render(data){
 
 // ── 币对列表（三区同时渲染，scard 风格）──────────────────────
 function renderPairList(){
-  let all=[...S.syms].sort((a,b)=>Math.max(sv(b.symbol,'ps'),sv(b.symbol,'ds'))-Math.max(sv(a.symbol,'ps'),sv(a.symbol,'ds')));
+  let all=[...S.syms];
+  const scoreOf=s=>Math.max(sv(s.symbol,'ps'),sv(s.symbol,'ds'));
+  if(marketSort==='up'){
+    all.sort((a,b)=>sv(b.symbol,'ps')-sv(a.symbol,'ps') || (b.change_24h_pct||0)-(a.change_24h_pct||0));
+  }else if(marketSort==='down'){
+    all.sort((a,b)=>sv(b.symbol,'ds')-sv(a.symbol,'ds') || Math.abs(b.change_24h_pct||0)-Math.abs(a.change_24h_pct||0));
+  }else if(marketSort==='whale'){
+    all.sort((a,b)=>(Number(b.whale_entry||b.whale_exit)-Number(a.whale_entry||a.whale_exit)) || (b.max_bid_ratio||0)-(a.max_bid_ratio||0) || scoreOf(b)-scoreOf(a));
+  }else if(marketSort==='anomaly'){
+    all.sort((a,b)=>(b.anomaly_max_severity||0)-(a.anomaly_max_severity||0) || (b.anomaly_count_1m||0)-(a.anomaly_count_1m||0) || scoreOf(b)-scoreOf(a));
+  }else{
+    all.sort((a,b)=>scoreOf(b)-scoreOf(a) || (b.anomaly_max_severity||0)-(a.anomaly_max_severity||0));
+  }
+  if(marketQuickFilter==='fav'){
+    all=all.filter(s=>isFavorite(s.symbol));
+  }else if(marketQuickFilter==='key'){
+    all=all.filter(s=>['重点关注','强提醒'].includes(s.watch_level));
+  }else if(marketQuickFilter==='strong'){
+    all=all.filter(s=>s.watch_level==='强提醒');
+  }else if(marketQuickFilter==='whale'){
+    all=all.filter(s=>s.whale_entry||s.whale_exit);
+  }else if(marketQuickFilter==='anomaly'){
+    all=all.filter(s=>(s.anomaly_max_severity||0)>=75 || (s.anomaly_count_1m||0)>=30);
+  }
   if(searchQ) all=all.filter(s=>s.symbol.includes(searchQ));
   const sigs=all.filter(s=>sv(s.symbol,'ps')>=60||sv(s.symbol,'ds')>=60);
   const whales=all.filter(s=>s.whale_entry||s.whale_exit);
@@ -1345,13 +1865,13 @@ function renderPairList(){
     let cls='',tagHtml='';
     if(s.whale_entry){
       cls='cc-whale';
-      tagHtml=`<span class="cc-tag" style="background:var(--b-glow);color:var(--b);border:1px solid rgba(24,144,255,.2)">🐋 鲸鱼进场</span>`;
+      tagHtml=`<span class="cc-tag" style="background:var(--b-glow);color:var(--b);border:1px solid rgba(24,144,255,.2)">🐋 大户进场</span>`;
     } else if(sv(s.symbol,'ps')>=70||(s.pump_signal)){
       cls='cc-pump';
-      tagHtml=`<span class="cc-tag" style="background:var(--g-dim);color:var(--g);border:1px solid rgba(14,203,129,.2)">🚀 拉盘 ${Math.round(ps)}</span>`;
+      tagHtml=`<span class="cc-tag" style="background:var(--g-dim);color:var(--g);border:1px solid rgba(14,203,129,.2)">🚀 上涨 ${Math.round(ps)}</span>`;
     } else if(sv(s.symbol,'ds')>=70||(s.dump_signal)){
       cls='cc-dump';
-      tagHtml=`<span class="cc-tag" style="background:var(--r-dim);color:var(--r);border:1px solid rgba(246,70,93,.2)">📉 砸盘 ${Math.round(ds)}</span>`;
+      tagHtml=`<span class="cc-tag" style="background:var(--r-dim);color:var(--r);border:1px solid rgba(246,70,93,.2)">📉 下跌 ${Math.round(ds)}</span>`;
     }
     const scoreBar=ps>0||ds>0?`
       <div class="cc-bars">
@@ -1359,16 +1879,22 @@ function renderPairList(){
         <div class="pib"><div class="pbf pf-r" style="width:${Math.min(100,ds)}%"></div></div>
         <div class="pib"><div class="pbf pf-b" style="width:${Math.min(100,Math.abs(obi)*2)}%"></div></div>
       </div>`:'';
-    return `<div class="coin-card ${cls}${S.sel===s.symbol?' act':''}" onclick="selSym('${s.symbol}')">
+    return `<div class="coin-card ${cls}${S.sel===s.symbol?' act':''}" onclick="focusSignal('${s.symbol}','${s.watch_level||'观察'}','${(s.signal_reason||s.status_summary||'继续观察市场变化').replace(/'/g,'&#39;')}')">
       <div class="cc-h">
-        <span class="cc-sym">${sym}<span style="font-size:9px;color:var(--t3);font-weight:400">/USDT</span></span>
-        <div class="cc-price-wrap">
-          <span class="cc-price" style="color:${chgColor}">${fP(mid)}</span>
-          <span class="cc-chg" style="color:${chgColor};background:${chgBg}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>
+        <div class="cc-head-main">
+          <span class="cc-sym">${sym}<span style="font-size:9px;color:var(--t3);font-weight:400">/USDT</span></span>
+          <div class="cc-price-wrap">
+            <span class="cc-price" style="color:${chgColor}">${fP(mid)}</span>
+            <span class="cc-chg" style="color:${chgColor};background:${chgBg}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>
+          </div>
+        </div>
+        <div class="cc-head-actions">
+          <button class="cc-fav ${isFavorite(s.symbol)?'act':''}" onclick="event.stopPropagation();toggleFavorite('${s.symbol}')">${isFavorite(s.symbol)?'★':'☆'}</button>
         </div>
       </div>
       ${tagHtml?`<div>${tagHtml}</div>`:''}
       <div class="cc-stats" style="color:var(--t3)">拉:<span style="color:${ps>=60?'var(--g)':'var(--t2)'}">${Math.round(ps)}</span> &nbsp;砸:<span style="color:${ds>=60?'var(--r)':'var(--t2)'}">${Math.round(ds)}</span> &nbsp;买卖盘失衡:<span>${obi.toFixed(1)}%</span></div>
+      <div class="cc-stats" style="color:var(--t3)">${s.watch_level||'观察'} · ${s.status_summary||'继续观察市场变化'}</div>
       ${scoreBar}
     </div>`;
   };
@@ -1390,7 +1916,7 @@ function renderPairMini(){
   const list=[...S.syms].sort((a,b)=>Math.max(sv(b.symbol,'ps'),sv(b.symbol,'ds'))-Math.max(sv(a.symbol,'ps'),sv(a.symbol,'ds'))).slice(0,5);
   setHtmlIfChanged('pair-mini',list.map(s=>{
     const chg=s.change_24h_pct||0,cls=chg>=0?'pmu':'pmd';
-    return `<div class="pi-mini" onclick="selSym('${s.symbol}')">
+    return `<div class="pi-mini" onclick="focusSignal('${s.symbol}','${s.watch_level||'观察'}','${(s.signal_reason||s.status_summary||'继续观察市场变化').replace(/'/g,'&#39;')}')">
       <span class="pm-sym">${s.symbol.replace('USDT','/U')}</span>
       <span class="pm-p" style="color:${chg>=0?'var(--g)':'var(--r)'}">${fP(sv(s.symbol,'mid'))}</span>
       <span class="pm-c ${cls}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>
@@ -1403,7 +1929,7 @@ function renderTicker(){
   const top=[...S.syms].sort((a,b)=>Math.abs(b.change_24h_pct||0)-Math.abs(a.change_24h_pct||0)).slice(0,20);
   setHtmlIfChanged('ticker-scroll',top.map(s=>{
     const chg=s.change_24h_pct||0,cls=chg>=0?'tbu':'tbd';
-    return `<div class="tbi" onclick="selSym('${s.symbol}')">
+    return `<div class="tbi" onclick="focusSignal('${s.symbol}','${s.watch_level||'观察'}','${(s.signal_reason||s.status_summary||'继续观察市场变化').replace(/'/g,'&#39;')}')">
       <span class="tb-s">${s.symbol.replace('USDT','/U')}</span>
       <span class="tb-p" style="color:${chg>=0?'var(--g)':'var(--r)'}">${fP(sv(s.symbol,'mid'))}</span>
       <span class="tb-c ${cls}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>
@@ -1414,10 +1940,55 @@ function renderTicker(){
 // ── 选中币种 ─────────────────────────────────────────────────────
 async function selSym(sym){
   S.sel=sym;
+  saveViewPrefs();
   initTV(sym,curIv);
   renderDetail(sym);
   renderPairList();
   await loadSymbolDetail(sym,true);
+}
+
+function buildSignalHistory(sym,signal){
+  const targetType=signalTypeFromTag(signal?.tag||'');
+  const feedItems=(S.feed||[])
+    .filter(item=>item.symbol===sym && (!targetType || item.type===targetType))
+    .map(item=>({time:item.time||'--',desc:item.desc||''}));
+  const alertItems=(S.alerts||[])
+    .filter(item=>item.full===sym && (!targetType || item.type===targetType))
+    .map(item=>({time:item.time||'--',desc:item.desc||''}));
+  const seen=new Set();
+  return [...alertItems,...feedItems].filter(item=>{
+    const key=`${item.time}|${item.desc}`;
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  }).slice(0,5);
+}
+
+function updateSignalDetail(sym,signal){
+  const s=S.syms.find(x=>x.symbol===sym);
+  if(!s)return;
+  const change=(s.change_24h_pct||0);
+  e('signal-detail-tag',signal?.tag||'当前币种');
+  e('signal-detail-text',signal?.desc||s.signal_reason||'当前没有特别突出的异常信号。');
+  e('signal-detail-level',s.watch_level||'观察');
+  e('signal-detail-price',fP(sv(sym,'mid')));
+  e('signal-detail-change',`${change>=0?'+':''}${change.toFixed(2)}%`);
+  e('signal-detail-tbr',`${sv(sym,'tbr').toFixed(1)}%`);
+  const history=buildSignalHistory(sym,signal);
+  document.getElementById('signal-detail-history').innerHTML=history.length
+    ?history.map(item=>`<div class="sigdetail-item"><span class="sigdetail-time">${item.time}</span><span class="sigdetail-desc">${item.desc}</span></div>`).join('')
+    :'<div class="sigdetail-empty">最近还没有同类提醒，先继续观察。</div>';
+}
+
+function focusSignal(sym,signalTag='',signalDesc=''){
+  S.detailSignal={sym,tag:signalTag,desc:signalDesc};
+  selSym(sym);
+  updateSignalDetail(sym,S.detailSignal);
+  const box=document.querySelector('.ca-summary');
+  if(box){
+    box.classList.add('flash');
+    setTimeout(()=>box.classList.remove('flash'),1200);
+  }
 }
 
 // ── 详情 ─────────────────────────────────────────────────────────
@@ -1433,6 +2004,7 @@ function renderDetail(sym){
   const symShort=sym.replace('USDT','');
   const watchLevel=s.watch_level||'观察';
   const levelColor=watchLevel==='强提醒'?'var(--r)':watchLevel==='重点关注'?'var(--y)':watchLevel==='普通关注'?'var(--b)':'var(--t2)';
+  refreshFavoriteButton();
 
   // 顶部导航
   e('nav-sym',sym.replace('USDT','/USDT'));
@@ -1512,6 +2084,7 @@ function renderDetail(sym){
   document.getElementById('rd-watch-level').style.borderColor=levelColor;
   e('rd-summary',s.status_summary||'当前没有明显的主导方向，先继续观察。');
   e('rd-reason',s.signal_reason||'当前没有特别突出的异常信号。');
+  updateSignalDetail(sym,S.detailSignal&&S.detailSignal.sym===sym?S.detailSignal:null);
   es('cvd-v',fN(cvd),null,cvd>=0?'var(--g)':'var(--r)');
   drawCVD(sym);
 
@@ -1532,6 +2105,7 @@ function renderDetail(sym){
       <div><div class="fi-bar"><div class="fi-f ${f.bc}" style="width:${f.bw}%"></div></div>
       <div class="fi-tip">${f.tip}</div></div>
       <div class="fi-v ${f.vc}">${f.v}</div></div>`).join('');
+  renderEnterpriseMetrics(sym);
 
   // 大单
   const bigT=s.big_trades||[];e('bt-cnt',bigT.length);
@@ -1549,22 +2123,23 @@ function renderDetail(sym){
 function renderSigs(){
   const sigs=[];const seen=new Set();
   S.feed.slice(0,40).forEach(f=>{const k=f.time+f.symbol+f.type;if(seen.has(k))return;seen.add(k);
+    if(!withinWindow(f.time))return;
     sigs.push({time:f.time,sym:f.symbol.replace('USDT',''),full:f.symbol,type:f.type,score:f.score,desc:f.desc,fresh:sigs.length<2});});
   S.syms.forEach(s=>{
     const ps=sv(s.symbol,'ps'),ds=sv(s.symbol,'ds');
     if(ps>=70&&!sigs.find(x=>x.full===s.symbol&&x.type==='pump'))
       sigs.unshift({time:'实时',sym:s.symbol.replace('USDT',''),full:s.symbol,type:'pump',score:Math.round(ps),
-        desc:`评分${Math.round(ps)} 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}% 主动买入占比${sv(s.symbol,'tbr').toFixed(0)}%`,fresh:false});
+        desc:(s.signal_reason||`评分${Math.round(ps)} 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}% 主动买入占比${sv(s.symbol,'tbr').toFixed(0)}%`),fresh:false});
     if(ds>=70&&!sigs.find(x=>x.full===s.symbol&&x.type==='dump'))
       sigs.unshift({time:'实时',sym:s.symbol.replace('USDT',''),full:s.symbol,type:'dump',score:Math.round(ds),
-        desc:`评分${Math.round(ds)} 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`,fresh:false});
+        desc:(s.signal_reason||`评分${Math.round(ds)} 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`),fresh:false});
   });
   e('sig-cnt',sigs.length);
   const lbl={pump:'🚀 上涨异动',dump:'📉 下跌异动',whale:'🐋 大户动向',anomaly:'⚠️ 异常波动',cvd:'📊 主动买卖量差'};
   setHtmlIfChanged(
     'sig-list',
     sigs.slice(0,20).map((s,i)=>`
-      <div class="scard ${s.type}" onclick="selSym('${s.full}')">
+      <div class="scard ${s.type}" onclick="focusSignal('${s.full}','${(lbl[s.type]||s.type).replace(/'/g,'&#39;')}','${String(s.desc||'').replace(/'/g,'&#39;')}')">
         ${i===0?'<div class="sc-new">NEW</div>':''}
         <div class="sc-h"><span class="sc-sym">${s.sym}</span><span class="sc-t">${s.time}</span></div>
         <div class="sc-tag">${lbl[s.type]||s.type}</div>
@@ -1582,26 +2157,28 @@ function renderSigs(){
 function checkAlerts(){
   S.syms.forEach(s=>{
     const ps=sv(s.symbol,'ps'),ds=sv(s.symbol,'ds'),sym=s.symbol.replace('USDT',''),t=nowT();
+    if(signalWindow!=='all'&&!withinWindow(t))return;
     if(ps>=75){const id=`p-${s.symbol}-${Math.floor(Date.now()/30000)}`;
       if(!S.seen.has(id)){S.seen.add(id);S.alerts.unshift({type:'pump',sym,full:s.symbol,
-        tag:'🚀 上涨异动',time:t,desc:`评分${Math.round(ps)}/100 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`,fresh:true});}}
+        tag:'🚀 上涨异动',time:t,desc:(s.signal_reason||`评分${Math.round(ps)}/100 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`),fresh:true});recordSignalPerf(s.symbol,'pump',sv(s.symbol,'mid'),ps);}}
     if(ds>=75){const id=`d-${s.symbol}-${Math.floor(Date.now()/30000)}`;
       if(!S.seen.has(id)){S.seen.add(id);S.alerts.unshift({type:'dump',sym,full:s.symbol,
-        tag:'📉 下跌异动',time:t,desc:`评分${Math.round(ds)}/100 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`,fresh:true});}}
+        tag:'📉 下跌异动',time:t,desc:(s.signal_reason||`评分${Math.round(ds)}/100 买卖盘失衡${sv(s.symbol,'obi').toFixed(1)}%`),fresh:true});recordSignalPerf(s.symbol,'dump',sv(s.symbol,'mid'),ds);}}
     if(s.whale_entry){const id=`w-${s.symbol}-${Math.floor(Date.now()/60000)}`;
       if(!S.seen.has(id)){S.seen.add(id);S.alerts.unshift({type:'whale',sym,full:s.symbol,
-        tag:'🐋 大户资金进场',time:t,desc:`大单${s.max_bid_ratio.toFixed(1)}% 主动买卖量差${fN(sv(s.symbol,'cvd'))}`,fresh:true});}}
+        tag:'🐋 大户资金进场',time:t,desc:(s.signal_reason||`大单${s.max_bid_ratio.toFixed(1)}% 主动买卖量差${fN(sv(s.symbol,'cvd'))}`),fresh:true});recordSignalPerf(s.symbol,'pump',sv(s.symbol,'mid'),Math.max(ps,60));}}
     const cvd=sv(s.symbol,'cvd');
     if(Math.abs(cvd)>50000){const id=`c-${s.symbol}-${Math.floor(Date.now()/120000)}`;
       if(!S.seen.has(id)){S.seen.add(id);S.alerts.unshift({type:'cvd',sym,full:s.symbol,
-        tag:cvd>0?'📈 主动买入占优':'📉 主动卖出占优',time:t,desc:`主动买卖量差${fN(cvd)} 主动买入占比${sv(s.symbol,'tbr').toFixed(0)}%`,fresh:true});}}
+        tag:cvd>0?'📈 主动买入占优':'📉 主动卖出占优',time:t,desc:(s.signal_reason||`主动买卖量差${fN(cvd)} 主动买入占比${sv(s.symbol,'tbr').toFixed(0)}%`),fresh:true});recordSignalPerf(s.symbol,cvd>0?'pump':'dump',sv(s.symbol,'mid'),Math.max(Math.abs(cvd)/2000,55));}}
   });
   if(S.alerts.length>50)S.alerts=S.alerts.slice(0,50);
-  e('al-cnt',S.alerts.length);
-  setHtmlIfChanged('al-list',S.alerts.map((a,i)=>`
-    <div class="scard ${a.type}" onclick="selSym('${a.full}')">
+  const alerts=S.alerts.filter(a=>withinWindow(a.time)).slice(0,50);
+  e('al-cnt',alerts.length);
+  setHtmlIfChanged('al-list',alerts.map((a,i)=>`
+    <div class="scard ${a.type}" onclick="focusSignal('${a.full}','${String(a.tag||'').replace(/'/g,'&#39;')}','${String(a.desc||'').replace(/'/g,'&#39;')}')">
       ${a.fresh&&i===0?'<div class="sc-new">NEW</div>':''}
-      <span class="sc-x" onclick="event.stopPropagation();S.alerts.splice(${i},1);checkAlerts()">✕</span>
+      <span class="sc-x" onclick="event.stopPropagation();dismissAlert('${a.time}','${a.full}','${a.type}');">✕</span>
       <div class="sc-h"><span class="sc-sym">${a.sym}</span><span class="sc-t">${a.time}</span></div>
       <div class="sc-tag">${a.tag}</div>
       <div class="sc-desc">${a.desc}</div>
@@ -1611,6 +2188,10 @@ function checkAlerts(){
 // ── 工具 ─────────────────────────────────────────────────────────
 function e(id,txt){const el=document.getElementById(id);if(el)el.textContent=txt;}
 function es(id,txt,cls,color){const el=document.getElementById(id);if(!el)return;el.textContent=txt;if(cls)el.className=cls;if(color)el.style.color=color;}
+function dismissAlert(time,full,type){
+  S.alerts=S.alerts.filter(a=>!(a.time===time&&a.full===full&&a.type===type));
+  checkAlerts();
+}
 function setHtmlIfChanged(id,html,cacheKey){
   if(S.ui[cacheKey]===html)return;
   S.ui[cacheKey]=html;
@@ -1696,6 +2277,8 @@ function connect(){
   ws.onclose=()=>{document.getElementById('wdot').className='wdot';e('wlbl','重连中...');setTimeout(connect,2000);};
 }
 window.addEventListener('DOMContentLoaded',()=>{
+  loadViewPrefs();
+  syncViewControls();
   document.getElementById('buy-pct').oninput=e=>setBuyPct(e.target.value);
   document.getElementById('sell-pct').oninput=e=>setSellPct(e.target.value);
   ['buy-price','buy-qty','sell-price','sell-qty'].forEach(id=>{
