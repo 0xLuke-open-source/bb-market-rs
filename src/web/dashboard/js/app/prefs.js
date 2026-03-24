@@ -92,6 +92,14 @@ function mergeSymbols(next){
   });
 }
 
+function getSymbolState(sym){
+  if(!sym)return null;
+  const current=(S.syms||[]).find(x=>x.symbol===sym);
+  if(current)return current;
+  if(S.selectedCache&&S.selectedCache.symbol===sym)return S.selectedCache;
+  return null;
+}
+
 function signalTypeFromTag(tag=''){
   const t=String(tag||'').toLowerCase();
   if(t.includes('上涨'))return 'pump';
@@ -127,6 +135,9 @@ function upsertSymbolDetail(detail){
   const idx=(S.syms||[]).findIndex(s=>s.symbol===detail.symbol);
   if(idx>=0)S.syms[idx]={...S.syms[idx],...detail};
   else S.syms.push(detail);
+  if(S.sel===detail.symbol){
+    S.selectedCache={...(S.selectedCache||{}),...detail};
+  }
 }
 
 async function loadSymbolDetail(sym,renderAfter=false){
@@ -144,4 +155,3 @@ async function loadSymbolDetail(sym,renderAfter=false){
     return null;
   }
 }
-

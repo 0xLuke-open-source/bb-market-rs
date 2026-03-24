@@ -16,12 +16,86 @@ function fN(n){const v=+n;return Math.abs(v)>=1e9?(v/1e9).toFixed(1)+'B':Math.ab
 function fNum(n){const v=+n;return Math.abs(v)>=1000?fN(v):v.toFixed(v>=1?4:8).replace(/0+$/,'').replace(/\.$/,'');}
 function nowT(){return new Date().toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});}
 function fmtSym(sym){return sym?sym.replace('USDT','/USDT'):'--';}
+function normalizeSymbolKeyword(keyword=''){
+  return String(keyword||'').toUpperCase().replace(/\s+/g,'').replace(/[\/_-]/g,'');
+}
+function syncMarketSearchInput(keyword=''){
+  const input=document.getElementById('srch');
+  if(input)input.value=keyword;
+}
+function findSymbolByKeyword(keyword=''){
+  const normalized=normalizeSymbolKeyword(keyword);
+  if(!normalized)return null;
+  const list=S.syms||[];
+  const exact=list.find(item=>item.symbol===normalized || item.symbol===`${normalized}USDT`);
+  if(exact)return exact.symbol;
+  const startsWith=list.find(item=>item.symbol.startsWith(normalized));
+  if(startsWith)return startsWith.symbol;
+  const baseMatch=list.find(item=>item.symbol.replace(/USDT$/,'')===normalized);
+  if(baseMatch)return baseMatch.symbol;
+  const fuzzy=list.find(item=>item.symbol.includes(normalized));
+  return fuzzy?fuzzy.symbol:null;
+}
+async function searchTopSymbol(){
+  const input=document.getElementById('site-search-input');
+  const raw=input?.value||'';
+  const keyword=normalizeSymbolKeyword(raw);
+  if(!keyword)return;
+  const matched=findSymbolByKeyword(keyword);
+  if(typeof switchSitePage==='function')switchSitePage('home');
+  if(typeof filterP==='function'){
+    filterP(keyword);
+    syncMarketSearchInput(keyword);
+  }
+  if(matched && typeof selSym==='function'){
+    await selSym(matched);
+    if(input)input.value=matched.replace('USDT','');
+    return;
+  }
+  const tip=document.getElementById('ctip');
+  if(tip){
+    tip.textContent=`未找到 ${keyword}，已按关键词筛选`;
+    tip.classList.add('show');
+    setTimeout(()=>tip.classList.remove('show'),1800);
+  }
+}
+function updateDocumentTitle(sym='',price='--',change=null){
+  const page=S.site?.page||'home';
+  const pageTitles={
+    home:'BB-Market',
+    ai:'AI盯盘',
+    vip:'VIP服务',
+    ads:'广告',
+    feedback:'产品反馈与建议',
+    rebate:'超级返佣',
+    invite:'邀请奖励',
+    plaza:'广场',
+    blog:'博客',
+    help:'帮助中心',
+    announcements:'公告',
+    news:'新闻中心',
+    community:'社区',
+    agreement:'服务协议',
+    privacy:'隐私说明',
+    about:'关于我们'
+  };
+  if(page!=='home'){
+    document.title=`${pageTitles[page]||'BB-Market'} - BB-Market`;
+    return;
+  }
+  if(!sym){
+    document.title='BB-Market';
+    return;
+  }
+  const changeText=typeof change==='number'&&!Number.isNaN(change)?` ${change>=0?'+':''}${change.toFixed(2)}%`:'';
+  document.title=`${fmtSym(sym)} ${price||'--'}${changeText}`;
+}
 function filledPct(order){const q=+order.quantity||0;if(q<=0)return 0;return Math.round((+order.filled_qty||0)/q*100);}
 function getBalance(asset){return (S.trader.balances||[]).find(b=>b.asset===asset)||{available:0,locked:0};}
 function sideLabel(side){return String(side||'').toUpperCase()==='BUY'?'买':'卖';}
 function sideColor(side){return String(side||'').toUpperCase()==='BUY'?'var(--g)':'var(--r)';}
 function selectedDetailKey(sym){
-  const s=(S.syms||[]).find(x=>x.symbol===sym);if(!s)return '';
+  const s=getSymbolState(sym);if(!s)return '';
   const quoteBal=getBalance('USDT');
   const baseBal=getBalance(sym.replace('USDT',''));
   return JSON.stringify({
@@ -38,8 +112,18 @@ function selectedDetailKey(sym){
     trader:[quoteBal.available,baseBal.available,tradeType]
   });
 }
+async function apiFetch(url,options={}){
+  const res=await fetch(url,options);
+  if(res.status===401){
+    if(typeof handleAuthExpired==='function')handleAuthExpired();
+    const err=new Error('AUTH_REQUIRED');
+    err.code='AUTH_REQUIRED';
+    throw err;
+  }
+  return res;
+}
 async function postJson(url,payload){
-  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const res=await apiFetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   return res.json();
 }
 window.addEventListener('error',ev=>{
@@ -57,13 +141,20 @@ window.addEventListener('unhandledrejection',ev=>{
   }
 });
 async function refreshSpotState(){
-  try{S.trader=await fetch('/api/spot/state').then(r=>r.json());}catch(_){}
+  try{S.trader=await apiFetch('/api/spot/state').then(r=>r.json());}catch(_){}
 }
 async function openReplay(){
   const atTs=prompt('输入要回放的毫秒时间戳，留空则读取最近归档事件：','');
   if(atTs===null)return;
   const q=atTs.trim()?`?at_ts=${encodeURIComponent(atTs.trim())}&limit=50`:'?limit=50';
-  const res=await fetch('/api/spot/replay'+q).then(r=>r.json());
+  let res;
+  try{
+    res=await apiFetch('/api/spot/replay'+q).then(r=>r.json());
+  }catch(err){
+    if(err&&err.code==='AUTH_REQUIRED')return;
+    alert('回放失败');
+    return;
+  }
   if(!res.ok){alert(res.message||'回放失败');return;}
   S.trader=res.data.snapshot||S.trader;
   renderOrders();
@@ -80,26 +171,83 @@ function copySym(){
 function openBN(){if(!S.sel)return;window.open(`https://www.binance.com/zh-CN/trade/${S.sel.replace('USDT','_USDT')}?type=spot`,'_blank');}
 setInterval(()=>{e('htime',new Date().toLocaleTimeString('zh-CN',{hour12:false}));},1000);
 window.addEventListener('resize',()=>{if(S.sel)drawCVD(S.sel);});
+window.addEventListener('DOMContentLoaded',()=>{
+  const input=document.getElementById('site-search-input');
+  if(input){
+    input.addEventListener('keydown',ev=>{
+      if(ev.key==='Enter'){
+        ev.preventDefault();
+        searchTopSymbol();
+      }
+    });
+  }
+});
 
 // ── WebSocket ─────────────────────────────────────────────────────
 function connect(){
-  const ws=new WebSocket(`ws://${location.host}/ws`);
+  if(S.auth.ws){
+    try{
+      S.auth.ws.onclose=null;
+      S.auth.ws.close();
+    }catch(_){}
+  }
+  const proto=location.protocol==='https:'?'wss':'ws';
+  const ws=new WebSocket(`${proto}://${location.host}/ws`);
+  S.auth.ws=ws;
   ws.onopen=()=>{document.getElementById('wdot').className='wdot live';e('wlbl','实时连接');};
   ws.onmessage=ev=>{try{render(JSON.parse(ev.data));}catch(_){ }};
   ws.onerror=()=>{document.getElementById('wdot').className='wdot';e('wlbl','连接异常');};
-  ws.onclose=()=>{document.getElementById('wdot').className='wdot';e('wlbl','重连中...');setTimeout(connect,2000);};
+  ws.onclose=()=>{
+    if(S.auth.ws!==ws || !S.auth.appReady)return;
+    document.getElementById('wdot').className='wdot';
+    // WebSocket 现在对游客开放，断线后也要继续自动重连，
+    // 否则公开预览模式会在一次掉线后完全停更。
+    e('wlbl',S.auth.user?'重连中...':'公开预览重连中...');
+    setTimeout(()=>{
+      if(S.auth.ws===ws && S.auth.appReady)connect();
+    },2000);
+  };
 }
-window.addEventListener('DOMContentLoaded',()=>{
-  loadViewPrefs();
-  syncViewControls();
-  document.getElementById('buy-pct').oninput=e=>setBuyPct(e.target.value);
-  document.getElementById('sell-pct').oninput=e=>setSellPct(e.target.value);
-  ['buy-price','buy-qty','sell-price','sell-qty'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.addEventListener('input',()=>updateTotals());
-  });
+
+function connectionIdleLabel(){
+  return S.auth.user?'连接中':'公开预览';
+}
+
+function stopDashboardApp(){
+  S.auth.appReady=false;
+  if(S.auth.detailPoller){
+    clearInterval(S.auth.detailPoller);
+    S.auth.detailPoller=null;
+  }
+  if(S.auth.ws){
+    try{S.auth.ws.close();}catch(_){}
+    S.auth.ws=null;
+  }
+  document.getElementById('wdot').className='wdot';
+  e('wlbl',connectionIdleLabel());
+}
+
+function startDashboardApp(){
+  if(S.auth.appReady)return;
+  if(!S.auth.domBound){
+    loadViewPrefs();
+    syncViewControls();
+    document.getElementById('buy-pct').oninput=e=>setBuyPct(e.target.value);
+    document.getElementById('sell-pct').oninput=e=>setSellPct(e.target.value);
+    ['buy-price','buy-qty','sell-price','sell-qty'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.addEventListener('input',()=>updateTotals());
+    });
+    S.auth.domBound=true;
+  }
   renderOrders();
-  fetch('/api/state').then(r=>r.json()).then(d=>render(d)).catch(()=>{});
+  e('wlbl',connectionIdleLabel());
+  apiFetch('/api/state').then(r=>r.json()).then(d=>render(d)).catch(()=>{});
   connect();
-  setInterval(()=>{ if(S.sel) loadSymbolDetail(S.sel,true); },5000);
+  S.auth.detailPoller=setInterval(()=>{ if(S.sel) loadSymbolDetail(S.sel,true); },5000);
+  S.auth.appReady=true;
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  if(typeof bootAuth==='function')bootAuth();
 });

@@ -293,10 +293,9 @@ function drawCVD(sym){
 
 // ── OHLCV ────────────────────────────────────────────────────────
 function updOHLCV(){
-  if(!S.sel)return;const s=S.syms.find(x=>x.symbol===S.sel);if(!s)return;
+  if(!S.sel)return;const s=getSymbolState(S.sel);if(!s)return;
   const ik=IVMAP[curIv]||'1m';const bars=s.klines?.[ik]||[];
   const cur=s.current_kline?.[ik];const bar=cur||(bars.length?bars[bars.length-1]:null);
   if(bar){e('ci-o',fP(bar.o));e('ci-h',fP(bar.h));e('ci-l2',fP(bar.l));
     e('ci-c',fP(bar.c));e('ci-v',fN(bar.v));e('ci-tbr',bar.tbr.toFixed(1)+'%');}
 }
-

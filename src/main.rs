@@ -23,6 +23,7 @@ use crate::codec::binance_msg::{Snapshot, StreamMsg};
 use crate::engine::run_spot_engine_demo;
 use crate::store::l2_book::OrderBook;
 use crate::symbols::sync_symbols;
+use crate::web::auth::AuthService;
 use crate::web::bridge::run_bridge;
 use crate::web::server::run_server;
 use crate::web::spot::SpotTradingService;
@@ -151,6 +152,7 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     if web_on {
         let dash_state = new_dashboard_state();
         let spot_service = SpotTradingService::new(&symbols, "logs/spot")?;
+        let auth_service = AuthService::new("logs/auth")?;
 
         let bridge_monitor = monitor.clone();
         let bridge_dash = dash_state.clone();
@@ -161,8 +163,9 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
 
         let server_dash = dash_state.clone();
         let server_spot = spot_service.clone();
+        let server_auth = auth_service.clone();
         tokio::spawn(async move {
-            if let Err(e) = run_server(server_dash, server_spot, port).await {
+            if let Err(e) = run_server(server_dash, server_spot, server_auth, port).await {
                 eprintln!("❌ Web 服务器错误: {}", e);
             }
         });

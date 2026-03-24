@@ -116,7 +116,7 @@ async function doTrade(side){
 }
 
 async function cancelOrder(orderId){
-  const res=await fetch(`/api/spot/order/${orderId}`,{method:'DELETE'});
+  const res=await apiFetch(`/api/spot/order/${orderId}`,{method:'DELETE'});
   const json=await res.json();
   if(!json.ok){alert(json.message||'撤单失败');return;}
   await refreshSpotState();
@@ -129,4 +129,3 @@ async function cancelAll(){
   await refreshSpotState();
   renderOrders();
 }
-

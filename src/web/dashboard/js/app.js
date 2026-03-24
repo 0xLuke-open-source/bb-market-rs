@@ -132,7 +132,7 @@ function upsertSymbolDetail(detail){
 async function loadSymbolDetail(sym,renderAfter=false){
   if(!sym)return null;
   try{
-    const detail=await fetch(`/api/symbol/${encodeURIComponent(sym)}`).then(r=>r.json());
+    const detail=await apiFetch(`/api/symbol/${encodeURIComponent(sym)}`).then(r=>r.json());
     if(!detail)return null;
     upsertSymbolDetail(detail);
     if(renderAfter&&S.sel===sym){

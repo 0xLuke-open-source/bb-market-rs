@@ -1,6 +1,9 @@
 
-const S={syms:[],feed:[],sel:null,sm:{},cvdH:{},metricH:{},signalPerf:{},seen:new Set(),alerts:[],tr:{},detailSignal:null,favorites:[],
+const S={syms:[],feed:[],sel:null,selectedCache:null,sm:{},cvdH:{},metricH:{},signalPerf:{},seen:new Set(),alerts:[],tr:{},detailSignal:null,favorites:[],
+  access:{authenticated:false,subscribed:false,full_access:false,visible_symbols:0,total_symbols:0,symbol_limit:null,subscription_plan:null,subscription_expires_at:null,message:''},
   trader:{account_id:0,balances:[],open_orders:[],order_history:[],trade_history:[]},
+  auth:{user:null,ready:false,appReady:false,domBound:false,ws:null,detailPoller:null,plans:[],selectedPlan:'pro_month'},
+  site:{page:'home'},
   ui:{pairAll:'',pairSig:'',pairWhale:'',pairMini:'',ticker:'',signals:'',alerts:'',detailKey:''}};
 const A=0.25,HL=60;
 let curIv='60',tvSym='',oaTabMode=0,tradeType=0,searchQ='';

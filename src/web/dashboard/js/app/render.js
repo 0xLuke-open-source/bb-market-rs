@@ -1,7 +1,13 @@
 // ── 主渲染 ───────────────────────────────────────────────────────
 function render(data){
+  const prevSelected=getSymbolState(S.sel);
   S.syms=mergeSymbols(data.symbols||[]);S.feed=data.feed||[];
+  S.access=data.access||S.access;
   S.trader=data.trader||{account_id:0,balances:[],open_orders:[],order_history:[],trade_history:[]};
+  if(typeof applyAccessState==='function'){
+    // 访问控制信息以后端快照为准，避免 WS / /api/state 更新时把套餐状态冲掉。
+    applyAccessState({...S.access,user:S.auth.user},S.auth.user);
+  }
 
   S.syms.forEach(s=>{
     ema(s.symbol,'obi',s.obi||0);ema(s.symbol,'ps',s.pump_score||0);
@@ -25,14 +31,33 @@ function render(data){
 
   renderPairList();renderPairMini();renderTicker();renderSigs();checkAlerts();
 
-  const cur=S.sel||(S.syms[0]?.symbol);
+  let activeSymbol=S.sel;
+  if(activeSymbol){
+    const selected=getSymbolState(activeSymbol);
+    if(selected){
+      S.selectedCache=selected;
+    }else{
+      // 刷新后本地可能保留了一个当前不可见/无权限的旧币种。
+      // 这时必须回退到本次快照里真实可用的 symbol，否则右侧分析面板会一直是空态。
+      activeSymbol=null;
+      S.sel=null;
+      S.selectedCache=null;
+      S.detailSignal=null;
+      S.ui.detailKey='';
+    }
+  }
+  const cur=activeSymbol||(S.syms[0]?.symbol);
   if(cur){
-    if(!S.sel){S.sel=cur;saveViewPrefs();}
+    if(S.sel!==cur){
+      S.sel=cur;
+      S.selectedCache=getSymbolState(cur);
+      saveViewPrefs();
+    }
     if(tvSym!==('BINANCE:'+cur) || !document.getElementById('tv-widget').children.length){
       initTV(cur,curIv);
     }
     renderDetail(cur);
-    const selected=S.syms.find(x=>x.symbol===cur);
+    const selected=getSymbolState(cur);
     if(selected&&(!selected.klines||Object.keys(selected.klines).length===0)){
       loadSymbolDetail(cur,true);
     }
@@ -209,7 +234,8 @@ function focusSignal(sym,signalTag='',signalDesc=''){
 
 // ── 详情 ─────────────────────────────────────────────────────────
 function renderDetail(sym){
-  const s=S.syms.find(x=>x.symbol===sym);if(!s)return;
+  const s=getSymbolState(sym);if(!s)return;
+  if(S.sel===sym)S.selectedCache=s;
   const detailKey=selectedDetailKey(sym);
   if(S.ui.detailKey===detailKey)return;
   S.ui.detailKey=detailKey;
@@ -227,6 +253,7 @@ function renderDetail(sym){
   es('nav-price',fP(mid),null,gc);
   const nc=document.getElementById('nav-chg');
   nc.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';nc.className='nav-chg '+(chg>=0?'nup':'ndn');
+  if(typeof updateDocumentTitle==='function')updateDocumentTitle(sym,fP(mid),chg);
   es('nv-chg',(chg>=0?'+':'')+chg.toFixed(2)+'%',null,gc);
   e('nv-hi',fP(s.high_24h||0));e('nv-lo',fP(s.low_24h||0));
   e('nv-vol',fN(s.quote_vol_24h||0));e('nv-sp',s.spread_bps.toFixed(1)+' 基点');
@@ -368,4 +395,3 @@ function renderSigs(){
     'signals'
   );
 }
-

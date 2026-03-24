@@ -10,72 +10,91 @@
 <link rel="stylesheet" href="/static/css/trading.css">
 <link rel="stylesheet" href="/static/css/analytics.css">
 <link rel="stylesheet" href="/static/css/alerts.css">
+<link rel="stylesheet" href="/static/css/portal.css">
 </head>
 <body>
 
-<!-- ══ 顶部导航 ══ -->
-<div id="nav">
-  <div class="logo">
-    <div class="logo-icon">B</div>
-    BB-<em>Market</em>
-  </div>
-  <div class="ndiv"></div>
-  <div class="nav-sym">
-    <span class="nav-sym-name" id="nav-sym">--/USDT</span>
-    <span class="nav-price cup" id="nav-price">--</span>
-    <span class="nav-chg nup" id="nav-chg">--</span>
-  </div>
-  <div class="nav-stats">
-    <div class="ns"><div class="ns-l">24h 涨跌</div><div class="ns-v" id="nv-chg">--</div></div>
-    <div class="ns"><div class="ns-l">24h 最高</div><div class="ns-v cup" id="nv-hi">--</div></div>
-    <div class="ns"><div class="ns-l">24h 最低</div><div class="ns-v cdn" id="nv-lo">--</div></div>
-    <div class="ns"><div class="ns-l">成交额 USDT</div><div class="ns-v" id="nv-vol">--</div></div>
-    <div class="ns"><div class="ns-l">价差</div><div class="ns-v" id="nv-sp">--</div></div>
-    <div class="ns"><div class="ns-l">主动买卖量差</div><div class="ns-v" id="nv-cvd">--</div></div>
-    <div class="ns"><div class="ns-l">拉盘评分</div><div class="ns-v fy" id="nv-ps">--</div></div>
-  </div>
-  <div class="nav-r">
-    <div class="ws-badge">
-      <div class="wdot" id="wdot"></div><span id="wlbl">连接中</span>
+<div class="site-nav-wrap">
+  <div class="site-nav-bar">
+    <button class="site-nav-brand" type="button" onclick="switchSitePage('home')">
+      <span class="site-nav-brand-icon">B</span>
+      <span class="site-nav-brand-text">BB-<em>Market</em></span>
+    </button>
+    <div class="site-nav-main">
+      <button class="site-nav-link act" data-page="home" type="button" onclick="switchSitePage('home',this)">首页</button>
+      <div class="site-nav-menu">
+        <button class="site-nav-link site-nav-trigger" type="button">交易</button>
+        <div class="site-nav-dropdown">
+          <button class="site-nav-subbtn" data-page="ai" type="button" onclick="switchSitePage('ai',this)">AI盯盘</button>
+        </div>
+      </div>
+      <div class="site-nav-menu">
+        <button class="site-nav-link site-nav-trigger" type="button">服务</button>
+        <div class="site-nav-dropdown">
+          <button class="site-nav-subbtn" data-page="vip" type="button" onclick="switchSitePage('vip',this)">机构和VIP服务</button>
+          <button class="site-nav-subbtn" data-page="ads" type="button" onclick="switchSitePage('ads',this)">广告</button>
+          <button class="site-nav-subbtn" data-page="rebate" type="button" onclick="switchSitePage('rebate',this)">超级返佣</button>
+          <button class="site-nav-subbtn" data-page="invite" type="button" onclick="switchSitePage('invite',this)">邀请奖励</button>
+        </div>
+      </div>
+      <div class="site-nav-menu">
+        <button class="site-nav-link site-nav-trigger" type="button">内容</button>
+        <div class="site-nav-dropdown">
+          <button class="site-nav-subbtn" data-page="plaza" type="button" onclick="switchSitePage('plaza',this)">广场</button>
+          <button class="site-nav-subbtn" data-page="blog" type="button" onclick="switchSitePage('blog',this)">博客</button>
+          <button class="site-nav-subbtn" data-page="help" type="button" onclick="switchSitePage('help',this)">帮助中心</button>
+          <button class="site-nav-subbtn" data-page="announcements" type="button" onclick="switchSitePage('announcements',this)">公告</button>
+          <button class="site-nav-subbtn" data-page="news" type="button" onclick="switchSitePage('news',this)">新闻中心</button>
+        </div>
+      </div>
+      <div class="site-nav-menu">
+        <button class="site-nav-link site-nav-trigger" type="button">更多</button>
+        <div class="site-nav-dropdown">
+          <button class="site-nav-subbtn" data-page="feedback" type="button" onclick="switchSitePage('feedback',this)">产品反馈与建议</button>
+          <button class="site-nav-subbtn" data-page="community" type="button" onclick="switchSitePage('community',this)">社区</button>
+          <button class="site-nav-subbtn" data-page="agreement" type="button" onclick="switchSitePage('agreement',this)">服务协议</button>
+          <button class="site-nav-subbtn" data-page="privacy" type="button" onclick="switchSitePage('privacy',this)">隐私说明</button>
+          <button class="site-nav-subbtn" data-page="about" type="button" onclick="switchSitePage('about',this)">关于我们</button>
+        </div>
+      </div>
     </div>
-    <div class="ndiv"></div>
-    <span id="htime" style="font-variant-numeric:tabular-nums"></span>
-    <div class="ndiv"></div>
-    <div class="stat-pill">监控 <b style="color:var(--y)" id="nc">--</b></div>
-    <div class="stat-pill">活跃 <b style="color:var(--g)" id="ns2">--</b></div>
-    <div class="stat-pill" style="cursor:pointer" onclick="openReplay()">回放</div>
+    <div class="site-nav-actions">
+      <div class="site-nav-search">
+        <input id="site-search-input" type="text" placeholder="搜索币种" autocomplete="off" aria-label="搜索币种">
+        <button class="site-search-btn" type="button" onclick="searchTopSymbol()" aria-label="搜索币种" title="搜索币种" data-tip="搜索币种">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg>
+        </button>
+      </div>
+      <button class="site-icon-btn" type="button" onclick="switchSitePage('announcements')" aria-label="公告" title="公告" data-tip="公告">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16a6 6 0 10-12 0"></path><path d="M6 16h12"></path><path d="M10 19a2 2 0 004 0"></path><path d="M12 4v2"></path></svg>
+      </button>
+      <button class="site-icon-btn" type="button" onclick="switchSitePage('community')" aria-label="社区" title="社区" data-tip="社区">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18.5l3-1v-8l-3 1z"></path><path d="M10.5 17.5l3-1v-8l-3 1z"></path><path d="M16.5 16.5l3-1v-8l-3 1z"></path></svg>
+      </button>
+      <button class="site-icon-btn" type="button" onclick="switchSitePage('privacy')" aria-label="语言与设置" title="语言与设置" data-tip="语言与设置">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="M4 12h16"></path><path d="M12 4a13 13 0 010 16"></path><path d="M12 4a13 13 0 000 16"></path></svg>
+      </button>
+      <div class="site-status-group">
+        <div class="ws-badge">
+          <div class="wdot" id="wdot"></div><span id="wlbl">连接中</span>
+        </div>
+        <span id="htime" class="site-time"></span>
+        <div class="stat-pill">监控 <b style="color:var(--y)" id="nc">--</b></div>
+        <div class="stat-pill">活跃 <b style="color:var(--g)" id="ns2">--</b></div>
+        <div class="stat-pill stat-pill-link" onclick="openReplay()">回放</div>
+        <div class="auth-chip">
+          <span class="auth-chip-user" id="auth-user">未登录</span>
+          <button class="auth-chip-btn" id="auth-open" type="button" onclick="openAuthModal('login')">登录</button>
+          <button class="auth-chip-btn" id="auth-subscribe" type="button" onclick="subscribeNow()" style="display:none">订阅</button>
+          <button class="auth-chip-btn" id="auth-logout" type="button" onclick="logout()" style="display:none">退出</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- ══ K线周期行 ══ -->
-<div id="ktabs">
-  <div class="kt" data-iv="1">1m</div>
-  <div class="kt" data-iv="3">3m</div>
-  <div class="kt" data-iv="5">5m</div>
-  <div class="kt" data-iv="15">15m</div>
-  <div class="kt" data-iv="30">30m</div>
-  <div class="ktd"></div>
-  <div class="kt act" data-iv="60">1h</div>
-  <div class="kt" data-iv="120">2h</div>
-  <div class="kt" data-iv="240">4h</div>
-  <div class="kt" data-iv="360">6h</div>
-  <div class="kt" data-iv="480">8h</div>
-  <div class="kt" data-iv="720">12h</div>
-  <div class="ktd"></div>
-  <div class="kt" data-iv="D">1d</div>
-  <div class="kt" data-iv="3D">3d</div>
-  <div class="kt" data-iv="W">1w</div>
-  <div class="kt" data-iv="M">1M</div>
-  <div class="ktd"></div>
-  <div class="ktv">
-    <span class="co"><span class="co-l">开</span><span id="ci-o">--</span></span>
-    <span class="co"><span class="co-l">高</span><span id="ci-h" style="color:var(--g)">--</span></span>
-    <span class="co"><span class="co-l">低</span><span id="ci-l2" style="color:var(--r)">--</span></span>
-    <span class="co"><span class="co-l">收</span><span id="ci-c">--</span></span>
-    <span class="co"><span class="co-l">量</span><span id="ci-v" style="color:var(--y)">--</span></span>
-    <span class="co"><span class="co-l">买占</span><span id="ci-tbr" style="color:var(--b)">--%</span></span>
-  </div>
-</div>
+<div id="portal-shell" class="portal-shell"></div>
 
+<div id="dashboard-shell" class="dashboard-shell">
 <!-- ══ 主体 4列 ══ -->
 <div id="app">

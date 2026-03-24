@@ -4,6 +4,64 @@
   <div class="pair-mini-list" id="pair-mini"></div>
   <div id="ticker-scroll"></div>
 </div>
+</div>
+
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-kicker">BB-Market Access</div>
+    <div class="auth-title">登录交易控制台</div>
+    <div class="auth-subtitle">注册后即可访问实时监控、告警面板和本地模拟交易。</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab act" id="auth-tab-login" type="button" onclick="switchAuthMode('login')">登录</button>
+      <button class="auth-tab" id="auth-tab-register" type="button" onclick="switchAuthMode('register')">注册</button>
+      <button class="auth-close" type="button" onclick="closeAuthModal()">关闭</button>
+    </div>
+
+    <div class="auth-msg" id="auth-msg"></div>
+
+    <form class="auth-form show" id="auth-login-form">
+      <label class="auth-field">
+        <span>用户名</span>
+        <input id="login-username" autocomplete="username" placeholder="trader01">
+      </label>
+      <label class="auth-field">
+        <span>密码</span>
+        <input id="login-password" type="password" autocomplete="current-password" placeholder="至少 6 位">
+      </label>
+      <button class="auth-submit" type="submit">登录</button>
+    </form>
+
+    <form class="auth-form" id="auth-register-form">
+      <label class="auth-field">
+        <span>用户名</span>
+        <input id="register-username" autocomplete="username" placeholder="trader01">
+      </label>
+      <label class="auth-field">
+        <span>显示名称</span>
+        <input id="register-display-name" autocomplete="nickname" placeholder="交易员 A">
+      </label>
+      <label class="auth-field">
+        <span>密码</span>
+        <input id="register-password" type="password" autocomplete="new-password" placeholder="至少 6 位">
+      </label>
+      <label class="auth-field">
+        <span>确认密码</span>
+        <input id="register-password-confirm" type="password" autocomplete="new-password" placeholder="再次输入密码">
+      </label>
+      <button class="auth-submit" type="submit">创建账户并登录</button>
+    </form>
+
+    <div class="sub-plans">
+      <div class="sub-plans-h">
+        <span class="sub-plans-title">订阅套餐</span>
+        <span class="sub-plans-sub">订阅成功后解锁全部币种与完整实时推送</span>
+      </div>
+      <div class="sub-plan-list" id="sub-plan-list"></div>
+      <button class="auth-submit sub-submit" type="button" onclick="subscribeNow()">激活所选套餐</button>
+    </div>
+  </div>
+</div>
 
 <div class="ctip" id="ctip"></div>
 
@@ -15,6 +73,8 @@
 <script src="/static/js/app/metrics.js"></script>
 <script src="/static/js/app/render.js"></script>
 <script src="/static/js/app/alerts.js"></script>
+<script src="/static/js/app/portal.js"></script>
+<script src="/static/js/app/auth.js"></script>
 <script src="/static/js/app/tools.js"></script>
 
 </body>

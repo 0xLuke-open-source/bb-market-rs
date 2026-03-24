@@ -154,6 +154,19 @@ pub struct TraderStateJson {
     pub trade_history: Vec<TraderTradeJson>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AccessInfoJson {
+    pub authenticated: bool,
+    pub subscribed: bool,
+    pub full_access: bool,
+    pub visible_symbols: usize,
+    pub total_symbols: usize,
+    pub symbol_limit: Option<usize>,
+    pub subscription_plan: Option<String>,
+    pub subscription_expires_at: Option<String>,
+    pub message: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FullSnapshot {
     pub symbols: Vec<SymbolJson>,
@@ -161,6 +174,7 @@ pub struct FullSnapshot {
     pub total_updates: u64,
     pub uptime_secs: u64,
     pub trader: TraderStateJson,
+    pub access: AccessInfoJson,
 }
 
 pub struct DashboardState {
@@ -221,6 +235,7 @@ impl DashboardState {
             total_updates: self.total_updates,
             uptime_secs: self.start_time.elapsed().as_secs(),
             trader,
+            access: AccessInfoJson::default(),
         }
     }
 
@@ -243,6 +258,7 @@ impl DashboardState {
             total_updates: self.total_updates,
             uptime_secs: self.start_time.elapsed().as_secs(),
             trader,
+            access: AccessInfoJson::default(),
         }
     }
 
