@@ -41,12 +41,12 @@ function renderOrders(){
         <span style="flex:1;font-weight:700">${fmtSym(o.symbol)}</span>
         <span style="flex:.8;color:var(--t2)">${o.order_type}</span>
         <span style="flex:.6;color:${sideColor(o.side)}">●${sideLabel(o.side)}</span>
-        <span style="flex:1;font-variant-numeric:tabular-nums">${o.price!=null?fP(o.price):'市价'}</span>
+        <span style="flex:1;font-variant-numeric:tabular-nums">${o.price!=null?fP(o.price,o.symbol):'市价'}</span>
         <span style="flex:1;font-variant-numeric:tabular-nums">${fNum(o.quantity)}</span>
         <span style="flex:1.2;color:var(--t2)">--</span>
         <span style="flex:.8;color:var(--y)">${filledPct(o)}%</span>
         <span style="flex:1;font-variant-numeric:tabular-nums">${fNum((o.price||0)*o.quantity)}</span>
-        <span style="flex:1.2;color:var(--t2)">${o.trigger_price!=null?`${o.trigger_kind||'trigger'} @ ${fP(o.trigger_price)}`:'--'}</span>
+        <span style="flex:1.2;color:var(--t2)">${o.trigger_price!=null?`${o.trigger_kind||'trigger'} @ ${fP(o.trigger_price,o.symbol)}`:'--'}</span>
         <span style="flex:.6;color:var(--t2)">--</span>
         <span style="flex:.8;color:var(--t2)"><button class="oa-cancel-all" style="margin:0;padding:1px 8px" onclick="cancelOrder(${o.order_id})">撤单</button></span>
       </div>`).join('')
@@ -58,12 +58,12 @@ function renderOrders(){
         <span style="flex:1;font-weight:700">${fmtSym(o.symbol)}</span>
         <span style="flex:.8;color:var(--t2)">${o.order_type}</span>
         <span style="flex:.6;color:${sideColor(o.side)}">${sideLabel(o.side)}</span>
-        <span style="flex:1;font-variant-numeric:tabular-nums">${o.price!=null?fP(o.price):'市价'}</span>
+        <span style="flex:1;font-variant-numeric:tabular-nums">${o.price!=null?fP(o.price,o.symbol):'市价'}</span>
         <span style="flex:1;font-variant-numeric:tabular-nums">${fNum(o.quantity)}</span>
         <span style="flex:1.2;color:var(--t2)">--</span>
         <span style="flex:.8;color:var(--y)">${filledPct(o)}%</span>
         <span style="flex:1;font-variant-numeric:tabular-nums">${fNum(o.filled_quote_qty||0)}</span>
-        <span style="flex:1.2;color:var(--t2)">${o.trigger_price!=null?`${o.trigger_kind||'trigger'} @ ${fP(o.trigger_price)}`:o.status}</span>
+        <span style="flex:1.2;color:var(--t2)">${o.trigger_price!=null?`${o.trigger_kind||'trigger'} @ ${fP(o.trigger_price,o.symbol)}`:o.status}</span>
         <span style="flex:.6;color:var(--t2)">${o.time_in_force}</span>
         <span style="flex:.8;color:var(--t2)">--</span>
       </div>`).join(''):'<div class="oa-empty">暂无历史委托。</div>';
@@ -74,7 +74,7 @@ function renderOrders(){
         <span style="flex:1;font-weight:700">${fmtSym(t.symbol)}</span>
         <span style="flex:.8;color:var(--t2)">${t.liquidity}</span>
         <span style="flex:.6;color:${sideColor(t.side)}">${sideLabel(t.side)}</span>
-        <span style="flex:1;font-variant-numeric:tabular-nums">${fP(t.price)}</span>
+        <span style="flex:1;font-variant-numeric:tabular-nums">${fP(t.price,t.symbol)}</span>
         <span style="flex:1;font-variant-numeric:tabular-nums">${fNum(t.quantity)}</span>
         <span style="flex:1.2;color:var(--t2)">--</span>
         <span style="flex:.8;color:var(--y)">100%</span>
@@ -85,4 +85,3 @@ function renderOrders(){
       </div>`).join(''):'<div class="oa-empty">暂无历史成交。</div>';
   }
 }
-

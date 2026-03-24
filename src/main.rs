@@ -25,6 +25,7 @@ use crate::store::l2_book::OrderBook;
 use crate::symbols::sync_symbols;
 use crate::web::auth::AuthService;
 use crate::web::bridge::run_bridge;
+use crate::web::cache::load_dashboard_cache;
 use crate::web::server::run_server;
 use crate::web::spot::SpotTradingService;
 use crate::web::state::new_dashboard_state;
@@ -39,6 +40,8 @@ use tokio::time::Instant;
 
 const COIN: &str = "ASTR";
 const SYMBOL: &str = concatcp!(COIN, "USDT");
+const DASHBOARD_CACHE_PATH: &str = "logs/dashboard-cache.json";
+const DASHBOARD_CACHE_MAX_AGE_SECS: u64 = 30 * 60;
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -151,6 +154,16 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
     // server 负责把这些快照通过 HTTP / WebSocket 暴露出去。
     if web_on {
         let dash_state = new_dashboard_state();
+        if load_dashboard_cache(
+            &dash_state,
+            DASHBOARD_CACHE_PATH,
+            Duration::from_secs(DASHBOARD_CACHE_MAX_AGE_SECS),
+        )
+        .await
+        .unwrap_or(false)
+        {
+            println!("📦 已加载 30 分钟内的 Dashboard 缓存快照");
+        }
         let spot_service = SpotTradingService::new(&symbols, "logs/spot")?;
         let auth_service = AuthService::new("logs/auth")?;
 

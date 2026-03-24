@@ -11,7 +11,7 @@ function fmtMetricValue(v,unit=''){
   if(!Number.isFinite(v))return '--';
   if(unit==='%')return `${v.toFixed(1)}%`;
   if(unit==='x')return `${v.toFixed(2)}x`;
-  if(unit==='bps')return `${v.toFixed(1)} 基点`;
+  if(unit==='bps')return `${(v/100).toFixed(2)}%`;
   if(unit==='count')return `${Math.round(v)}`;
   if(unit==='ratio')return `${v.toFixed(2)}`;
   if(unit==='compact')return fN(v);
@@ -222,53 +222,53 @@ function renderEnterpriseMetrics(sym){
 
   const sections=[
     buildMetricSection('成交结构','大单与主动成交',[
-      {name:'大单成交占比',score:clamp(largeTradeRatio,0,100),value:fmtMetricValue(largeTradeRatio,'%'),tip:`最近1分钟大单成交额相当于日均每分钟成交额的 ${largeTradeRatio.toFixed(1)}%。`},
-      {name:'买卖连续性',score:clamp(directionalContinuity,0,100),value:fmtMetricValue(directionalContinuity,'%'),tip:`主动买卖方向连续程度，越高说明一边更持续。`},
+      {name:'大单成交占比',score:clamp(largeTradeRatio,0,100),value:fmtMetricValue(largeTradeRatio,'%'),tip:`最近1分钟大单成交额，相对日均每分钟成交额的占比。`},
+      {name:'买卖连续性',score:clamp(directionalContinuity,0,100),value:fmtMetricValue(directionalContinuity,'%'),tip:`主动买卖方向是否持续偏向单边，越高说明延续性越强。`},
       {name:'短时成交密度',score:tradeDensity,value:fmtMetricValue(recentBig.length,'count'),tip:`最近1分钟捕捉到 ${recentBig.length} 笔大额成交。`},
-      {name:'笔数突变',score:countSurge,value:fmtMetricValue(recentBig.length-prevBig.length,'count'),tip:`对比前1分钟，大单笔数变化更明显。`},
-      {name:'成交额突变',score:amountSurge,value:fmtMetricValue(bigRecentNotional,'compact'),tip:`最近1分钟大单成交额与前1分钟对比。`}
+      {name:'笔数突变',score:countSurge,value:fmtMetricValue(recentBig.length-prevBig.length,'count'),tip:`对比前1分钟，大额成交笔数的变化幅度。`},
+      {name:'成交额突变',score:amountSurge,value:fmtMetricValue(bigRecentNotional,'compact'),tip:`对比前1分钟，大额成交额的变化幅度。`}
     ]),
     buildMetricSection('盘口结构','深度与挂单质量',[
-      {name:'买卖墙强度',score:wallStrength,value:fmtMetricValue(Math.max(s.max_bid_ratio||0,s.max_ask_ratio||0),'%'),tip:`大额挂单在前排深度中的占比。`},
-      {name:'挂撤单比',score:cancelRatioEst,value:fmtMetricValue(cancelRatioEst,'%'),tip:`根据深度净变化和原始订单流估算，数值高说明撤改单更频繁。`,invert:true},
-      {name:'恢复速度',score:recoverySpeed,value:fmtMetricValue(recoverySpeed,'%'),tip:`点差与深度恢复综合估算，越高越容易迅速回补。`},
-      {name:'前5/10/20档变化',score:clamp((Math.abs(depth5Delta)+Math.abs(depth10Delta)+Math.abs(depth20Delta))/3,0,100),value:`${depth5Delta.toFixed(0)} / ${depth10Delta.toFixed(0)} / ${depth20Delta.toFixed(0)}%`,tip:`对比约 20-30 秒前的深度变化。`},
-      {name:'深度断层',score:clamp(depthGapBps/2,0,100),value:fmtMetricValue(depthGapBps,'bps'),tip:`相邻档位价格跳空越大，深度断层越明显。`,invert:true}
+      {name:'买卖墙强度',score:wallStrength,value:fmtMetricValue(Math.max(s.max_bid_ratio||0,s.max_ask_ratio||0),'%'),tip:`前排深度中大额挂单的占比，越高说明墙体越明显。`},
+      {name:'挂撤单比',score:cancelRatioEst,value:fmtMetricValue(cancelRatioEst,'%'),tip:`根据深度净变化估算撤单与改单的活跃程度。`,invert:true},
+      {name:'恢复速度',score:recoverySpeed,value:fmtMetricValue(recoverySpeed,'%'),tip:`盘口深度被打掉后，重新回补的速度。`},
+      {name:'前5/10/20档变化',score:clamp((Math.abs(depth5Delta)+Math.abs(depth10Delta)+Math.abs(depth20Delta))/3,0,100),value:`${depth5Delta.toFixed(0)} / ${depth10Delta.toFixed(0)} / ${depth20Delta.toFixed(0)}%`,tip:`对比约 20 到 30 秒前，前排深度的变化情况。`},
+      {name:'深度断层',score:clamp(depthGapBps/2,0,100),value:fmtMetricValue(depthGapBps,'bps'),tip:`相邻档位之间的跳空程度，越高说明深度越不连续。`,invert:true}
     ]),
     buildMetricSection('价格行为','多周期价格状态',[
-      {name:'多周期一致性',score:multiTfConsistency,value:fmtMetricValue(multiTfConsistency,'%'),tip:`1m / 5m / 15m / 1h 涨跌方向一致程度。`},
+      {name:'多周期一致性',score:multiTfConsistency,value:fmtMetricValue(multiTfConsistency,'%'),tip:`1m、5m、15m、1h 几个周期的方向一致程度。`},
       {name:'波动扩张/收缩',score:volExpand,value:fmtMetricValue(volExpand,'%'),tip:`当前 1m 波动相对最近 10 根 1m 的放大程度。`},
-      {name:'假突破识别',score:falseBreak?82:28,value:falseBreak?'疑似假突破':'暂未发现',tip:`刚破高/破低又收回时更需要防追单。`,invert:!falseBreak?false:true},
-      {name:'回吐幅度',score:clamp(pullback*10,0,100),value:fmtMetricValue(pullback,'%'),tip:`急拉急砸后已经回吐的幅度，越大越需要谨慎。`,invert:true},
-      {name:'新高/低承接',score:acceptance,value:fmtMetricValue(acceptance,'%'),tip:`新高或新低附近是否仍有主动承接。`}
+      {name:'假突破识别',score:falseBreak?82:28,value:falseBreak?'疑似假突破':'暂未发现',tip:`破位后快速收回时，追单风险通常会更高。`,invert:!falseBreak?false:true},
+      {name:'回吐幅度',score:clamp(pullback*10,0,100),value:fmtMetricValue(pullback,'%'),tip:`急拉或急砸之后，价格已经回吐的幅度。`,invert:true},
+      {name:'新高/低承接',score:acceptance,value:fmtMetricValue(acceptance,'%'),tip:`接近新高或新低时，是否仍有主动资金承接。`}
     ]),
     buildMetricSection('资金痕迹','吸筹、派发与大户跟随',[
-      {name:'持续吸筹/派发',score:accumulation,value:s.cvd>=0?'偏吸筹':'偏派发',tip:`结合主动买卖量差、主动买入占比和盘口失衡。`},
+      {name:'持续吸筹/派发',score:accumulation,value:s.cvd>=0?'偏吸筹':'偏派发',tip:`结合 CVD、买入占比和盘口失衡做出的综合判断。`},
       {name:'大户跟随强度',score:whaleFollow,value:fmtMetricValue(whaleFollow,'%'),tip:`大户信号出现后，盘口和主动成交是否继续跟随。`},
-      {name:'大单停留时间',score:wallDwell,value:fmtMetricValue(wallDwell,'%'),tip:`根据大墙连续出现历史估算，越高说明挂单停留更久。`},
-      {name:'主动买卖量差斜率',score:clamp(Math.abs(cvdSlope),0,100),value:fmtMetricValue(cvdSlope,'%'),tip:`主动买卖量差增长或衰减速度。`}
+      {name:'大单停留时间',score:wallDwell,value:fmtMetricValue(wallDwell,'%'),tip:`大墙挂单在前排停留的时长估算。`},
+      {name:'主动买卖量差斜率',score:clamp(Math.abs(cvdSlope),0,100),value:fmtMetricValue(cvdSlope,'%'),tip:`主动买卖量差的增长或衰减速度。`}
     ]),
     buildMetricSection('跨周期指标','信号共振与确认',[
       {name:'1m/5m/15m/1h共振',score:resonance,value:fmtMetricValue(resonance,'%'),tip:`短中周期信号是否同时偏向同一方向。`},
-      {name:'短期获中期确认',score:confirmation,value:confirmation>=60?'已确认':'待确认',tip:`短周期异动是否已得到 5m / 15m 方向确认。`}
+      {name:'短期获中期确认',score:confirmation,value:confirmation>=60?'已确认':'待确认',tip:`短周期异动是否已经获得 5m / 15m 的方向确认。`}
     ]),
     buildMetricSection('市场广度','全市场同步状态',[
-      {name:'上涨/下跌家数',score:pct(Math.max(upCount,downCount),Math.max(S.syms.length,1)),value:`${upCount} / ${downCount}`,tip:`当前全市场上涨家数与下跌家数。`},
-      {name:'强势币占比',score:strongShare,value:fmtMetricValue(strongShare,'%'),tip:`拉升或下跌评分达到 70 分以上的币占比。`},
-      {name:'异常币占比',score:anomalyShare,value:fmtMetricValue(anomalyShare,'%'),tip:`异常波动严重的币占比。`},
-      {name:'板块联动强弱',score:linkage,value:fmtMetricValue(linkage,'%'),tip:`全市场方向集中度和强势币占比综合估算。`}
+      {name:'上涨/下跌家数',score:pct(Math.max(upCount,downCount),Math.max(S.syms.length,1)),value:`${upCount} / ${downCount}`,tip:`当前全市场上涨家数与下跌家数的对比。`},
+      {name:'强势币占比',score:strongShare,value:fmtMetricValue(strongShare,'%'),tip:`评分较高币种在当前市场中的占比。`},
+      {name:'异常币占比',score:anomalyShare,value:fmtMetricValue(anomalyShare,'%'),tip:`异常波动严重的币种，在当前市场中的占比。`},
+      {name:'板块联动强弱',score:linkage,value:fmtMetricValue(linkage,'%'),tip:`市场方向集中度与强势币占比的综合估算。`}
     ]),
     buildMetricSection('交易质量','可成交性与流动性',[
-      {name:'点差水平',score:spreadLevel,value:fmtMetricValue(s.spread_bps||0,'bps'),tip:`点差越小，短线执行质量越好。`},
-      {name:'深度可成交性',score:executableDepth,value:fmtMetricValue(executableDepth,'%'),tip:`按 1000 USDT 试算，盘口可立即承接的程度。`},
-      {name:'滑点风险估计',score:clamp(slippageRisk*6,0,100),value:fmtMetricValue(slippageRisk,'bps'),tip:`按 1000 USDT 吃单估算的买入滑点。`,invert:true},
-      {name:'流动性恶化预警',score:liquidityWarning,value:liquidityWarning>=70?'偏高':'正常',tip:`结合点差、可成交深度和异常波动的综合风险。`,invert:true}
+      {name:'点差水平',score:spreadLevel,value:fmtMetricValue(s.spread_bps||0,'bps'),tip:`点差越小，短线执行环境通常越友好。`},
+      {name:'深度可成交性',score:executableDepth,value:fmtMetricValue(executableDepth,'%'),tip:`按 1000 USDT 吃单试算，盘口可立即承接的程度。`},
+      {name:'滑点风险估计',score:clamp(slippageRisk*6,0,100),value:fmtMetricValue(slippageRisk,'bps'),tip:`按 1000 USDT 吃单估算出来的滑点水平。`,invert:true},
+      {name:'流动性恶化预警',score:liquidityWarning,value:liquidityWarning>=70?'偏高':'正常',tip:`结合点差、可成交深度和异常波动得出的综合风险。`,invert:true}
     ]),
     buildMetricSection('信号质量','最近触发后的表现',[
-      {name:'过去5分钟表现',score:perf.win5,value:perf.count5?`${perf.win5.toFixed(0)}%`:'样本少',tip:`当前页面运行期间，信号触发 5 分钟后方向正确的比例。`},
-      {name:'过去15分钟表现',score:perf.win15,value:perf.count15?`${perf.win15.toFixed(0)}%`:'样本少',tip:`当前页面运行期间，信号触发 15 分钟后方向正确的比例。`},
-      {name:'胜率/误报率',score:perf.win15||perf.win5,value:perf.count15?`${perf.win15.toFixed(0)} / ${(100-perf.win15).toFixed(0)}%`:'待积累',tip:`胜率越高说明信号更稳定；误报率越低越好。`},
-      {name:'信号衰减速度',score:clamp(100-(perf.decay||0)*6,0,100),value:perf.decay?`${perf.decay.toFixed(1)} 分钟`:'待积累',tip:`信号从强提醒回落到普通关注的平均时间。`}
+      {name:'过去5分钟表现',score:perf.win5,value:perf.count5?`${perf.win5.toFixed(0)}%`:'样本少',tip:`信号触发后 5 分钟内，方向判断的正确率。`},
+      {name:'过去15分钟表现',score:perf.win15,value:perf.count15?`${perf.win15.toFixed(0)}%`:'样本少',tip:`信号触发后 15 分钟内，方向判断的正确率。`},
+      {name:'胜率/误报率',score:perf.win15||perf.win5,value:perf.count15?`${perf.win15.toFixed(0)} / ${(100-perf.win15).toFixed(0)}%`:'待积累',tip:`胜率越高说明更稳定，误报率越低说明噪音更少。`},
+      {name:'信号衰减速度',score:clamp(100-(perf.decay||0)*6,0,100),value:perf.decay?`${perf.decay.toFixed(1)} 分钟`:'待积累',tip:`信号从强提醒回落到普通关注所需的平均时间。`}
     ])
   ];
   setHtmlIfChanged('enterprise-metrics',sections.join(''),'enterprise');

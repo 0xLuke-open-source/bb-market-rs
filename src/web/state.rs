@@ -8,6 +8,8 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+const LIVE_RECENT_TRADES_LIMIT: usize = 60;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct KlineJson {
     pub interval: String, // "1m","5m","1h"...
@@ -40,6 +42,10 @@ pub struct SymbolJson {
     pub ask: f64,
     pub mid: f64,
     pub spread_bps: f64,
+    #[serde(default)]
+    pub price_precision: u32,
+    #[serde(default)]
+    pub quantity_precision: u32,
 
     // 24h 真实 Ticker（来自 miniTicker）
     pub change_24h_pct: f64,
@@ -95,6 +101,9 @@ pub struct SymbolJson {
 
     // 近期大单（最多10条）
     pub big_trades: Vec<BigTradeJson>,
+
+    // 最近成交（30分钟窗口）
+    pub recent_trades: Vec<BigTradeJson>,
 
     pub update_count: u64,
 }
@@ -240,8 +249,34 @@ impl DashboardState {
     }
 
     pub fn to_light_snapshot(&self, trader: TraderStateJson) -> FullSnapshot {
-        // 轻量快照会去掉体积最大的 K 线数据，
-        // 适合 WebSocket 高频推送，减轻前端渲染压力。
+        // 轻量快照用于 /api/state 和 WebSocket 高频推送。
+        // 这里保留必要的盘口/评分/少量最近成交，避免 30 分钟成交历史把消息体撑爆。
+        let symbols = self
+            .sorted_keys
+            .iter()
+            .filter_map(|k| self.symbols.get(k).cloned())
+            .map(|mut symbol| {
+                symbol.klines.clear();
+                symbol.current_kline.clear();
+                if symbol.recent_trades.len() > LIVE_RECENT_TRADES_LIMIT {
+                    symbol.recent_trades.truncate(LIVE_RECENT_TRADES_LIMIT);
+                }
+                symbol
+            })
+            .collect();
+        FullSnapshot {
+            symbols,
+            feed: self.feed.iter().cloned().collect(),
+            total_updates: self.total_updates,
+            uptime_secs: self.start_time.elapsed().as_secs(),
+            trader,
+            access: AccessInfoJson::default(),
+        }
+    }
+
+    pub fn to_cache_snapshot(&self) -> FullSnapshot {
+        // 启动恢复缓存时不需要交易账户信息，
+        // 但要保留 30 分钟最近成交，方便刷新后立即回显。
         let symbols = self
             .sorted_keys
             .iter()
@@ -257,13 +292,32 @@ impl DashboardState {
             feed: self.feed.iter().cloned().collect(),
             total_updates: self.total_updates,
             uptime_secs: self.start_time.elapsed().as_secs(),
-            trader,
+            trader: TraderStateJson::default(),
             access: AccessInfoJson::default(),
         }
     }
 
     pub fn get_symbol(&self, symbol: &str) -> Option<SymbolJson> {
         self.symbols.get(symbol).cloned()
+    }
+
+    pub fn replace_from_snapshot(&mut self, snapshot: FullSnapshot) {
+        self.symbols.clear();
+        self.sorted_keys.clear();
+        self.feed.clear();
+
+        for symbol in snapshot.symbols {
+            let key = symbol.symbol.clone();
+            self.sorted_keys.push(key.clone());
+            self.symbols.insert(key, symbol);
+        }
+
+        for entry in snapshot.feed.into_iter().take(200) {
+            self.feed.push_back(entry);
+        }
+
+        self.total_updates = snapshot.total_updates;
+        self.start_time = std::time::Instant::now();
     }
 }
 

@@ -88,6 +88,7 @@ function mergeSymbols(next){
     if((!symbol.klines||Object.keys(symbol.klines).length===0)&&prev.klines)symbol.klines=prev.klines;
     if((!symbol.current_kline||Object.keys(symbol.current_kline).length===0)&&prev.current_kline)symbol.current_kline=prev.current_kline;
     if((!symbol.big_trades||symbol.big_trades.length===0)&&prev.big_trades)symbol.big_trades=prev.big_trades;
+    if((!symbol.recent_trades||symbol.recent_trades.length===0)&&prev.recent_trades)symbol.recent_trades=prev.recent_trades;
     return symbol;
   });
 }

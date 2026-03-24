@@ -18,11 +18,12 @@ function render(data){
     if(!S.cvdH[s.symbol])S.cvdH[s.symbol]=[];
     S.cvdH[s.symbol].push({t:nowT(),v:s.cvd||0});
     if(S.cvdH[s.symbol].length>HL)S.cvdH[s.symbol].shift();
-    if(!S.tr[s.symbol])S.tr[s.symbol]=[];
-    const mid=sv(s.symbol,'mid');
-    if(mid>0){const buy=Math.random()>0.45,qty=+(Math.random()*60000+500).toFixed(0);
-      S.tr[s.symbol].unshift({p:mid,q:qty,buy,t:nowT()});
-      if(S.tr[s.symbol].length>60)S.tr[s.symbol].pop();}
+    S.tr[s.symbol]=(s.recent_trades||[]).map(t=>({
+      p:t.p,
+      q:t.q,
+      buy:!!t.buy,
+      t:typeof t.t==='number'?new Date(t.t).toLocaleTimeString('zh-CN',{hour12:false}):String(t.t||'--')
+    }));
   });
 
   const act=S.syms.filter(s=>sv(s.symbol,'ps')>=60||sv(s.symbol,'ds')>=60).length;
@@ -53,6 +54,7 @@ function render(data){
       S.selectedCache=getSymbolState(cur);
       saveViewPrefs();
     }
+    S.ui.detailKey='';
     if(tvSym!==('BINANCE:'+cur) || !document.getElementById('tv-widget').children.length){
       initTV(cur,curIv);
     }
@@ -125,7 +127,7 @@ function renderPairList(){
         <div class="cc-head-main">
           <span class="cc-sym">${sym}<span style="font-size:9px;color:var(--t3);font-weight:400">/USDT</span></span>
           <div class="cc-price-wrap">
-            <span class="cc-price" style="color:${chgColor}">${fP(mid)}</span>
+            <span class="cc-price" style="color:${chgColor}">${fP(mid,s)}</span>
             <span class="cc-chg" style="color:${chgColor};background:${chgBg}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>
           </div>
         </div>
@@ -159,7 +161,7 @@ function renderPairMini(){
     const chg=s.change_24h_pct||0,cls=chg>=0?'pmu':'pmd';
     return `<div class="pi-mini" onclick="focusSignal('${s.symbol}','${s.watch_level||'观察'}','${(s.signal_reason||s.status_summary||'继续观察市场变化').replace(/'/g,'&#39;')}')">
       <span class="pm-sym">${s.symbol.replace('USDT','/U')}</span>
-      <span class="pm-p" style="color:${chg>=0?'var(--g)':'var(--r)'}">${fP(sv(s.symbol,'mid'))}</span>
+      <span class="pm-p" style="color:${chg>=0?'var(--g)':'var(--r)'}">${fP(sv(s.symbol,'mid'),s)}</span>
       <span class="pm-c ${cls}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>
     </div>`;
   }).join(''),'pairMini');
@@ -172,7 +174,7 @@ function renderTicker(){
     const chg=s.change_24h_pct||0,cls=chg>=0?'tbu':'tbd';
     return `<div class="tbi" onclick="focusSignal('${s.symbol}','${s.watch_level||'观察'}','${(s.signal_reason||s.status_summary||'继续观察市场变化').replace(/'/g,'&#39;')}')">
       <span class="tb-s">${s.symbol.replace('USDT','/U')}</span>
-      <span class="tb-p" style="color:${chg>=0?'var(--g)':'var(--r)'}">${fP(sv(s.symbol,'mid'))}</span>
+      <span class="tb-p" style="color:${chg>=0?'var(--g)':'var(--r)'}">${fP(sv(s.symbol,'mid'),s)}</span>
       <span class="tb-c ${cls}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>
     </div>`;
   }).join(''),'ticker');
@@ -212,7 +214,7 @@ function updateSignalDetail(sym,signal){
   e('signal-detail-tag',signal?.tag||'当前币种');
   e('signal-detail-text',signal?.desc||s.signal_reason||'当前没有特别突出的异常信号。');
   e('signal-detail-level',s.watch_level||'观察');
-  e('signal-detail-price',fP(sv(sym,'mid')));
+  e('signal-detail-price',fP(sv(sym,'mid'),s));
   e('signal-detail-change',`${change>=0?'+':''}${change.toFixed(2)}%`);
   e('signal-detail-tbr',`${sv(sym,'tbr').toFixed(1)}%`);
   const history=buildSignalHistory(sym,signal);
@@ -250,13 +252,13 @@ function renderDetail(sym){
 
   // 顶部导航
   e('nav-sym',sym.replace('USDT','/USDT'));
-  es('nav-price',fP(mid),null,gc);
+  es('nav-price',fP(mid,s),null,gc);
   const nc=document.getElementById('nav-chg');
   nc.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';nc.className='nav-chg '+(chg>=0?'nup':'ndn');
-  if(typeof updateDocumentTitle==='function')updateDocumentTitle(sym,fP(mid),chg);
+  if(typeof updateDocumentTitle==='function')updateDocumentTitle(sym,fP(mid,s),chg);
   es('nv-chg',(chg>=0?'+':'')+chg.toFixed(2)+'%',null,gc);
-  e('nv-hi',fP(s.high_24h||0));e('nv-lo',fP(s.low_24h||0));
-  e('nv-vol',fN(s.quote_vol_24h||0));e('nv-sp',s.spread_bps.toFixed(1)+' 基点');
+  e('nv-hi',fP(s.high_24h||0,s));e('nv-lo',fP(s.low_24h||0,s));
+  e('nv-vol',fN(s.quote_vol_24h||0));e('nv-sp',(s.spread_bps/100).toFixed(2)+'%');
   e('nv-ps',Math.round(ps));es('nv-cvd',fN(cvd),null,cvd>=0?'var(--g)':'var(--r)');
 
   // 交易表单更新
@@ -293,34 +295,41 @@ function renderDetail(sym){
   document.getElementById('ob-asks').innerHTML=[...asks].reverse().map(([p,q],i)=>{
     const cum=ats[asks.length-1-i];
     return `<div class="ob-row"><div class="ob-bg bga" style="width:${(cum/mx*100).toFixed(0)}%"></div>
-      <span class="ob-p ap">${fP(p)}</span><span class="ob-q">${fN(q)}</span><span class="ob-c">${fN(cum)}</span></div>`;
+      <span class="ob-p ap">${fP(p,s)}</span><span class="ob-q">${fQ(q,s)}</span><span class="ob-c">${fQ(cum,s)}</span></div>`;
   }).join('');
   document.getElementById('ob-bids').innerHTML=bids.map(([p,q],i)=>{
     const cum=bts[i];
     return `<div class="ob-row"><div class="ob-bg bgb" style="width:${(cum/mx*100).toFixed(0)}%"></div>
-      <span class="ob-p bp">${fP(p)}</span><span class="ob-q">${fN(q)}</span><span class="ob-c">${fN(cum)}</span></div>`;
+      <span class="ob-p bp">${fP(p,s)}</span><span class="ob-q">${fQ(q,s)}</span><span class="ob-c">${fQ(cum,s)}</span></div>`;
   }).join('');
-  es('ob-mid',fP(mid),null,gc);e('ob-bps',s.spread_bps.toFixed(1)+' 基点');
+  es('ob-mid',fP(mid,s),null,gc);e('ob-bps',(s.spread_bps/100).toFixed(2)+'%');
 
   // 成交记录
-  const tr=S.tr[sym]||[];
+  const tr=(s.recent_trades||[]).length
+    ?(s.recent_trades||[]).map(t=>({
+      p:t.p,
+      q:t.q,
+      buy:!!t.buy,
+      t:typeof t.t==='number'?new Date(t.t).toLocaleTimeString('zh-CN',{hour12:false}):String(t.t||'--')
+    }))
+    :(S.tr[sym]||[]);
   e('tr-cnt',tr.length+' 笔');
   document.getElementById('tr-list').innerHTML=tr.slice(0,50).map(t=>`
     <div class="tr-row">
-      <span style="color:${t.buy?'var(--g)':'var(--r)'};font-weight:600">${fP(t.p)}</span>
-      <span style="color:var(--t2)">${fN(t.q)}</span>
+      <span style="color:${t.buy?'var(--g)':'var(--r)'};font-weight:600">${fP(t.p,s)}</span>
+      <span style="color:var(--t2)">${fQ(t.q,s)}</span>
       <span style="color:var(--t3)">${t.t}</span>
     </div>`).join('');
 
   // 分析面板
   e('rd-sym',sym.replace('USDT','/USDT'));
-  es('rd-p',fP(mid),null,gc);
+  es('rd-p',fP(mid,s),null,gc);
   const rc=document.getElementById('rd-c');
   rc.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';
   rc.style.cssText=`background:${chg>=0?'rgba(14,203,129,.12)':'rgba(246,70,93,.12)'};color:${gc}`;
-  e('rd-bid',fP(s.bid||0));e('rd-ask',fP(s.ask||0));
+  e('rd-bid',fP(s.bid||0,s));e('rd-ask',fP(s.ask||0,s));
   es('rd-chg',(chg>=0?'+':'')+chg.toFixed(2)+'%',null,gc);
-  e('rd-vol',fN(s.volume_24h||0));e('rd-hi',fP(s.high_24h||0));e('rd-lo',fP(s.low_24h||0));
+  e('rd-vol',fN(s.volume_24h||0));e('rd-hi',fP(s.high_24h||0,s));e('rd-lo',fP(s.low_24h||0,s));
   e('rd-ps',Math.round(ps));e('rd-ds',Math.round(ds));
   e('rd-watch-level',watchLevel);
   document.getElementById('rd-watch-level').style.color=levelColor;
@@ -339,7 +348,7 @@ function renderDetail(sym){
     {n:'主动买入占比',v:`${tbr.toFixed(1)}%`,bw:tbr,bc:tbr>60?'gf':tbr<40?'rf2':'yf',vc:tbr>60?'fg':tbr<40?'fr':'fy',tip:tbr>70?'主动买入很强':tbr>60?'偏多':tbr<30?'主动卖出很强':'偏空'},
     {n:'主动买卖量差',v:fN(cvd),bw:Math.min(100,Math.abs(cvd)/500),bc:cvd>=0?'gf':'rf2',vc:cvd>0?'fg':'fr',tip:cvd>50000?'大量净流入':cvd>0?'净买入':cvd<-50000?'大量净流出':'净卖出'},
     {n:'挂单变化强度',v:fN(ofi),bw:Math.min(100,Math.abs(ofi)/100),bc:ofi>0?'gf':'rf2',vc:ofi>3000?'fg':ofi<-3000?'fr':'fn',tip:ofi>5000?'买方挂单明显增强':ofi>2000?'买方在持续加单':ofi<-5000?'卖方挂单明显增强':'买卖挂单较平衡'},
-    {n:'买卖价差',v:`${s.spread_bps.toFixed(1)} 基点`,bw:Math.min(100,s.spread_bps*3),bc:s.spread_bps<20?'gf':'yf',vc:s.spread_bps<10?'fg':s.spread_bps<30?'fy':'fn',tip:s.spread_bps<10?'成交环境很好':s.spread_bps<20?'正常':'价差偏大'},
+    {n:'买卖价差',v:`${(s.spread_bps/100).toFixed(2)}%`,bw:Math.min(100,s.spread_bps*3),bc:s.spread_bps<20?'gf':'yf',vc:s.spread_bps<10?'fg':s.spread_bps<30?'fy':'fn',tip:s.spread_bps<10?'成交环境很好':s.spread_bps<20?'正常':'价差偏大'},
     {n:'大户资金',v:s.whale_entry?'进场':s.whale_exit?'离场':'观望',bw:s.whale_entry?80:s.whale_exit?60:20,bc:s.whale_entry?'gf':s.whale_exit?'rf2':'yf',vc:s.whale_entry?'fg':s.whale_exit?'fr':'fn',tip:s.whale_entry?`大单占比${s.max_bid_ratio.toFixed(1)}%`:s.whale_exit?'大户有离场迹象':'暂无明显动作'},
     {n:'异常波动',v:`${s.anomaly_count_1m}次`,bw:Math.min(100,s.anomaly_count_1m),bc:s.anomaly_count_1m>50?'rf2':'yf',vc:s.anomaly_count_1m>100?'fr':s.anomaly_count_1m>50?'fy':'fn',tip:s.anomaly_count_1m>200?'波动非常剧烈':s.anomaly_count_1m>50?'波动偏多':'整体平稳'},
   ];
@@ -355,8 +364,8 @@ function renderDetail(sym){
   document.getElementById('bt-list').innerHTML=bigT.length
     ?bigT.map(bt=>`<div class="bt-row"><span class="btdot ${bt.buy?'db':'ds'}"></span>
       <span class="bt-dir ${bt.buy?'btu':'btd'}">${bt.buy?'主动买':'主动卖'}</span>
-      <span style="color:${bt.buy?'var(--g)':'var(--r)'}">${fP(bt.p)}</span>
-      <span style="color:var(--y);font-weight:700;margin-left:auto">${fN(bt.q)}</span>
+      <span style="color:${bt.buy?'var(--g)':'var(--r)'}">${fP(bt.p,s)}</span>
+      <span style="color:var(--y);font-weight:700;margin-left:auto">${fQ(bt.q,s)}</span>
       <span style="color:var(--t3);margin-left:5px">${typeof bt.t==='number'?new Date(bt.t).toLocaleTimeString('zh-CN',{hour12:false}):bt.t}</span>
     </div>`).join('')
     :'<div class="empty-p">等待大单...</div>';

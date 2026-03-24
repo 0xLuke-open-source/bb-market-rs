@@ -1,10 +1,11 @@
 /* ══ 信号 + 预警 ══ */
 #col-alerts{grid-column:3;background:var(--bg1);display:flex;flex-direction:column;overflow:hidden;
-  border-left:1px solid var(--bd);border-right:1px solid var(--bd)}
+  border-left:1px solid var(--bd);border-right:1px solid var(--bd);
+  background:linear-gradient(180deg,rgba(20,24,29,.98),rgba(14,17,21,.99));animation:rise-fade .62s var(--ease-premium) both .06s}
 .ra-header{display:flex;border-bottom:1px solid var(--bd);flex-shrink:0;height:33px;align-items:stretch}
 .ra-sec-hdr{flex:1;display:flex;align-items:center;justify-content:space-between;
   padding:0 10px;font-size:12px;font-weight:700;color:var(--t3);border-right:1px solid var(--bd);
-  text-transform:uppercase;letter-spacing:.3px}
+  text-transform:uppercase;letter-spacing:.3px;background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0))}
 .ra-sec-hdr:last-child{border-right:none}
 .ra-cnt{color:var(--y);font-weight:800;font-size:14px}
 .ra-body{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;min-height:0}
@@ -13,9 +14,10 @@
 .ra-list{flex:1;overflow-y:auto}
 .ra-list::-webkit-scrollbar{width:3px}
 .ra-list::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
-.scard{padding:7px 8px 6px;border-bottom:1px solid var(--bd);cursor:pointer;
-  transition:background .1s;position:relative;border-left:3px solid transparent}
-.scard:hover{background:rgba(255,255,255,.02)}
+.scard{padding:9px 10px 8px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;
+  transition:transform .18s var(--ease-premium),background .18s var(--ease-premium),box-shadow .18s var(--ease-premium),border-color .18s var(--ease-premium);
+  position:relative;border-left:3px solid transparent;background:linear-gradient(180deg,rgba(255,255,255,.014),rgba(255,255,255,.006))}
+.scard:hover{background:rgba(255,255,255,.028);transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 10px 18px rgba(0,0,0,.16)}
 .scard.pump{border-left-color:var(--g)}.scard.dump{border-left-color:var(--r)}
 .scard.whale{border-left-color:var(--b)}.scard.cvd{border-left-color:var(--p)}
 .scard.anomaly{border-left-color:var(--y)}
@@ -33,13 +35,13 @@
 .sc-desc{font-size:10px;color:var(--t2);line-height:1.4}
 .sc-score{display:flex;align-items:center;gap:4px;margin-top:4px}
 .sc-score-bar{flex:1;height:2px;border-radius:1px;background:var(--bg0);overflow:hidden}
-.sc-score-fill{height:100%;border-radius:1px}
+.sc-score-fill{height:100%;border-radius:1px;box-shadow:0 0 10px currentColor}
 .sc-score-v{font-size:10px;font-weight:700;color:var(--t3)}
 .sc-new{position:absolute;top:5px;right:6px;color:#fff;
-  font-size:7px;font-weight:800;padding:1px 4px;border-radius:8px;animation:fo 4s forwards}
+  font-size:7px;font-weight:800;padding:1px 4px;border-radius:8px;animation:fo 4s forwards,breathe-glow 1.8s ease-in-out 2}
 .pump .sc-new,.dump .sc-new{background:var(--r)}.whale .sc-new{background:var(--b)}
 .sc-x{position:absolute;top:5px;right:6px;font-size:10px;color:var(--t3);cursor:pointer;
   width:16px;height:16px;display:flex;align-items:center;justify-content:center;border-radius:50%;
-  transition:all .1s}
-.sc-x:hover{color:var(--t1);background:var(--bg3)}
+  transition:all .16s var(--ease-premium)}
+.sc-x:hover{color:var(--t1);background:var(--bg3);transform:scale(1.04)}
 .empty-p{padding:20px 8px;text-align:center;color:var(--t3);font-size:10px;line-height:2}

@@ -11,7 +11,54 @@ function setHtmlIfChanged(id,html,cacheKey){
   const el=document.getElementById(id);
   if(el)el.innerHTML=html;
 }
-function fP(p){if(!p)return '--';return p>=1000?p.toFixed(1):p>=10?p.toFixed(2):p>=1?p.toFixed(3):p>=.1?p.toFixed(4):p.toFixed(6);}
+function inferPricePrecision(v){
+  const n=Math.abs(+v||0);
+  return n>=1000?1:n>=10?2:n>=1?3:n>=.1?4:6;
+}
+function getPricePrecision(ctx=null,v=0){
+  if(typeof ctx==='number'&&Number.isFinite(ctx))return Math.max(0,Math.min(12,Math.round(ctx)));
+  let state=null;
+  if(typeof ctx==='string'&&ctx){
+    state=typeof getSymbolState==='function'?getSymbolState(ctx):null;
+  }else if(ctx&&typeof ctx==='object'){
+    if(Number.isFinite(ctx.price_precision))return Math.max(0,Math.min(12,Math.round(ctx.price_precision)));
+    if(ctx.symbol&&typeof getSymbolState==='function')state=getSymbolState(ctx.symbol);
+  }else if(S?.sel&&typeof getSymbolState==='function'){
+    state=getSymbolState(S.sel);
+  }
+  const precision=state?.price_precision;
+  if(Number.isFinite(precision))return Math.max(0,Math.min(12,Math.round(precision)));
+  return inferPricePrecision(v);
+}
+function fP(p,ctx=null){
+  const v=+p;
+  if(!Number.isFinite(v))return '--';
+  return v.toFixed(getPricePrecision(ctx,v));
+}
+function inferQtyPrecision(v){
+  const n=Math.abs(+v||0);
+  if(n===0)return 0;
+  return n>=1000?0:n>=100?2:n>=1?4:8;
+}
+function getQtyPrecision(ctx=null,v=0){
+  let state=null;
+  if(typeof ctx==='string'&&ctx){
+    state=typeof getSymbolState==='function'?getSymbolState(ctx):null;
+  }else if(ctx&&typeof ctx==='object'){
+    if(Number.isFinite(ctx.quantity_precision))return Math.max(0,Math.min(12,Math.round(ctx.quantity_precision)));
+    if(ctx.symbol&&typeof getSymbolState==='function')state=getSymbolState(ctx.symbol);
+  }else if(S?.sel&&typeof getSymbolState==='function'){
+    state=getSymbolState(S.sel);
+  }
+  const precision=state?.quantity_precision;
+  if(Number.isFinite(precision))return Math.max(0,Math.min(12,Math.round(precision)));
+  return inferQtyPrecision(v);
+}
+function fQ(v,ctx=null){
+  const n=+v;
+  if(!Number.isFinite(n))return '--';
+  return n.toFixed(getQtyPrecision(ctx,n));
+}
 function fN(n){const v=+n;return Math.abs(v)>=1e9?(v/1e9).toFixed(1)+'B':Math.abs(v)>=1e6?(v/1e6).toFixed(1)+'M':Math.abs(v)>=1e3?(v/1e3).toFixed(1)+'K':v.toFixed(0);}
 function fNum(n){const v=+n;return Math.abs(v)>=1000?fN(v):v.toFixed(v>=1?4:8).replace(/0+$/,'').replace(/\.$/,'');}
 function nowT(){return new Date().toLocaleTimeString('zh-CN',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});}
@@ -100,14 +147,17 @@ function selectedDetailKey(sym){
   const baseBal=getBalance(sym.replace('USDT',''));
   return JSON.stringify({
     sym,
+    uc:s.update_count||0,
     summary:s.status_summary,
     level:s.watch_level,
     reason:s.signal_reason,
     mid:sv(sym,'mid'),
     bid:s.bid,ask:s.ask,chg:s.change_24h_pct,cvd:sv(sym,'cvd'),ps:sv(sym,'ps'),ds:sv(sym,'ds'),
+    hi:s.high_24h,lo:s.low_24h,vol:s.volume_24h,qv:s.quote_vol_24h,
     obi:sv(sym,'obi'),ofi:sv(sym,'ofi'),tbr:sv(sym,'tbr'),
     tb:s.total_bid_volume,ta:s.total_ask_volume,sb:s.spread_bps,
     bb:(s.big_trades||[]).slice(0,10).map(t=>[t.t,t.p,t.q,t.buy]),
+    rt:(s.recent_trades||[]).slice(0,20).map(t=>[t.t,t.p,t.q,t.buy]),
     bids:(s.top_bids||[]).slice(0,12),asks:(s.top_asks||[]).slice(0,12),
     trader:[quoteBal.available,baseBal.available,tradeType]
   });

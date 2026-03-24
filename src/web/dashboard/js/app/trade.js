@@ -26,8 +26,8 @@ function setType(i,el){
 function setBBO(side){
   if(!S.sel)return;
   const s=S.syms.find(x=>x.symbol===S.sel);if(!s)return;
-  if(side==='buy')document.getElementById('buy-price').value=fP(s.bid||sv(S.sel,'mid'));
-  else document.getElementById('sell-price').value=fP(s.ask||sv(S.sel,'mid'));
+  if(side==='buy')document.getElementById('buy-price').value=fP(s.bid||sv(S.sel,'mid'),S.sel);
+  else document.getElementById('sell-price').value=fP(s.ask||sv(S.sel,'mid'),S.sel);
   updateTotals();
 }
 
@@ -69,7 +69,7 @@ function autofillTradeForm(side){
   const s=S.syms.find(x=>x.symbol===S.sel); if(!s)return;
   const price = tradeType===0 ? (side==='buy' ? (s.bid||sv(S.sel,'mid')) : (s.ask||sv(S.sel,'mid'))) : sv(S.sel,'mid');
   const id = side==='buy'?'buy-price':'sell-price';
-  document.getElementById(id).value = fP(price);
+  document.getElementById(id).value = fP(price,S.sel);
   updateTotals();
 }
 

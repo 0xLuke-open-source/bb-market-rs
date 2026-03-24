@@ -8,13 +8,17 @@ mod labels;
 mod snapshot;
 
 use std::sync::Arc;
-use tokio::time::{interval, Duration};
+use tokio::time::{interval, Duration, Instant};
 
 use crate::analysis::multi_monitor::{MultiSymbolMonitor, SymbolMonitor};
+use crate::web::cache::persist_dashboard_cache;
 use crate::web::spot::SpotTradingService;
 use crate::web::state::SharedDashboardState;
 
 use self::snapshot::build_bridge_update;
+
+const DASHBOARD_CACHE_PATH: &str = "logs/dashboard-cache.json";
+const DASHBOARD_CACHE_FLUSH_SECS: u64 = 5;
 
 pub async fn run_bridge(
     monitor: Arc<MultiSymbolMonitor>,
@@ -28,6 +32,7 @@ pub async fn run_bridge(
     // 3. 同步给 dashboard state
     // 4. 把盘口同步给 spot 模块作为流动性
     let mut tick = interval(Duration::from_millis(refresh_ms));
+    let mut last_persist = Instant::now() - Duration::from_secs(DASHBOARD_CACHE_FLUSH_SECS);
     loop {
         tick.tick().await;
 
@@ -53,6 +58,13 @@ pub async fn run_bridge(
             for entry in update.feed_entries {
                 ds.push_feed(entry);
             }
+        }
+
+        if last_persist.elapsed() >= Duration::from_secs(DASHBOARD_CACHE_FLUSH_SECS) {
+            if let Err(err) = persist_dashboard_cache(&dash, DASHBOARD_CACHE_PATH).await {
+                eprintln!("dashboard cache persist error: {}", err);
+            }
+            last_persist = Instant::now();
         }
     }
 }

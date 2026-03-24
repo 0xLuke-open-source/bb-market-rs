@@ -90,6 +90,8 @@ pub fn build_bridge_update(symbol: &str, monitor: &mut SymbolMonitor) -> BridgeU
         ask: features.weighted_ask_price.to_f64().unwrap_or(0.0),
         mid,
         spread_bps: features.spread_bps.to_f64().unwrap_or(0.0),
+        price_precision: monitor.book.price_scale,
+        quantity_precision: monitor.book.qty_scale,
         change_24h_pct,
         high_24h,
         low_24h,
@@ -132,6 +134,7 @@ pub fn build_bridge_update(symbol: &str, monitor: &mut SymbolMonitor) -> BridgeU
         klines: map_klines(monitor),
         current_kline: map_current_klines(monitor),
         big_trades: map_big_trades(monitor),
+        recent_trades: map_recent_trades(monitor),
         update_count,
     };
 
@@ -218,6 +221,20 @@ fn map_big_trades(monitor: &SymbolMonitor) -> Vec<BigTradeJson> {
         .iter()
         .rev()
         .take(10)
+        .map(|trade| BigTradeJson {
+            t: trade.time_ms,
+            p: trade.price,
+            q: trade.qty,
+            buy: trade.is_buy,
+        })
+        .collect()
+}
+
+fn map_recent_trades(monitor: &SymbolMonitor) -> Vec<BigTradeJson> {
+    monitor
+        .recent_trades
+        .iter()
+        .rev()
         .map(|trade| BigTradeJson {
             t: trade.time_ms,
             p: trade.price,

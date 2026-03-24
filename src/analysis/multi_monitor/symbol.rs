@@ -21,6 +21,9 @@ use crate::analysis::pump_detector::PumpSignal;
 use crate::codec::binance_msg::{AggTrade, DepthUpdate, KlineEvent, MiniTicker};
 use crate::store::l2_book::OrderBook;
 
+const RECENT_TRADES_WINDOW_MS: u64 = 30 * 60 * 1000;
+const RECENT_TRADES_MAX_LEN: usize = 3000;
+
 /// 统一的 K 线缓存结构。
 ///
 /// 项目同时订阅多个周期 K 线，因此这里用统一结构承接 Binance 事件，
@@ -65,6 +68,7 @@ pub struct SymbolMonitor {
     pub taker_sell_vol_1m: Decimal,
     pub taker_buy_ratio: f64,
     pub big_trades: VecDeque<BigTradeEvent>,
+    pub recent_trades: VecDeque<BigTradeEvent>,
     pub price_24h_open: f64,
     pub price_24h_high: f64,
     pub price_24h_low: f64,
@@ -92,6 +96,7 @@ impl SymbolMonitor {
             taker_sell_vol_1m: Decimal::ZERO,
             taker_buy_ratio: 50.0,
             big_trades: VecDeque::with_capacity(200),
+            recent_trades: VecDeque::with_capacity(RECENT_TRADES_MAX_LEN),
             price_24h_open: 0.0,
             price_24h_high: 0.0,
             price_24h_low: 0.0,
@@ -151,6 +156,10 @@ impl SymbolMonitor {
     pub fn apply_trade(&mut self, trade: &AggTrade) {
         let qty = trade.qty_decimal();
         let delta = trade.delta();
+        let now = trade.trade_time;
+        let price = trade.price.parse().unwrap_or(0.0);
+        let qty_f64 = qty.to_f64().unwrap_or(0.0);
+        let is_buy = trade.is_taker_buy();
 
         self.cvd += delta;
 
@@ -169,6 +178,24 @@ impl SymbolMonitor {
                 .unwrap_or(50.0)
         };
 
+        while self
+            .recent_trades
+            .front()
+            .map(|entry| entry.time_ms + RECENT_TRADES_WINDOW_MS < now)
+            .unwrap_or(false)
+        {
+            self.recent_trades.pop_front();
+        }
+        if self.recent_trades.len() >= RECENT_TRADES_MAX_LEN {
+            self.recent_trades.pop_front();
+        }
+        self.recent_trades.push_back(BigTradeEvent {
+            time_ms: now,
+            price,
+            qty: qty_f64,
+            is_buy,
+        });
+
         let threshold = self
             .book
             .history
@@ -179,7 +206,6 @@ impl SymbolMonitor {
             * dec!(0.01);
 
         if qty > threshold && !threshold.is_zero() {
-            let now = trade.trade_time;
             while self
                 .big_trades
                 .front()
@@ -190,9 +216,9 @@ impl SymbolMonitor {
             }
             self.big_trades.push_back(BigTradeEvent {
                 time_ms: now,
-                price: trade.price.parse().unwrap_or(0.0),
-                qty: qty.to_f64().unwrap_or(0.0),
-                is_buy: trade.is_taker_buy(),
+                price,
+                qty: qty_f64,
+                is_buy,
             });
         }
     }

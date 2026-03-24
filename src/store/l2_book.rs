@@ -92,6 +92,8 @@ pub enum TrendPeriod {
 #[derive(Debug)]
 pub struct OrderBook {
     pub symbol: String,
+    pub price_scale: u32,
+    pub qty_scale: u32,
     pub last_update_id: u64,
     pub bids: BTreeMap<Reverse<Decimal>, Decimal>,
     pub asks: BTreeMap<Decimal, Decimal>,
@@ -268,6 +270,8 @@ impl OrderBook {
     pub fn new(symbol: &str) -> Self {
         Self {
             symbol: symbol.to_string(),
+            price_scale: 0,
+            qty_scale: 0,
             last_update_id: 0,
             bids: BTreeMap::new(),
             asks: BTreeMap::new(),
@@ -283,12 +287,30 @@ impl OrderBook {
         }
     }
 
+    fn observe_price_scale_str(&mut self, price: &str) {
+        if let Some((_, frac)) = price.split_once('.') {
+            self.price_scale = self.price_scale.max(frac.len() as u32);
+        } else {
+            self.price_scale = self.price_scale.max(0);
+        }
+    }
+
+    fn observe_qty_scale_str(&mut self, qty: &str) {
+        if let Some((_, frac)) = qty.split_once('.') {
+            self.qty_scale = self.qty_scale.max(frac.len() as u32);
+        } else {
+            self.qty_scale = self.qty_scale.max(0);
+        }
+    }
+
     pub fn init_from_snapshot(&mut self, snapshot: Snapshot) {
         self.last_update_id = snapshot.lastUpdateId;
         self.bids = snapshot
             .bids
             .into_iter()
             .filter_map(|[p, q]| {
+                self.observe_price_scale_str(&p);
+                self.observe_qty_scale_str(&q);
                 let price = Decimal::from_str(&p).ok()?;
                 let qty = Decimal::from_str(&q).ok()?;
                 Some((Reverse(price), qty))
@@ -298,6 +320,8 @@ impl OrderBook {
             .asks
             .into_iter()
             .filter_map(|[p, q]| {
+                self.observe_price_scale_str(&p);
+                self.observe_qty_scale_str(&q);
                 let price = Decimal::from_str(&p).ok()?;
                 let qty = Decimal::from_str(&q).ok()?;
                 Some((price, qty))
@@ -330,6 +354,8 @@ impl OrderBook {
         }
 
         for bid in msg.bids {
+            self.observe_price_scale_str(&bid[0]);
+            self.observe_qty_scale_str(&bid[1]);
             let price = Decimal::from_str(&bid[0])?;
             let qty = Decimal::from_str(&bid[1])?;
             if qty.is_zero() {
@@ -339,6 +365,8 @@ impl OrderBook {
             }
         }
         for ask in msg.asks {
+            self.observe_price_scale_str(&ask[0]);
+            self.observe_qty_scale_str(&ask[1]);
             let price = Decimal::from_str(&ask[0])?;
             let qty = Decimal::from_str(&ask[1])?;
             if qty.is_zero() {
@@ -506,8 +534,9 @@ impl OrderBook {
 
         // ── 1. 基础价差 ──────────────────────────────────────────
         let spread = best_ask - best_bid;
-        let spread_bps = if !best_bid.is_zero() {
-            (spread / best_bid * dec!(10000)).round_dp(2)
+        let mid_price = (best_bid + best_ask) / dec!(2);
+        let spread_bps = if !mid_price.is_zero() {
+            (spread / mid_price * dec!(10000)).round_dp(2)
         } else {
             Decimal::ZERO
         };

@@ -22,39 +22,118 @@
     </button>
     <div class="site-nav-main">
       <button class="site-nav-link act" data-page="home" type="button" onclick="switchSitePage('home',this)">首页</button>
-      <div class="site-nav-menu">
-        <button class="site-nav-link site-nav-trigger" type="button">交易</button>
-        <div class="site-nav-dropdown">
-          <button class="site-nav-subbtn" data-page="ai" type="button" onclick="switchSitePage('ai',this)">AI盯盘</button>
-        </div>
-      </div>
+      <button class="site-nav-link" data-page="ai" type="button" onclick="switchSitePage('ai',this)">AI盯盘</button>
       <div class="site-nav-menu">
         <button class="site-nav-link site-nav-trigger" type="button">服务</button>
         <div class="site-nav-dropdown">
-          <button class="site-nav-subbtn" data-page="vip" type="button" onclick="switchSitePage('vip',this)">机构和VIP服务</button>
-          <button class="site-nav-subbtn" data-page="ads" type="button" onclick="switchSitePage('ads',this)">广告</button>
-          <button class="site-nav-subbtn" data-page="rebate" type="button" onclick="switchSitePage('rebate',this)">超级返佣</button>
-          <button class="site-nav-subbtn" data-page="invite" type="button" onclick="switchSitePage('invite',this)">邀请奖励</button>
+          <button class="site-nav-subbtn" data-page="vip" type="button" onclick="switchSitePage('vip',this)">
+            <span class="site-nav-subicon">VIP</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">机构和VIP服务</span>
+              <span class="site-nav-subdesc">为机构席位、量化团队和高频交易员提供更完整的服务能力。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="ads" type="button" onclick="switchSitePage('ads',this)">
+            <span class="site-nav-subicon">AD</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">广告</span>
+              <span class="site-nav-subdesc">品牌投放、站内曝光和活动合作入口，适合增长和拉新场景。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="rebate" type="button" onclick="switchSitePage('rebate',this)">
+            <span class="site-nav-subicon">返</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">超级返佣</span>
+              <span class="site-nav-subdesc">整合多层级返佣规则和结算说明，方便团队做渠道增长。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="invite" type="button" onclick="switchSitePage('invite',this)">
+            <span class="site-nav-subicon">邀</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">邀请奖励</span>
+              <span class="site-nav-subdesc">查看邀请任务、奖励进度和返利规则，适合做裂变拉新。</span>
+            </span>
+          </button>
         </div>
       </div>
       <div class="site-nav-menu">
         <button class="site-nav-link site-nav-trigger" type="button">内容</button>
         <div class="site-nav-dropdown">
-          <button class="site-nav-subbtn" data-page="plaza" type="button" onclick="switchSitePage('plaza',this)">广场</button>
-          <button class="site-nav-subbtn" data-page="blog" type="button" onclick="switchSitePage('blog',this)">博客</button>
-          <button class="site-nav-subbtn" data-page="help" type="button" onclick="switchSitePage('help',this)">帮助中心</button>
-          <button class="site-nav-subbtn" data-page="announcements" type="button" onclick="switchSitePage('announcements',this)">公告</button>
-          <button class="site-nav-subbtn" data-page="news" type="button" onclick="switchSitePage('news',this)">新闻中心</button>
+          <button class="site-nav-subbtn" data-page="plaza" type="button" onclick="switchSitePage('plaza',this)">
+            <span class="site-nav-subicon">广</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">广场</span>
+              <span class="site-nav-subdesc">聚合交易员动态、实盘观点和热门标的，方便快速发现机会。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="blog" type="button" onclick="switchSitePage('blog',this)">
+            <span class="site-nav-subicon">博</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">博客</span>
+              <span class="site-nav-subdesc">沉淀策略方法、产品更新和案例拆解，适合做深度阅读。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="help" type="button" onclick="switchSitePage('help',this)">
+            <span class="site-nav-subicon">助</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">帮助中心</span>
+              <span class="site-nav-subdesc">常见问题、功能说明和使用教程，适合新手快速上手。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="announcements" type="button" onclick="switchSitePage('announcements',this)">
+            <span class="site-nav-subicon">告</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">公告</span>
+              <span class="site-nav-subdesc">查看平台升级、活动通知和重要变更，不错过关键动态。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="news" type="button" onclick="switchSitePage('news',this)">
+            <span class="site-nav-subicon">新</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">新闻中心</span>
+              <span class="site-nav-subdesc">汇总市场热点、政策变化和行业动态，方便做宏观跟踪。</span>
+            </span>
+          </button>
         </div>
       </div>
       <div class="site-nav-menu">
         <button class="site-nav-link site-nav-trigger" type="button">更多</button>
         <div class="site-nav-dropdown">
-          <button class="site-nav-subbtn" data-page="feedback" type="button" onclick="switchSitePage('feedback',this)">产品反馈与建议</button>
-          <button class="site-nav-subbtn" data-page="community" type="button" onclick="switchSitePage('community',this)">社区</button>
-          <button class="site-nav-subbtn" data-page="agreement" type="button" onclick="switchSitePage('agreement',this)">服务协议</button>
-          <button class="site-nav-subbtn" data-page="privacy" type="button" onclick="switchSitePage('privacy',this)">隐私说明</button>
-          <button class="site-nav-subbtn" data-page="about" type="button" onclick="switchSitePage('about',this)">关于我们</button>
+          <button class="site-nav-subbtn" data-page="feedback" type="button" onclick="switchSitePage('feedback',this)">
+            <span class="site-nav-subicon">反</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">产品反馈与建议</span>
+              <span class="site-nav-subdesc">提交体验问题、功能建议和改版意见，帮助平台持续优化。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="community" type="button" onclick="switchSitePage('community',this)">
+            <span class="site-nav-subicon">社</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">社区</span>
+              <span class="site-nav-subdesc">进入用户讨论区、活动话题和交易交流场景，增强互动。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="agreement" type="button" onclick="switchSitePage('agreement',this)">
+            <span class="site-nav-subicon">协</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">服务协议</span>
+              <span class="site-nav-subdesc">查看平台服务条款、权责边界与使用规则说明。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="privacy" type="button" onclick="switchSitePage('privacy',this)">
+            <span class="site-nav-subicon">隐</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">隐私说明</span>
+              <span class="site-nav-subdesc">说明数据收集、使用方式和用户隐私保护策略。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="about" type="button" onclick="switchSitePage('about',this)">
+            <span class="site-nav-subicon">关</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">关于我们</span>
+              <span class="site-nav-subdesc">了解产品定位、团队背景和长期规划。</span>
+            </span>
+          </button>
         </div>
       </div>
     </div>
