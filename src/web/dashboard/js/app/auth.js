@@ -29,6 +29,13 @@ function switchAuthMode(mode){
   setAuthMessage('');
 }
 
+function setHeroTrialMessage(msg='',kind=''){
+  const el=document.getElementById('home-hero-form-msg');
+  if(!el)return;
+  el.textContent=msg;
+  el.className=`home-hero-form-msg${kind?` ${kind}`:''}`;
+}
+
 function renderSubscriptionPlans(){
   const root=document.getElementById('sub-plan-list');
   if(!root)return;
@@ -139,7 +146,7 @@ function applyAccessState(authStatus,userOverride=null){
 }
 
 function handleAuthExpired(){
-  applyAccessState({authenticated:false,subscribed:false,full_access:false,symbol_limit:8,user:null});
+  applyAccessState({authenticated:false,subscribed:false,full_access:false,symbol_limit:10,user:null});
   setAuthMessage('登录状态已失效，请重新登录。','err');
   openAuthModal('login');
   connect();
@@ -195,6 +202,41 @@ async function register(ev){
   apiFetch('/api/state').then(r=>r.json()).then(d=>render(d)).catch(()=>{});
 }
 
+function openHeroLogin(){
+  const heroUsername=document.getElementById('hero-trial-username')?.value.trim();
+  openAuthModal('login');
+  if(heroUsername){
+    const loginInput=document.getElementById('login-username');
+    if(loginInput)loginInput.value=heroUsername;
+  }
+}
+
+async function submitHeroTrial(ev){
+  if(ev)ev.preventDefault();
+  const username=document.getElementById('hero-trial-username')?.value.trim()||'';
+  const display_name=document.getElementById('hero-trial-display-name')?.value.trim()||'';
+  const password=document.getElementById('hero-trial-password')?.value||'';
+  if(!username){
+    setHeroTrialMessage('请输入用户名。','err');
+    return;
+  }
+  if(password.length<6){
+    setHeroTrialMessage('密码至少 6 位。','err');
+    return;
+  }
+  setHeroTrialMessage('');
+  const {json}=await requestAuthJson('/api/auth/register',{username,password,display_name});
+  if(!json.ok){
+    setHeroTrialMessage(json.message||'创建试用账户失败。','err');
+    return;
+  }
+  applyAccessState(json.data,json.data.user||null);
+  setHeroTrialMessage('账户已创建，正在进入 AI 盯盘。','ok');
+  connect();
+  apiFetch('/api/state').then(r=>r.json()).then(d=>render(d)).catch(()=>{});
+  switchSitePage('ai');
+}
+
 async function subscribeNow(){
   if(!S.auth.user){
     openAuthModal('login');
@@ -220,7 +262,7 @@ async function logout(){
   try{
     await fetch('/api/auth/logout',{method:'POST'});
   }catch(_){}
-  applyAccessState({authenticated:false,subscribed:false,full_access:false,symbol_limit:8,user:null});
+  applyAccessState({authenticated:false,subscribed:false,full_access:false,symbol_limit:10,user:null});
   connect();
   apiFetch('/api/state').then(r=>r.json()).then(d=>render(d)).catch(()=>{});
 }
@@ -247,6 +289,6 @@ async function bootAuth(){
     const data=await res.json();
     applyAccessState(data,data.user||null);
   }catch(_){
-    applyAccessState({authenticated:false,subscribed:false,full_access:false,symbol_limit:8,user:null});
+    applyAccessState({authenticated:false,subscribed:false,full_access:false,symbol_limit:10,user:null});
   }
 }

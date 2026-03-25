@@ -31,27 +31,65 @@ function setBBO(side){
   updateTotals();
 }
 
+function recalcQtyByPct(side,pct){
+  pct=Number(pct)||0;
+  if(!pct||!S.sel)return;
+  if(side==='buy'){
+    const price=parseFloat(document.getElementById('buy-price').value)||sv(S.sel,'mid')||1;
+    const avail=getBalance('USDT').available||0;
+    const qty=(avail*pct/100/price);
+    document.getElementById('buy-qty').value=qty>0?fQ(qty,S.sel):'';
+  }else{
+    const asset=S.sel.replace('USDT','');
+    const avail=getBalance(asset).available||0;
+    const qty=(avail*pct/100);
+    document.getElementById('sell-qty').value=qty>0?fQ(qty,S.sel):'';
+  }
+}
+
+function resolvePriceInputSide(bookSide){
+  const active=document.activeElement?.id;
+  if(active==='buy-price')return 'buy';
+  if(active==='sell-price')return 'sell';
+  return bookSide==='ask'?'buy':'sell';
+}
+
+function applyBookPrice(bookSide,price){
+  if(!S.sel)return;
+  const side=resolvePriceInputSide(bookSide);
+  const input=document.getElementById(`${side}-price`);
+  if(!input)return;
+  input.value=fP(price,S.sel);
+  const pctInput=document.getElementById(`${side}-pct`);
+  recalcQtyByPct(side,pctInput?.value||0);
+  updateTotals();
+}
+
 function setBuyPct(pct){
+  pct=Number(pct)||0;
   // 根据可用余额计算数量
   const price=parseFloat(document.getElementById('buy-price').value)||sv(S.sel||'','mid')||1;
   const avail=getBalance('USDT').available||0;
   const qty=(avail*pct/100/price);
-  document.getElementById('buy-qty').value=qty>0?qty.toFixed(6):'';
+  document.getElementById('buy-qty').value=qty>0?fQ(qty,S.sel):'';
   const total=qty*price;
   document.getElementById('buy-total').textContent=total.toFixed(2);
   setPctActive('buy',pct);
   document.getElementById('buy-pct').value=pct;
+  updateTradeSliderTip('buy',pct);
 }
 
 function setSellPct(pct){
+  pct=Number(pct)||0;
   const asset=(S.sel||'').replace('USDT','');
   const avail=getBalance(asset).available||0;
   const qty=(avail*pct/100);
   const price=parseFloat(document.getElementById('sell-price').value)||sv(S.sel||'','mid')||1;
-  document.getElementById('sell-qty').value=qty>0?qty.toFixed(6):'';
+  document.getElementById('sell-qty').value=qty>0?fQ(qty,S.sel):'';
   document.getElementById('sell-total').textContent=(qty*price).toFixed(2);
   setPctActive('sell',pct);
   document.getElementById('sell-pct').value=pct;
+  updateTradeSliderTip('sell',pct);
 }
 
 function setTradePct(side,pct,el){
@@ -75,9 +113,11 @@ function autofillTradeForm(side){
 
 function updateTotals(){
   const bp=parseFloat(document.getElementById('buy-price').value)||sv(S.sel||'','mid')||0;
+  recalcQtyByPct('buy',document.getElementById('buy-pct')?.value||0);
   const bq=parseFloat(document.getElementById('buy-qty').value)||0;
   document.getElementById('buy-total').textContent=(bp*bq).toFixed(2);
   const sp=parseFloat(document.getElementById('sell-price').value)||sv(S.sel||'','mid')||0;
+  recalcQtyByPct('sell',document.getElementById('sell-pct')?.value||0);
   const sq=parseFloat(document.getElementById('sell-qty').value)||0;
   document.getElementById('sell-total').textContent=(sp*sq).toFixed(2);
 }

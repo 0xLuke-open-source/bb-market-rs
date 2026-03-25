@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>BB-Market</title>
-<link rel="stylesheet" href="/static/css/base.css">
-<link rel="stylesheet" href="/static/css/shell.css">
-<link rel="stylesheet" href="/static/css/market.css">
-<link rel="stylesheet" href="/static/css/trading.css">
-<link rel="stylesheet" href="/static/css/analytics.css">
-<link rel="stylesheet" href="/static/css/alerts.css">
-<link rel="stylesheet" href="/static/css/portal.css">
+<link rel="stylesheet" href="/static/css/base.css?v=20260325u">
+<link rel="stylesheet" href="/static/css/shell.css?v=20260325u">
+<link rel="stylesheet" href="/static/css/market.css?v=20260325u">
+<link rel="stylesheet" href="/static/css/trading.css?v=20260325u">
+<link rel="stylesheet" href="/static/css/analytics.css?v=20260325u">
+<link rel="stylesheet" href="/static/css/alerts.css?v=20260325u">
+<link rel="stylesheet" href="/static/css/portal.css?v=20260325u">
 </head>
 <body>
 
@@ -138,6 +138,12 @@
       </div>
     </div>
     <div class="site-nav-actions">
+      <div class="auth-chip auth-chip-prominent">
+        <span class="auth-chip-user" id="auth-user">未登录</span>
+        <button class="auth-chip-btn" id="auth-open" type="button" onclick="openAuthModal('login')">登录</button>
+        <button class="auth-chip-btn" id="auth-subscribe" type="button" onclick="subscribeNow()" style="display:none">订阅</button>
+        <button class="auth-chip-btn" id="auth-logout" type="button" onclick="logout()" style="display:none">退出</button>
+      </div>
       <div class="site-nav-search">
         <input id="site-search-input" type="text" placeholder="搜索币种" autocomplete="off" aria-label="搜索币种">
         <button class="site-search-btn" type="button" onclick="searchTopSymbol()" aria-label="搜索币种" title="搜索币种" data-tip="搜索币种">
@@ -161,12 +167,6 @@
         <div class="stat-pill">监控 <b style="color:var(--y)" id="nc">--</b></div>
         <div class="stat-pill">活跃 <b style="color:var(--g)" id="ns2">--</b></div>
         <div class="stat-pill stat-pill-link" onclick="openReplay()">回放</div>
-        <div class="auth-chip">
-          <span class="auth-chip-user" id="auth-user">未登录</span>
-          <button class="auth-chip-btn" id="auth-open" type="button" onclick="openAuthModal('login')">登录</button>
-          <button class="auth-chip-btn" id="auth-subscribe" type="button" onclick="subscribeNow()" style="display:none">订阅</button>
-          <button class="auth-chip-btn" id="auth-logout" type="button" onclick="logout()" style="display:none">退出</button>
-        </div>
       </div>
     </div>
   </div>

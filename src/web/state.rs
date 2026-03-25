@@ -115,6 +115,8 @@ pub struct FeedEntry {
     pub r#type: String,
     pub score: Option<u8>,
     pub desc: String,
+    #[serde(default)]
+    pub ts: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -226,6 +228,7 @@ impl DashboardState {
     }
 
     pub fn push_feed(&mut self, entry: FeedEntry) {
+        self.feed.retain(|item| is_same_local_day(item.ts, entry.ts));
         if self.feed.len() >= 200 {
             self.feed.pop_back();
         }
@@ -312,7 +315,13 @@ impl DashboardState {
             self.symbols.insert(key, symbol);
         }
 
-        for entry in snapshot.feed.into_iter().take(200) {
+        let current_ts = chrono::Local::now().timestamp_millis();
+        for entry in snapshot
+            .feed
+            .into_iter()
+            .filter(|entry| is_same_local_day(entry.ts, current_ts))
+            .take(200)
+        {
             self.feed.push_back(entry);
         }
 
@@ -325,4 +334,18 @@ pub type SharedDashboardState = Arc<RwLock<DashboardState>>;
 
 pub fn new_dashboard_state() -> SharedDashboardState {
     Arc::new(RwLock::new(DashboardState::new()))
+}
+
+fn is_same_local_day(entry_ts: i64, reference_ts: i64) -> bool {
+    if entry_ts <= 0 || reference_ts <= 0 {
+        return false;
+    }
+    use chrono::{Local, TimeZone};
+    let Some(entry_dt) = Local.timestamp_millis_opt(entry_ts).single() else {
+        return false;
+    };
+    let Some(reference_dt) = Local.timestamp_millis_opt(reference_ts).single() else {
+        return false;
+    };
+    entry_dt.date_naive() == reference_dt.date_naive()
 }

@@ -14,3 +14,5 @@
 {"action":"submit","request":{"order_type":"limit","price":0.025157,"quantity":7949441.551731,"side":"buy","symbol":"GRTUSDT","time_in_force":"gtc","trigger_kind":null,"trigger_price":null},"result":{"filled_qty":0.0,"filled_quote_qty":0.0,"order_id":2436956,"remaining_qty":7949441.551731,"status":"New","trade_count":0},"ts":1774293613725}
 {"action":"submit","request":{"order_type":"limit","price":633.15,"quantity":10000.0,"side":"sell","symbol":"BNBUSDT","time_in_force":"gtc","trigger_kind":null,"trigger_price":null},"result":{"filled_qty":0.0,"filled_quote_qty":0.0,"order_id":9772293,"remaining_qty":10000.0,"status":"New","trade_count":0},"ts":1774323447860}
 {"action":"cancel","order_id":9772293,"symbol":"BNBUSDT","ts":1774323452877}
+{"action":"submit","request":{"order_type":"limit","price":2161.65934106,"quantity":10000.0,"side":"sell","symbol":"ETHUSDT","time_in_force":"gtc","trigger_kind":null,"trigger_price":null},"result":{"filled_qty":0.0,"filled_quote_qty":0.0,"order_id":740749,"remaining_qty":10000.0,"status":"New","trade_count":0},"ts":1774347365201}
+{"action":"cancel","order_id":740749,"symbol":"ETHUSDT","ts":1774347372235}

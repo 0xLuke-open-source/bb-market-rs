@@ -12,7 +12,9 @@ pub fn build_feed_entries(
     cvd: f64,
 ) -> Vec<FeedEntry> {
     let mut feed_entries = Vec::new();
-    let time = Local::now().format("%H:%M:%S").to_string();
+    let now = Local::now();
+    let time = now.format("%H:%M:%S").to_string();
+    let ts = now.timestamp_millis();
 
     if features.pump_signal && features.pump_score >= 60 {
         feed_entries.push(FeedEntry {
@@ -21,6 +23,7 @@ pub fn build_feed_entries(
             r#type: "pump".into(),
             score: Some(features.pump_score),
             desc: format!("[{}] {}", watch_level, signal_reason),
+            ts,
         });
     }
     if features.dump_signal && features.dump_score >= 60 {
@@ -30,6 +33,7 @@ pub fn build_feed_entries(
             r#type: "dump".into(),
             score: Some(features.dump_score),
             desc: format!("[{}] {}", watch_level, signal_reason),
+            ts,
         });
     }
     if features.whale_entry {
@@ -39,6 +43,7 @@ pub fn build_feed_entries(
             r#type: "whale".into(),
             score: None,
             desc: format!("[{}] {}", watch_level, signal_reason),
+            ts,
         });
     }
     if anomaly_max_severity >= 75 {
@@ -48,6 +53,7 @@ pub fn build_feed_entries(
             r#type: "anomaly".into(),
             score: Some(anomaly_max_severity),
             desc: format!("[{}] {}", watch_level, signal_reason),
+            ts,
         });
     }
     if cvd.abs() > 10000.0 {
@@ -62,6 +68,7 @@ pub fn build_feed_entries(
             r#type: "cvd".into(),
             score: None,
             desc: format!("[{}] {}，{}", watch_level, direction, signal_reason),
+            ts,
         });
     }
 

@@ -125,6 +125,9 @@ impl SymbolMonitor {
         update: DepthUpdate,
         report_interval: Duration,
     ) -> anyhow::Result<()> {
+        if !update.symbol.eq_ignore_ascii_case(&self.symbol) {
+            return Ok(());
+        }
         if self.book.apply_incremental_update(update).is_err() {
             return Ok(());
         }
@@ -154,6 +157,9 @@ impl SymbolMonitor {
     /// - `taker_buy_ratio`：当前 1m 窗口主动买比例
     /// - `big_trades`：相对盘口深度足够大的成交事件
     pub fn apply_trade(&mut self, trade: &AggTrade) {
+        if !trade.symbol.eq_ignore_ascii_case(&self.symbol) {
+            return;
+        }
         let qty = trade.qty_decimal();
         let delta = trade.delta();
         let now = trade.trade_time;
@@ -225,6 +231,9 @@ impl SymbolMonitor {
 
     /// 写入 24h ticker 背景数据，主要服务于前端展示和辅助解释。
     pub fn apply_ticker(&mut self, ticker: &MiniTicker) {
+        if !ticker.symbol.eq_ignore_ascii_case(&self.symbol) {
+            return;
+        }
         self.price_24h_open = ticker.open_f64();
         self.price_24h_high = ticker.high_f64();
         self.price_24h_low = ticker.low_f64();
@@ -238,6 +247,9 @@ impl SymbolMonitor {
     /// 已收盘 K 线进入历史队列，未收盘 K 线放进 `current_kline`；
     /// 当 1m K 线收盘时，同时重置本分钟主动买卖量统计。
     pub fn apply_kline(&mut self, event: &KlineEvent) {
+        if !event.symbol.eq_ignore_ascii_case(&self.symbol) {
+            return;
+        }
         let kline = &event.kline;
         let interval = event.kline_interval();
         let bar = KlineBar {

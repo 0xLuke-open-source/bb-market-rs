@@ -27,7 +27,6 @@
           <div class="tatab">全仓</div>
           <div class="tatab">逐仓</div>
           <div class="tatab">网格</div>
-          <span style="margin-left:auto;font-size:9px;color:var(--t3);align-self:center;text-transform:uppercase;letter-spacing:.3px">手续费等级</span>
         </div>
         <div class="ta-types">
           <div class="ttype act" onclick="setType(0,this)">限价</div>
@@ -62,7 +61,10 @@
               <button class="ta-pct" onclick="setTradePct('buy',80,this)">80%</button>
               <button class="ta-pct" onclick="setTradePct('buy',100,this)">100%</button>
             </div>
-            <div class="ta-slider"><input type="range" min="0" max="100" value="0" id="buy-pct" oninput="setBuyPct(this.value)"></div>
+            <div class="ta-slider">
+              <span class="ta-slider-tip" id="buy-pct-tip">0%</span>
+              <input type="range" min="0" max="100" value="0" id="buy-pct" oninput="setBuyPct(this.value)">
+            </div>
             <div class="ta-extra" id="buy-stop-box">
               <div>
                 <div class="ta-label">触发价</div>
@@ -111,7 +113,10 @@
               <button class="ta-pct" onclick="setTradePct('sell',80,this)">80%</button>
               <button class="ta-pct" onclick="setTradePct('sell',100,this)">100%</button>
             </div>
-            <div class="ta-slider"><input type="range" min="0" max="100" value="0" id="sell-pct"></div>
+            <div class="ta-slider">
+              <span class="ta-slider-tip" id="sell-pct-tip">0%</span>
+              <input type="range" min="0" max="100" value="0" id="sell-pct">
+            </div>
             <div class="ta-extra" id="sell-stop-box">
               <div>
                 <div class="ta-label">触发价</div>
@@ -146,7 +151,6 @@
           <div id="ob-asks" class="ob-asks micro-ob-asks"></div>
           <div class="ob-mid micro-ob-mid">
             <span class="ob-mid-p" id="ob-mid">--</span>
-            <span style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.2px">当前价</span>
             <span class="ob-bps" id="ob-bps">--</span>
           </div>
           <div id="ob-bids" class="ob-bids micro-ob-bids"></div>

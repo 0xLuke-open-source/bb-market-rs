@@ -1,5 +1,19 @@
 // ── EMA ──────────────────────────────────────────────────────────
-function ema(sym,k,v){if(!S.sm[sym])S.sm[sym]={};const p=S.sm[sym][k];if(p===undefined){S.sm[sym][k]=v;return v;}const r=A*v+(1-A)*p;S.sm[sym][k]=r;return r;}
+function ema(sym,k,v){
+  if(!S.sm[sym])S.sm[sym]={};
+  if(k==='mid'){
+    S.sm[sym][k]=v;
+    return v;
+  }
+  const p=S.sm[sym][k];
+  if(p===undefined){
+    S.sm[sym][k]=v;
+    return v;
+  }
+  const r=A*v+(1-A)*p;
+  S.sm[sym][k]=r;
+  return r;
+}
 function sv(sym,k){return S.sm[sym]?.[k]??0;}
 
 function pct(v,total){return total>0?(v/total*100):0;}
@@ -155,7 +169,11 @@ function updateSignalPerfStats(){
 }
 function renderEnterpriseMetrics(sym){
   const s=S.syms.find(x=>x.symbol===sym);
-  if(!s){e('enterprise-metrics','');return;}
+  if(!s){
+    S.ui.enterprise='';
+    e('enterprise-metrics','');
+    return;
+  }
   const hist=S.metricH[sym]||[];
   const last=hist[hist.length-1]||null;
   const prev=hist[Math.max(0,hist.length-6)]||null;

@@ -12,10 +12,17 @@ function ensureTradingView(){
   return tvLoadingPromise;
 }
 
+function showTvSkeleton(){}
+function hideTvSkeleton(){}
+function syncTvOverlay(){}
+
 async function initTV(symbol,iv){
   const s='BINANCE:'+symbol;
-  if(tvSym===s&&curIv===iv)return;
+  if(tvSym===s&&curIv===iv){
+    return;
+  }
   tvSym=s;curIv=iv;
+  window.__bbTvWidgetReady=false;
   const el=document.getElementById('tv-widget');
   if(typeof TradingView==='undefined'){
     el.innerHTML='<div class="tv-loading">⏳ TradingView 加载中...</div>';
@@ -27,7 +34,7 @@ async function initTV(symbol,iv){
     if(tvSym!==s||curIv!==iv)return;
   }
   el.innerHTML='';
-  new TradingView.widget({
+  const widget=new TradingView.widget({
     container_id:'tv-widget',symbol:s,interval:iv,
     timezone:'Asia/Shanghai',theme:'dark',style:'1',locale:'zh_CN',
     toolbar_bg:'#161a1e',enable_publishing:false,allow_symbol_change:false,
@@ -35,6 +42,17 @@ async function initTV(symbol,iv){
     studies:['RSI@tv-basicstudies','MACD@tv-basicstudies'],
     width:'100%',height:'100%',backgroundColor:'#0b0e11',gridColor:'rgba(43,49,57,.4)',
   });
+  if(widget&&typeof widget.onChartReady==='function'){
+    widget.onChartReady(()=>{
+      if(tvSym!==s||curIv!==iv)return;
+      window.__bbTvWidgetReady=true;
+    });
+  }else{
+    window.setTimeout(()=>{
+      if(tvSym!==s||curIv!==iv)return;
+      window.__bbTvWidgetReady=true;
+    },700);
+  }
 }
 
 // ── K线周期 Tab ──────────────────────────────────────────────────

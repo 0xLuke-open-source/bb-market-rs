@@ -57,6 +57,7 @@ pub async fn persist_dashboard_cache(
     let cache = PersistedDashboardCache {
         generated_at_ms: now_ms(),
         snapshot: FullSnapshot {
+            feed: Vec::new(),
             trader: TraderStateJson::default(),
             access: AccessInfoJson::default(),
             ..snapshot

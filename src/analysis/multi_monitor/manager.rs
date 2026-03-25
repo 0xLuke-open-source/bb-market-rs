@@ -55,12 +55,21 @@ impl MultiSymbolMonitor {
         let mut symbols = Vec::new();
 
         for line in reader.lines() {
-            let symbol = line?.trim().to_string();
-            if !symbol.is_empty() && symbol != "币安人生" {
-                symbols.push(format!("{}USDT", symbol));
-                if symbols.len() >= max {
-                    break;
-                }
+            let raw = line?.trim().to_ascii_uppercase();
+            if raw.is_empty() || raw == "币安人生" {
+                continue;
+            }
+            let normalized = if raw.ends_with("USDT") {
+                raw
+            } else {
+                format!("{}USDT", raw)
+            };
+            if symbols.iter().any(|item| item == &normalized) {
+                continue;
+            }
+            symbols.push(normalized);
+            if symbols.len() >= max {
+                break;
             }
         }
 
@@ -74,9 +83,13 @@ impl MultiSymbolMonitor {
     pub async fn init_monitors(&self, symbols: Vec<String>) {
         let mut monitors = self.monitors.lock().await;
         for symbol in symbols {
+            let normalized = symbol.trim().to_ascii_uppercase();
+            if normalized.is_empty() {
+                continue;
+            }
             monitors.insert(
-                symbol.clone(),
-                Arc::new(Mutex::new(SymbolMonitor::new(&symbol))),
+                normalized.clone(),
+                Arc::new(Mutex::new(SymbolMonitor::new(&normalized))),
             );
         }
     }
@@ -86,10 +99,21 @@ impl MultiSymbolMonitor {
     /// 这里不直接在全局层做业务判断，而是把状态更新下沉到
     /// `SymbolMonitor`，让每个交易对自己维护完整上下文。
     pub async fn handle_msg(&self, symbol: &str, msg: StreamMsg) -> anyhow::Result<()> {
+        let route_symbol = match &msg {
+            StreamMsg::Depth(update) => update.symbol.to_ascii_uppercase(),
+            StreamMsg::Trade(trade) => trade.symbol.to_ascii_uppercase(),
+            StreamMsg::Ticker(ticker) => ticker.symbol.to_ascii_uppercase(),
+            StreamMsg::Kline(kline) => kline.symbol.to_ascii_uppercase(),
+        };
+        let task_symbol = symbol.to_ascii_uppercase();
         let monitor = {
             let monitors = self.monitors.lock().await;
-            monitors.get(symbol).cloned()
+            monitors.get(route_symbol.as_str()).cloned()
         };
+        if monitor.is_none() && !route_symbol.eq_ignore_ascii_case(&task_symbol) {
+            // 非目标 symbol 的消息不再回退到任务 symbol，避免串币污染。
+            return Ok(());
+        }
         let Some(monitor) = monitor else {
             return Ok(());
         };

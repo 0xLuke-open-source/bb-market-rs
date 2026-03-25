@@ -1,4 +1,4 @@
-  <div class="panel" style="grid-column:1;flex-direction:column">
+  <div class="panel market-panel" style="grid-column:1;flex-direction:column">
     <div class="ph"><span class="ph-ttl">市场</span><span style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">MARKET</span></div>
     <div class="left-top">
       <div class="srch-wrap">
@@ -13,32 +13,24 @@
       <button class="sortbtn" data-sort="anomaly" onclick="setMarketSort('anomaly',this)">异常优先</button>
     </div>
     <div class="quickbar">
-      <button class="quickbtn act" data-filter="all" onclick="setMarketQuickFilter('all',this)">全部</button>
       <button class="quickbtn" data-filter="fav" onclick="setMarketQuickFilter('fav',this)">只看自选</button>
-      <button class="quickbtn" data-filter="key" onclick="setMarketQuickFilter('key',this)">重点以上</button>
+      <button class="quickbtn act" data-filter="key" onclick="setMarketQuickFilter('key',this)">重点以上</button>
       <button class="quickbtn" data-filter="strong" onclick="setMarketQuickFilter('strong',this)">只看强提醒</button>
       <button class="quickbtn" data-filter="whale" onclick="setMarketQuickFilter('whale',this)">只看大户</button>
       <button class="quickbtn" data-filter="anomaly" onclick="setMarketQuickFilter('anomaly',this)">只看异常</button>
     </div>
-    <div class="ls-vsec" style="flex:0 0 22%">
+    <div class="ls-vsec ls-vsec-whale">
       <div class="ls-sec-hdr ls-whale" style="border-top:none">
         <span class="ls-sec-ttl">🐋 鲸鱼</span>
         <span class="ls-sec-cnt" id="sec-whale-cnt">0</span>
       </div>
       <div class="ls-vsec-list" id="sec-whales"><div class="ls-empty">等待鲸鱼...</div></div>
     </div>
-    <div class="ls-vsec" style="flex:0 0 28%">
+    <div class="ls-vsec ls-vsec-sig">
       <div class="ls-sec-hdr ls-sig">
         <span class="ls-sec-ttl">📡 信号</span>
         <span class="ls-sec-cnt" id="sec-sig-cnt">0</span>
       </div>
       <div class="ls-vsec-list" id="sec-sigs"><div class="ls-empty">等待信号...</div></div>
-    </div>
-    <div class="ls-vsec" style="flex:1;min-height:0">
-      <div class="ls-sec-hdr ls-all">
-        <span class="ls-sec-ttl">全部</span>
-        <span class="ls-sec-cnt" id="sec-all-cnt">0</span>
-      </div>
-      <div class="ls-vsec-list" id="sec-all" style="flex:1"></div>
     </div>
   </div>

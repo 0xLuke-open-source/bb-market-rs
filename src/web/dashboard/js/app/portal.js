@@ -557,6 +557,10 @@ const PORTAL_PAGES = {
   }
 };
 
+const HOME_PARTNERS = ['Binance', 'OKX', 'Bybit', 'TradingView', 'Telegram', 'Notion', 'Webhook', 'Desk API'];
+const HOME_HERO_ROTATE_MS = 3800;
+const HOME_BANNER_ROTATE_MS = 5200;
+
 function escapePortalHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -574,7 +578,7 @@ function portalRuntimeMetrics() {
   const whales = syms.filter(s => s.whale_entry || s.whale_exit).length;
   return {
     totalSymbols: syms.length || S.access?.total_symbols || 128,
-    visibleSymbols: S.access?.visible_symbols || Math.min(syms.length || 24, 8),
+    visibleSymbols: S.access?.visible_symbols || Math.min(syms.length || 24, 10),
     strongSignals: strongSignals || 19,
     whales: whales || 12,
     feedCount: feed.length || 186,
@@ -609,7 +613,7 @@ function portalPulseItems() {
 function renderPortalActions(page) {
   const actions = [];
   if (page !== 'home') {
-    actions.push({ label: '返回首页盯盘', action: "switchSitePage('home')", kind: 'primary' });
+    actions.push({ label: '返回首页', action: "switchSitePage('home')", kind: 'primary' });
   }
   if (!S.auth?.user) {
     actions.push({ label: '注册体验', action: "openAuthModal('register')", kind: 'secondary' });
@@ -807,6 +811,989 @@ function renderPortalFooter(page) {
   `;
 }
 
+function setPortalText(id, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = String(text ?? '');
+}
+
+function setPortalHtml(id, html) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = String(html ?? '');
+}
+
+function pulsePortalNode(id, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const next = String(text ?? '');
+  if (el.textContent === next) return;
+  el.textContent = next;
+  el.classList.remove('is-live-bump');
+  void el.offsetWidth;
+  el.classList.add('is-live-bump');
+}
+
+function homeSpotlightItems() {
+  const base = portalPulseItems();
+  return base.length ? base : PORTAL_FALLBACK_PULSE;
+}
+
+function renderHomeSpotlightNav(items, activeIndex = 0) {
+  return items.slice(0, 5).map((item, index) => `
+    <button
+      type="button"
+      class="home-spot-chip ${index===activeIndex?'act':''}"
+      onclick="selectHomeSpotlight(${index})"
+    >
+      <span>${escapePortalHtml(item.symbol)}</span>
+      <b>${escapePortalHtml(String(item.score))}</b>
+    </button>
+  `).join('');
+}
+
+function renderHomeLiveTape(items) {
+  const list = (items && items.length ? items : [
+    { symbol: 'BTCUSDT', type: '盘口异动', desc: '主动买盘持续抬升，关注突破确认。' },
+    { symbol: 'ETHUSDT', type: '预警通知', desc: '短时成交密度提升，波动加快。' },
+    { symbol: 'SOLUSDT', type: '鲸鱼信号', desc: '连续大额扫单，注意后续承接。' }
+  ]);
+  const cards = list.map(item=>`
+    <div class="home-live-card">
+      <span class="home-live-symbol">${escapePortalHtml(item.symbol)}</span>
+      <span class="home-live-type">${escapePortalHtml(item.type || '实时信号')}</span>
+      <span class="home-live-desc">${escapePortalHtml(item.desc || '市场信号持续刷新中')}</span>
+    </div>
+  `).join('');
+  return `
+    <div class="home-live-track">
+      ${cards}
+      ${cards}
+    </div>
+  `;
+}
+
+function renderHomePartnerRail() {
+  const cells = HOME_PARTNERS.map(name=>`
+    <span class="home-partner-pill">${escapePortalHtml(name)}</span>
+  `).join('');
+  return `
+    <div class="home-partner-rail">
+      <div class="home-partner-track">
+        ${cells}
+        ${cells}
+      </div>
+    </div>
+  `;
+}
+
+function renderHomeHeroBackdrop() {
+  const particles = Array.from({ length: 14 }, (_, index) => {
+    const left = 6 + (index * 7) % 92;
+    const top = 8 + (index * 11) % 76;
+    const delay = (index * 0.45).toFixed(2);
+    const size = 2 + (index % 4);
+    return `<span class="home-hero-particle" style="--x:${left}%;--y:${top}%;--d:${delay}s;--s:${size}px"></span>`;
+  }).join('');
+  return `
+    <div class="home-hero-backdrop" aria-hidden="true">
+      <div class="home-hero-grid"></div>
+      <div class="home-hero-scan"></div>
+      <div class="home-hero-particles">${particles}</div>
+    </div>
+  `;
+}
+
+function renderHomeArchitecture(runtime, pulse) {
+  const primary = pulse[0] || PORTAL_FALLBACK_PULSE[0];
+  return `
+    <section class="home-architecture home-reveal" data-reveal-delay="0.08">
+      <div class="home-section-head">
+        <div class="home-section-kicker">系统架构</div>
+        <div class="home-section-title">把行情输入、信号引擎、预警路由和交易桌面，做成一条可执行的数据链路</div>
+      </div>
+      <div class="home-arch-layout">
+        <div class="home-arch-board">
+          <div class="home-arch-line" aria-hidden="true"></div>
+          <article class="home-arch-node home-reveal is-node-accent" data-reveal-delay="0.14">
+            <div class="home-arch-node-kicker">输入层</div>
+            <div class="home-arch-node-title">Market Feed</div>
+            <div class="home-arch-node-text">盘口、成交、K线、异动事件统一进入同一条实时链路。</div>
+          </article>
+          <article class="home-arch-node home-reveal" data-reveal-delay="0.22">
+            <div class="home-arch-node-kicker">计算层</div>
+            <div class="home-arch-node-title">Signal Engine</div>
+            <div class="home-arch-node-text">OBI、OFI、主动买卖量差、鲸鱼轨迹和异常结构在这里收敛成评分。</div>
+          </article>
+          <article class="home-arch-node home-reveal is-node-primary" data-reveal-delay="0.30">
+            <div class="home-arch-node-kicker">决策层</div>
+            <div class="home-arch-node-title">AI Radar</div>
+            <div class="home-arch-node-text">将复杂市场结构翻译成交易员能直接用的强提醒、关注理由和优先级。</div>
+          </article>
+          <article class="home-arch-node home-reveal" data-reveal-delay="0.38">
+            <div class="home-arch-node-kicker">分发层</div>
+            <div class="home-arch-node-title">Alert Router</div>
+            <div class="home-arch-node-text">实时信号、预警通知、回放链路和订阅权限在这里完成路由。</div>
+          </article>
+          <article class="home-arch-node home-reveal is-node-accent-alt" data-reveal-delay="0.46">
+            <div class="home-arch-node-kicker">执行层</div>
+            <div class="home-arch-node-title">Trader Desk</div>
+            <div class="home-arch-node-text">最终落到 AI 盯盘控制台、交易面板和复盘流程，形成闭环。</div>
+          </article>
+        </div>
+        <div class="home-arch-side home-reveal" data-reveal-delay="0.18">
+          <div class="home-arch-side-card">
+            <div class="home-side-kicker">当前焦点链路</div>
+            <div class="home-side-title">${escapePortalHtml(primary.symbol)}</div>
+            <div class="home-side-text">${escapePortalHtml(primary.tag)}，系统会把该币种直接推进到盯盘驾驶舱与预警流中。</div>
+          </div>
+          <div class="home-arch-side-grid">
+            <div class="home-arch-mini">
+              <b>${escapePortalHtml(String(runtime.totalSymbols))}</b>
+              <span>统一监控币种</span>
+            </div>
+            <div class="home-arch-mini">
+              <b>${escapePortalHtml(String(runtime.strongSignals))}</b>
+              <span>高优先级信号</span>
+            </div>
+            <div class="home-arch-mini">
+              <b>${escapePortalHtml(String(runtime.whales))}</b>
+              <span>鲸鱼异动捕捉</span>
+            </div>
+            <div class="home-arch-mini">
+              <b>${escapePortalHtml(String(runtime.feedCount))}</b>
+              <span>实时事件沉淀</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function observeHomeReveal() {
+  const portal = document.getElementById('portal-shell');
+  if (!portal || S.site?.page !== 'home') return;
+  const items = portal.querySelectorAll('.home-reveal');
+  if (!items.length) return;
+  const reduceMotion = typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion || typeof IntersectionObserver === 'undefined') {
+    items.forEach(node => node.classList.add('is-visible'));
+    return;
+  }
+  if (window.__bbHomeRevealObserver) {
+    try { window.__bbHomeRevealObserver.disconnect(); } catch (_) {}
+  }
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const node = entry.target;
+      const delay = Number(node.dataset.revealDelay || 0);
+      node.style.transitionDelay = `${delay}s`;
+      node.classList.add('is-visible');
+      observer.unobserve(node);
+    });
+  }, { threshold: 0.16, rootMargin: '0px 0px -8% 0px' });
+  items.forEach(node => observer.observe(node));
+  window.__bbHomeRevealObserver = observer;
+}
+
+function renderHomeMetricCards(items, valueClass = 'home-stat-value') {
+  return items.map((item, index) => `
+    <article class="home-stat-card">
+      <div class="${valueClass}" id="${valueClass}-${index}">${escapePortalHtml(item.value)}</div>
+      <div class="home-stat-label">${escapePortalHtml(item.label)}</div>
+      <div class="home-stat-note">${escapePortalHtml(item.note)}</div>
+      <div class="home-stat-bar"><span style="width:${Math.max(24,Math.min(100,32 + index*16))}%"></span></div>
+    </article>
+  `).join('');
+}
+
+function svgToDataUri(svg) {
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)
+    .replace(/%0A/g, '')
+    .replace(/%20/g, ' ')}`;
+}
+
+function buildHomeBannerSvg(spec) {
+  const bars = (spec.bars || []).map((value, index) => {
+    const height = Math.max(30, Math.min(124, Number(value) || 48));
+    const x = 86 + index * 54;
+    const y = 192 - height;
+    const pulse = 8 + (index % 3) * 6;
+    return `
+      <rect x="${x}" y="${y}" width="28" height="${height}" rx="10" fill="${index === 0 ? spec.accent : 'rgba(255,255,255,0.18)'}">
+        <animate attributeName="y" values="${y};${Math.max(54, y - pulse)};${y}" dur="${2.6 + index * 0.18}s" repeatCount="indefinite"/>
+        <animate attributeName="height" values="${height};${Math.min(148, height + pulse)};${height}" dur="${2.6 + index * 0.18}s" repeatCount="indefinite"/>
+      </rect>
+    `;
+  }).join('');
+  const particles = (spec.particles || [
+    { cx: 984, cy: 208, r: 10, dx: 14, dy: -10, delay: '0s' },
+    { cx: 1096, cy: 266, r: 8, dx: -12, dy: 14, delay: '0.4s' },
+    { cx: 1210, cy: 194, r: 12, dx: 16, dy: 12, delay: '0.8s' },
+    { cx: 1316, cy: 286, r: 9, dx: -10, dy: -14, delay: '1.2s' },
+    { cx: 1434, cy: 226, r: 7, dx: 12, dy: 10, delay: '1.6s' }
+  ]).map(item => `
+    <circle cx="${item.cx}" cy="${item.cy}" r="${item.r}" fill="${spec.accent}" fill-opacity="0.26">
+      <animate attributeName="cx" values="${item.cx};${item.cx + item.dx};${item.cx}" dur="4.8s" begin="${item.delay}" repeatCount="indefinite"/>
+      <animate attributeName="cy" values="${item.cy};${item.cy + item.dy};${item.cy}" dur="4.8s" begin="${item.delay}" repeatCount="indefinite"/>
+      <animate attributeName="r" values="${item.r};${item.r + 3};${item.r}" dur="3.4s" begin="${item.delay}" repeatCount="indefinite"/>
+      <animate attributeName="fill-opacity" values="0.12;0.34;0.12" dur="3.4s" begin="${item.delay}" repeatCount="indefinite"/>
+    </circle>
+  `).join('');
+  const chips = (spec.chips || []).slice(0, 3).map((item, index) => `
+    <g transform="translate(${332 + index * 104},64)">
+      <rect width="92" height="28" rx="14" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)"/>
+      <text x="46" y="18" text-anchor="middle" fill="#F3F6FB" font-size="10" font-weight="700">${item}</text>
+    </g>
+  `).join('');
+  const cards = (spec.cards || []).slice(0, 3).map((item, index) => `
+    <g transform="translate(${324 + index * 108},118)">
+      <rect width="96" height="86" rx="18" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)"/>
+      <text x="16" y="24" fill="#9FB0C7" font-size="9" font-weight="700">${item.label}</text>
+      <text x="16" y="50" fill="#FFFFFF" font-size="22" font-weight="800">${item.value}
+        <animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="${1.7 + index * 0.2}s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.82;1;0.82" dur="${1.7 + index * 0.2}s" repeatCount="indefinite"/>
+      </text>
+      <text x="16" y="68" fill="${spec.accent}" font-size="9" font-weight="700">${item.note}</text>
+    </g>
+  `).join('');
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" fill="none">
+      <defs>
+        <linearGradient id="bg-${spec.key}" x1="140" y1="100" x2="1380" y2="820" gradientUnits="userSpaceOnUse">
+          <stop stop-color="${spec.bgStart}"/>
+          <stop offset="1" stop-color="${spec.bgEnd}"/>
+        </linearGradient>
+        <linearGradient id="glow-${spec.key}" x1="0" y1="0" x2="1" y2="1">
+          <stop stop-color="${spec.accent}"/>
+          <stop offset="1" stop-color="rgba(255,255,255,0.08)"/>
+        </linearGradient>
+      </defs>
+      <rect width="1600" height="900" rx="42" fill="url(#bg-${spec.key})"/>
+      <circle cx="1280" cy="170" r="210" fill="${spec.glow}" fill-opacity="0.20"/>
+      <circle cx="236" cy="726" r="244" fill="${spec.glow}" fill-opacity="0.12"/>
+      <rect x="-220" y="82" width="240" height="736" fill="rgba(255,255,255,0.08)" opacity="0.22" transform="rotate(10 0 0)">
+        <animate attributeName="x" values="-260;1600" dur="5.2s" repeatCount="indefinite"/>
+      </rect>
+      <g opacity="0.16" stroke="rgba(255,255,255,0.14)">
+        <path d="M0 140H1600"/>
+        <path d="M0 300H1600"/>
+        <path d="M0 460H1600"/>
+        <path d="M0 620H1600"/>
+        <path d="M220 0V900"/>
+        <path d="M420 0V900"/>
+        <path d="M620 0V900"/>
+        <path d="M820 0V900"/>
+        <path d="M1020 0V900"/>
+        <path d="M1220 0V900"/>
+        <path d="M1420 0V900"/>
+      </g>
+      <rect x="72" y="72" width="1456" height="756" rx="34" fill="rgba(7,10,15,0.26)" stroke="rgba(255,255,255,0.10)"/>
+      ${particles}
+      <text x="116" y="144" fill="#F2C760" font-size="28" font-weight="800" letter-spacing="4">${spec.kicker}</text>
+      <text x="116" y="224" fill="#F5F7FB" font-size="74" font-weight="900">${spec.title}</text>
+      <text x="116" y="274" fill="#C8D1DC" font-size="28">${spec.subtitle}</text>
+      <rect x="104" y="330" width="474" height="264" rx="28" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.12)"/>
+      <text x="138" y="382" fill="#9FB0C7" font-size="20" font-weight="700">${spec.panelTitle}</text>
+      ${bars}
+      <path d="${spec.linePath}" stroke="${spec.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="460" stroke-dashoffset="460">
+        <animate attributeName="stroke-dashoffset" values="460;0;0" dur="2.8s" repeatCount="indefinite"/>
+      </path>
+      <circle cx="302" cy="436" r="10" fill="${spec.accent}"/>
+      <circle cx="408" cy="384" r="10" fill="${spec.accent}"/>
+      <circle cx="516" cy="344" r="10" fill="${spec.accent}"/>
+      <rect x="650" y="330" width="774" height="264" rx="28" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.10)"/>
+      ${chips}
+      ${cards}
+      <rect x="104" y="646" width="1316" height="128" rx="26" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
+      <text x="138" y="700" fill="#FFFFFF" font-size="34" font-weight="800">${spec.footerTitle}</text>
+      <text x="138" y="740" fill="#C8D1DC" font-size="22">${spec.footerText}</text>
+      <rect x="1122" y="676" width="262" height="56" rx="28" fill="url(#glow-${spec.key})"/>
+      <text x="1253" y="712" text-anchor="middle" fill="#101318" font-size="20" font-weight="900">${spec.bannerCta || spec.ctaLabel || 'BB-Market'}</text>
+    </svg>`;
+  return svgToDataUri(svg);
+}
+
+function homeBannerSlides(runtime) {
+  const isAuthenticated = !!S.auth?.user;
+  const hasFullAccess = !!S.access?.full_access;
+  const accessLabel = hasFullAccess ? '已订阅解锁' : (isAuthenticated ? '已登录未订阅' : '公开预览');
+  const primaryBannerCta = hasFullAccess
+    ? { label: '进入实时控制台', action: "switchSitePage('ai')" }
+    : (isAuthenticated
+      ? { label: '升级完整权限', action: "switchSitePage('vip')" }
+      : { label: '创建试用账户', action: "openAuthModal('register')" });
+  const secondaryBannerCta = hasFullAccess
+    ? { label: '查看系统方案', action: "switchSitePage('vip')" }
+    : (isAuthenticated
+      ? { label: '进入 AI 盯盘', action: "switchSitePage('ai')" }
+      : { label: '已有账号，立即登录', action: "openAuthModal('login')" });
+  return [
+    {
+      key: 'signals',
+      kicker: 'REAL-TIME SIGNALS',
+      eyebrow: '实时信号中枢',
+      title: hasFullAccess ? '完整实时中枢已经就绪' : (isAuthenticated ? '已登录，下一步解锁完整信号覆盖' : '让强提醒先于波动出现'),
+      lead: hasFullAccess
+        ? '当前账户已具备完整访问能力，可以直接进入 AI 盯盘控制台。'
+        : (isAuthenticated
+          ? '你已经进入系统访问态，继续升级即可解锁更多币种、完整推送与更深层信号。'
+          : '把拉盘、砸盘、成交节奏和盘口异动压缩成交易员可执行的首屏判断。'),
+      stateLabel: accessLabel,
+      bgStart: '#0A1016',
+      bgEnd: '#132231',
+      accent: '#F2C760',
+      glow: '#1890FF',
+      panelTitle: 'Signal Scoreboard',
+      subtitle: `监控 ${runtime.totalSymbols}+ 币种，持续刷新 ${runtime.feedCount}+ 条事件流`,
+      linePath: 'M194 486 C246 454 302 438 356 418 C394 404 438 392 470 374 C500 358 530 340 546 320',
+      footerTitle: `实时信号 + 盘口确认 + 执行入口`,
+      footerText: '避免在行情页、预警页、成交页之间来回切换，首屏直接给出交易员视角。',
+      bannerCta: 'Signal First',
+      bars: [58, 82, 96, 72, 114, 94, 126],
+      chips: ['Signal Wall', 'Depth Flow', 'Alert Engine'],
+      cards: [
+        { label: '强提醒候选', value: `${runtime.strongSignals}`, note: '盘中优先级' },
+        { label: '事件流', value: `${runtime.feedCount}+`, note: '实时刷新' },
+        { label: '响应', value: '秒级', note: '不等全页' }
+      ]
+    },
+    {
+      key: 'whales',
+      kicker: 'WHALE + ORDERBOOK',
+      eyebrow: '鲸鱼与盘口联动',
+      title: isAuthenticated ? '把鲸鱼动作和盘口确认合到同一层' : '把大资金轨迹放回盘口上下文',
+      lead: isAuthenticated
+        ? '登录后继续放大订单簿、最新成交和鲸鱼联动的判断深度，减少只看大单的误判。'
+        : '不是只看一笔大单，而是结合挂单、撤单、吃单和最新成交，判断动作真假。',
+      stateLabel: accessLabel,
+      bgStart: '#0B0F16',
+      bgEnd: '#1A1610',
+      accent: '#20D59E',
+      glow: '#F2C760',
+      panelTitle: 'Whale Context Matrix',
+      subtitle: `追踪 ${runtime.whales}+ 类鲸鱼异动，叠加订单簿与成交结构同步观察`,
+      linePath: 'M192 502 C256 470 320 442 382 414 C428 394 468 368 514 350 C538 340 552 328 546 316',
+      footerTitle: '大额挂单、撤单、扫单不再是孤立事件',
+      footerText: '同一张图里交叉对照订单簿、最新成交和分析面板，过滤噪声动作。',
+      bannerCta: 'Whale Context',
+      bars: [48, 76, 88, 70, 104, 112, 94],
+      chips: ['Whale Trace', 'Order Flow', 'Trade Tape'],
+      cards: [
+        { label: '鲸鱼异动', value: `${runtime.whales}`, note: '大额行为' },
+        { label: '分析面板', value: '联动', note: '同屏判断' },
+        { label: '最新成交', value: '实时', note: '结构确认' }
+      ]
+    },
+    {
+      key: 'desk',
+      kicker: 'DESK WORKFLOW',
+      eyebrow: '团队与机构工作流',
+      title: hasFullAccess ? '团队与机构工作流可以直接承接' : '从个人盯盘到团队席位共用一套中枢',
+      lead: hasFullAccess
+        ? '当前账户已处于完整访问状态，可以继续查看机构方案、团队接入和更深层部署能力。'
+        : '公开预览先承接认知，登录后承接试用，机构方案承接团队与部署能力。',
+      stateLabel: accessLabel,
+      bgStart: '#0A0F16',
+      bgEnd: '#141A25',
+      accent: '#7CC7FF',
+      glow: '#20D59E',
+      panelTitle: 'Desk Access Layer',
+      subtitle: `支持公开预览、登录解锁与机构接入三层转化路径`,
+      linePath: 'M186 510 C236 486 292 456 352 426 C420 390 472 358 546 322',
+      footerTitle: '个人 / Desk / 机构 接入语义清楚',
+      footerText: '首页负责品牌和转化，AI 页负责实时控制台，路径更清晰，转化更直接。',
+      bannerCta: 'Desk Layer',
+      bars: [42, 58, 74, 88, 102, 118, 132],
+      chips: ['Public Preview', 'Login Unlock', 'Desk Access'],
+      cards: [
+        { label: '接入场景', value: '3 层', note: '预览到机构' },
+        { label: '币种覆盖', value: `${runtime.totalSymbols}+`, note: '统一数据底座' },
+        { label: '工作流', value: '闭环', note: '发现到执行' }
+      ]
+    },
+    {
+      key: 'alerts',
+      kicker: 'ALERT STREAM',
+      eyebrow: '预警通知与事件流',
+      title: hasFullAccess ? '预警流、信号流和通知流已并到同一层' : '让预警不再只是被动通知',
+      lead: hasFullAccess
+        ? '完整权限下可以直接把预警通知、事件流和实时判断整合到同一工作台。'
+        : '把强提醒、异动通知、事件流和最近同类提醒放在统一入口，避免消息碎片化。',
+      stateLabel: accessLabel,
+      bgStart: '#0C1017',
+      bgEnd: '#1C1320',
+      accent: '#F97316',
+      glow: '#F2C760',
+      panelTitle: 'Alert Stream Router',
+      subtitle: `最近 ${runtime.feedCount}+ 条事件持续刷新，承接预警通知与同类提醒联动`,
+      linePath: 'M188 502 C248 488 308 454 364 428 C422 402 470 376 522 344 C536 336 544 326 548 316',
+      footerTitle: '预警不是单点提示，而是带上下文的连续事件流',
+      footerText: '最近同类提醒、实时通知、关注理由与联动币种在同一层解释，减少漏看和误读。',
+      bannerCta: 'Alert Flow',
+      bars: [38, 64, 82, 96, 90, 118, 136],
+      chips: ['Alert Queue', 'Recent Similar', 'Push Routing'],
+      cards: [
+        { label: '通知流', value: `${runtime.feedCount}+`, note: '连续刷新' },
+        { label: '同类提醒', value: '10 条', note: '保留最新' },
+        { label: '推送链路', value: '联动', note: '不丢上下文' }
+      ]
+    },
+    {
+      key: 'replay',
+      kicker: 'ANALYTICS + REPLAY',
+      eyebrow: '分析面板与回放闭环',
+      title: hasFullAccess ? '分析、执行与回放闭环已经形成' : '把分析面板做成可复盘的交易闭环',
+      lead: hasFullAccess
+        ? '当前访问层级已经足够承接分析面板、执行入口与盘后回放的闭环使用。'
+        : '不只给结论，还把盘口、成交、分析面板和关键时刻回放串成能复盘的路径。',
+      stateLabel: accessLabel,
+      bgStart: '#091118',
+      bgEnd: '#111B14',
+      accent: '#7DD3FC',
+      glow: '#20D59E',
+      panelTitle: 'Replay Decision Stack',
+      subtitle: `把分析面板、订单簿、最新成交与回放入口统一到一张决策屏`,
+      linePath: 'M190 508 C240 488 286 460 344 442 C404 424 458 392 512 356 C532 344 544 332 548 322',
+      footerTitle: '从盘中判断到盘后复盘，不再断链',
+      footerText: '关键时刻回放、分析面板和执行入口在同一套语言里工作，形成复用型交易工作流。',
+      bannerCta: 'Replay Loop',
+      bars: [46, 52, 74, 92, 108, 122, 138],
+      chips: ['Analysis Panel', 'Trade Replay', 'Execution Loop'],
+      cards: [
+        { label: '分析面板', value: '固定', note: '同屏判断' },
+        { label: '回放入口', value: '闭环', note: '关键时刻' },
+        { label: '工作流', value: '复用', note: '盘中到盘后' }
+      ]
+    }
+  ].map(item => ({
+    ...item,
+    primaryCta: primaryBannerCta.label,
+    primaryAction: primaryBannerCta.action,
+    secondaryCta: secondaryBannerCta.label,
+    secondaryAction: secondaryBannerCta.action,
+    art: buildHomeBannerSvg(item)
+  }));
+}
+
+function renderHomeBannerNav(slides, currentIndex) {
+  return slides.map((item, index) => `
+    <button class="home-banner-dot ${index === currentIndex ? 'act' : ''}" type="button" onclick="selectHomeBanner(${index})" aria-label="${escapePortalHtml(item.eyebrow)}">
+      <span></span>
+    </button>
+  `).join('');
+}
+
+function renderHomeBannerTrack(slides, currentIndex) {
+  return `
+    <div class="home-banner-track" style="transform:translateX(-${currentIndex * 100}%);">
+      ${slides.map(item => `
+        <article class="home-banner-slide">
+          <div class="home-banner-copy">
+            <div class="home-banner-kicker">${escapePortalHtml(item.eyebrow)}</div>
+            <div class="home-banner-state">${escapePortalHtml(item.stateLabel || '公开预览')}</div>
+            <div class="home-banner-title">${escapePortalHtml(item.title)}</div>
+            <div class="home-banner-lead">${escapePortalHtml(item.lead)}</div>
+            <div class="home-banner-actions">
+              <button class="portal-btn primary" type="button" onclick="${item.primaryAction}">${escapePortalHtml(item.primaryCta)}</button>
+              <button class="portal-btn secondary" type="button" onclick="${item.secondaryAction}">${escapePortalHtml(item.secondaryCta)}</button>
+            </div>
+          </div>
+          <div class="home-banner-art">
+            <img src="${item.art}" alt="${escapePortalHtml(item.title)}">
+          </div>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
+function shiftHomeBanner(delta) {
+  const slides = homeBannerSlides(portalRuntimeMetrics());
+  if (!slides.length) return;
+  const total = slides.length;
+  const next = (Number(window.__bbHomeBannerIndex || 0) + Number(delta || 0) + total) % total;
+  window.__bbHomeBannerIndex = next;
+  refreshHomePortalLive();
+  startHomePortalMotion();
+}
+
+function bindHomeBannerInteractions() {
+  const stage = document.getElementById('home-banner-stage');
+  if (!stage || stage.dataset.dragReady === '1') return;
+  stage.dataset.dragReady = '1';
+  stage.style.touchAction = 'pan-y';
+
+  const drag = { pointerId: null, startX: 0, currentX: 0, active: false };
+
+  const resetTrack = () => {
+    stage.classList.remove('is-dragging');
+    const track = stage.querySelector('.home-banner-track');
+    if (track) {
+      track.style.transition = '';
+      track.style.transform = '';
+    }
+  };
+
+  const onFinish = pointerId => {
+    if (drag.pointerId === null) return;
+    if (pointerId !== undefined && pointerId !== drag.pointerId) return;
+    const delta = drag.currentX - drag.startX;
+    const shouldShift = Math.abs(delta) > 56;
+    try { stage.releasePointerCapture?.(drag.pointerId); } catch (_) {}
+    drag.pointerId = null;
+    drag.active = false;
+    if (shouldShift) {
+      shiftHomeBanner(delta > 0 ? -1 : 1);
+      return;
+    }
+    resetTrack();
+    refreshHomePortalLive();
+  };
+
+  stage.addEventListener('pointerdown', ev => {
+    if (ev.target.closest('button')) return;
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+    drag.pointerId = ev.pointerId;
+    drag.startX = ev.clientX;
+    drag.currentX = ev.clientX;
+    drag.active = true;
+    stage.classList.add('is-dragging');
+    try { stage.setPointerCapture?.(ev.pointerId); } catch (_) {}
+  });
+
+  stage.addEventListener('pointermove', ev => {
+    if (!drag.active || drag.pointerId !== ev.pointerId) return;
+    drag.currentX = ev.clientX;
+    const delta = drag.currentX - drag.startX;
+    if (Math.abs(delta) < 6) return;
+    const track = stage.querySelector('.home-banner-track');
+    if (!track) return;
+    track.style.transition = 'none';
+    track.style.transform = `translateX(calc(-${Number(window.__bbHomeBannerIndex || 0) * 100}% + ${delta}px))`;
+    ev.preventDefault();
+  });
+
+  stage.addEventListener('pointerup', ev => onFinish(ev.pointerId));
+  stage.addEventListener('pointercancel', ev => onFinish(ev.pointerId));
+  stage.addEventListener('pointerleave', ev => {
+    if (ev.pointerType === 'mouse') onFinish(ev.pointerId);
+  });
+}
+
+function refreshHomePortalLive() {
+  if (S.site?.page !== 'home') return;
+  const portal = document.getElementById('portal-shell');
+  if (!portal || !portal.classList.contains('is-active')) return;
+
+  const runtime = portalRuntimeMetrics();
+  const pulse = homeSpotlightItems();
+  const currentIndex = Number(window.__bbHomeSpotlightIndex || 0) % Math.max(pulse.length, 1);
+  const bannerSlides = homeBannerSlides(runtime);
+  const bannerIndex = Number(window.__bbHomeBannerIndex || 0) % Math.max(bannerSlides.length, 1);
+  const current = pulse[currentIndex] || pulse[0] || PORTAL_FALLBACK_PULSE[0];
+  const sideItems = pulse.filter((_, index)=>index!==currentIndex).slice(0, 3);
+  const feedItems = (S.feed || []).slice(0, 8);
+  const metrics = [
+    { label: '监控币种池', value: `${runtime.totalSymbols}+`, note: '统一接入盘口、成交与异常信号' },
+    { label: '强提醒候选', value: runtime.strongSignals, note: '盘中高优先级关注标的' },
+    { label: '鲸鱼异动', value: runtime.whales, note: '大额挂单、撤单、吃单轨迹' },
+    { label: '实时事件流', value: `${runtime.feedCount}+`, note: '信号、预警、回放入口统一沉淀' }
+  ];
+
+  pulsePortalNode('home-screen-badge', runtime.accessLabel);
+  pulsePortalNode('home-panel-symbol', current.symbol || 'BTCUSDT');
+  pulsePortalNode('home-panel-score', String(current.score || 92));
+  pulsePortalNode('home-panel-text', current.tag || '强势拉升');
+
+  metrics.forEach((item, index) => {
+    pulsePortalNode(`home-hero-metric-${index}`, item.value);
+  });
+
+  setPortalHtml('home-story-metrics', renderHomeMetricCards(metrics));
+  setPortalHtml('home-spot-nav', renderHomeSpotlightNav(pulse, currentIndex));
+  setPortalHtml('home-live-tape', renderHomeLiveTape(feedItems));
+  setPortalHtml('home-banner-stage', renderHomeBannerTrack(bannerSlides, bannerIndex));
+  setPortalHtml('home-banner-nav', renderHomeBannerNav(bannerSlides, bannerIndex));
+  bindHomeBannerInteractions();
+
+  setPortalHtml('home-screen-side', sideItems.map(item=>`
+    <div class="home-screen-panel mini">
+      <div class="home-mini-row">
+        <span>${escapePortalHtml(item.symbol)}</span>
+        <b>${escapePortalHtml(String(item.score))}</b>
+      </div>
+      <div class="home-mini-row sub">
+        <span>${escapePortalHtml(item.tag)}</span>
+        <span>${escapePortalHtml(item.change)}</span>
+      </div>
+    </div>
+  `).join(''));
+}
+
+function stopHomePortalMotion() {
+  if (window.__bbHomeSpotlightTimer) {
+    clearInterval(window.__bbHomeSpotlightTimer);
+    window.__bbHomeSpotlightTimer = null;
+  }
+  if (window.__bbHomeBannerTimer) {
+    clearInterval(window.__bbHomeBannerTimer);
+    window.__bbHomeBannerTimer = null;
+  }
+}
+
+function startHomePortalMotion() {
+  stopHomePortalMotion();
+  if (S.site?.page !== 'home') return;
+  window.__bbHomeSpotlightTimer = setInterval(() => {
+    const items = homeSpotlightItems();
+    if (!items.length) return;
+    window.__bbHomeSpotlightIndex = (Number(window.__bbHomeSpotlightIndex || 0) + 1) % items.length;
+    refreshHomePortalLive();
+  }, HOME_HERO_ROTATE_MS);
+  window.__bbHomeBannerTimer = setInterval(() => {
+    const slides = homeBannerSlides(portalRuntimeMetrics());
+    if (!slides.length) return;
+    window.__bbHomeBannerIndex = (Number(window.__bbHomeBannerIndex || 0) + 1) % slides.length;
+    refreshHomePortalLive();
+  }, HOME_BANNER_ROTATE_MS);
+}
+
+function selectHomeSpotlight(index) {
+  window.__bbHomeSpotlightIndex = Math.max(0, Number(index) || 0);
+  refreshHomePortalLive();
+  startHomePortalMotion();
+}
+
+function selectHomeBanner(index) {
+  window.__bbHomeBannerIndex = Math.max(0, Number(index) || 0);
+  refreshHomePortalLive();
+  startHomePortalMotion();
+}
+
+function renderHomePortalPage() {
+  const runtime = portalRuntimeMetrics();
+  const isAuthenticated = !!S.auth?.user;
+  const hasFullAccess = !!S.access?.full_access;
+  const bannerSlides = homeBannerSlides(runtime);
+  const bannerIndex = Number(window.__bbHomeBannerIndex || 0) % Math.max(bannerSlides.length, 1);
+  const pulse = homeSpotlightItems();
+  const spotlightIndex = Number(window.__bbHomeSpotlightIndex || 0) % Math.max(pulse.length, 1);
+  const spotlight = pulse[spotlightIndex] || pulse[0] || PORTAL_FALLBACK_PULSE[0];
+  const sideItems = pulse.filter((_, index)=>index!==spotlightIndex).slice(0, 3);
+  const metrics = [
+    { label: '监控币种池', value: `${runtime.totalSymbols}+`, note: '统一接入盘口、成交与异常信号' },
+    { label: '强提醒候选', value: runtime.strongSignals, note: '盘中高优先级关注标的' },
+    { label: '鲸鱼异动', value: runtime.whales, note: '大额挂单、撤单、吃单轨迹' },
+    { label: '实时事件流', value: `${runtime.feedCount}+`, note: '信号、预警、回放入口统一沉淀' }
+  ];
+  const trustItems = [
+    { label: '团队接入场景', value: '个人 / Desk / 机构', note: '从个人交易员到团队席位，再到机构接入统一承接。' },
+    { label: '策略工作流', value: `${Math.max(Number(runtime.strongSignals) || 0, 12)}+`, note: '强提醒、盘口、预警、成交与回放联动形成完整工作流。' },
+    { label: '币种覆盖', value: `${runtime.totalSymbols}+`, note: '公开预览与登录解锁共用同一套币种与实时刷新体系。' },
+    { label: '实时事件流', value: `${runtime.feedCount}+`, note: '盘中信号、异动、成交变化与通知流持续刷新。' }
+  ];
+  const feedItems = (S.feed || []).slice(0, 8);
+  const capabilities = [
+    {
+      title: '实时信号中枢',
+      body: '把拉盘、砸盘、盘口失衡、主动买卖量差和异常结构聚合成统一信号墙，优先级清晰，适合盯盘与直播。'
+    },
+    {
+      title: '订单簿与成交联动',
+      body: '同一屏内同步查看深度、最新成交、价格节奏和中枢分析，避免在多个页面来回切换导致执行变慢。'
+    },
+    {
+      title: '鲸鱼与预警体系',
+      body: '重点追踪大额挂单、撤单、扫单和连续异动，给交易员明确的关注理由，而不是只有涨跌幅。'
+    },
+    {
+      title: '交易与回放闭环',
+      body: '从实时信号到模拟下单，再到关键时刻回放复盘，形成可复用的交易工作流。'
+    }
+  ];
+  const stages = [
+    { step: '01', title: '发现机会', text: '先用综合排序、强提醒和鲸鱼异动筛出真正值得盯的币种。' },
+    { step: '02', title: '确认结构', text: '再看盘口深度、成交节奏、买卖量差和分析面板，过滤掉假动作。' },
+    { step: '03', title: '执行与复盘', text: '在同一控制台完成下单、观察、预警和复盘，不切屏，不断链。' }
+  ];
+  return `
+    <section class="portal-page home-page">
+      <section class="home-hero home-reveal is-visible">
+        ${renderHomeHeroBackdrop()}
+        <div class="home-hero-copy">
+          <div class="home-hero-kicker">BB-Market / AI Native Trading Intelligence</div>
+          <h1 class="home-hero-title">不是看行情，而是比市场更早一步发现机会。</h1>
+          <p class="home-hero-lead">
+            把实时信号、鲸鱼轨迹、盘口结构、预警通知和交易执行，
+            压缩进一张秒级响应的决策屏。首页讲清系统价值，AI盯盘直接承接实时控制台。
+          </p>
+          <div class="home-hero-tags">
+            <span>实时信号</span>
+            <span>预警通知</span>
+            <span>鲸鱼追踪</span>
+            <span>订单簿分析</span>
+            <span>模拟交易</span>
+            <span>关键时刻回放</span>
+          </div>
+          <div class="home-hero-actions">
+            <button class="portal-btn primary" type="button" onclick="switchSitePage('ai')">进入 AI 盯盘</button>
+            <button class="portal-btn secondary" type="button" onclick="openAuthModal('login')">登录解锁全量币种</button>
+            <button class="portal-btn secondary" type="button" onclick="switchSitePage('vip')">申请机构方案</button>
+          </div>
+          <div class="home-hero-manifesto">
+            <div class="home-hero-manifesto-head">
+              <span class="home-hero-manifesto-kicker">Brand Manifesto</span>
+              <strong>让交易员用一张屏完成发现机会、确认结构、接收预警和执行动作，不再被多个页面拆碎。</strong>
+            </div>
+            <div class="home-hero-manifesto-grid">
+              <div class="home-hero-manifesto-item">
+                <b>更早发现</b>
+                <span>把实时信号、鲸鱼轨迹和盘口异动放在同一个判断入口，减少错过窗口的概率。</span>
+              </div>
+              <div class="home-hero-manifesto-item">
+                <b>更快确认</b>
+                <span>订单簿、最新成交、分析面板和预警通知联动显示，不靠来回切屏确认真假动作。</span>
+              </div>
+              <div class="home-hero-manifesto-item">
+                <b>更好转化</b>
+                <span>公开预览先看能力边界，登录后继续放大可见币种、实时推送和机构协作能力。</span>
+              </div>
+            </div>
+          </div>
+          <div class="home-hero-foot">
+            ${metrics.map(item=>`
+              <div class="home-hero-foot-item">
+                <b id="home-hero-metric-${metrics.indexOf(item)}">${escapePortalHtml(item.value)}</b>
+                <span>${escapePortalHtml(item.label)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        <div class="home-hero-visual">
+          <div class="home-hero-form-shell">
+            ${
+              isAuthenticated
+                ? `
+                  <div class="home-hero-form-card access">
+                    <div class="home-hero-form-kicker">Access Console</div>
+                    <div class="home-hero-form-title">${hasFullAccess ? '当前账户已解锁完整市场访问' : '当前账户已登录，可继续升级到全量权限'}</div>
+                    <div class="home-hero-form-subtitle">
+                      ${hasFullAccess
+                        ? `当前状态为 ${escapePortalHtml(runtime.accessLabel)}，可见币种 ${escapePortalHtml(runtime.totalSymbols)} / ${escapePortalHtml(runtime.totalSymbols)}。`
+                        : `当前状态为 ${escapePortalHtml(runtime.accessLabel)}，可见币种 ${escapePortalHtml(runtime.visibleSymbols)} / ${escapePortalHtml(runtime.totalSymbols)}。`
+                      }
+                    </div>
+                    <div class="home-hero-form-metrics">
+                      <div class="home-hero-form-metric">
+                        <span>访问等级</span>
+                        <b>${escapePortalHtml(runtime.accessLabel)}</b>
+                      </div>
+                      <div class="home-hero-form-metric">
+                        <span>当前用户</span>
+                        <b>${escapePortalHtml(runtime.userLabel)}</b>
+                      </div>
+                      <div class="home-hero-form-metric">
+                        <span>可见市场</span>
+                        <b>${escapePortalHtml(runtime.visibleSymbols)} / ${escapePortalHtml(runtime.totalSymbols)}</b>
+                      </div>
+                    </div>
+                    <div class="home-hero-form-actions">
+                      <button class="portal-btn primary" type="button" onclick="switchSitePage('ai')">进入实时控制台</button>
+                      <button class="portal-btn secondary" type="button" onclick="switchSitePage('vip')">${hasFullAccess ? '查看机构方案' : '升级完整权限'}</button>
+                    </div>
+                  </div>
+                `
+                : `
+                  <form class="home-hero-form-card" onsubmit="submitHeroTrial(event)">
+                    <div class="home-hero-form-kicker">Start Free Preview</div>
+                    <div class="home-hero-form-title">30 秒内创建试用账户，直接进入 AI 盯盘。</div>
+                    <div class="home-hero-form-subtitle">公开预览可先体验，创建账户后继续解锁更多币种、推送与后续订阅能力。</div>
+                    <label class="home-hero-form-field">
+                      <span>用户名</span>
+                      <input id="hero-trial-username" autocomplete="username" placeholder="trader01">
+                    </label>
+                    <label class="home-hero-form-field">
+                      <span>显示名称</span>
+                      <input id="hero-trial-display-name" autocomplete="nickname" placeholder="交易员 A">
+                    </label>
+                    <label class="home-hero-form-field">
+                      <span>登录密码</span>
+                      <input id="hero-trial-password" type="password" autocomplete="new-password" placeholder="至少 6 位">
+                    </label>
+                    <div class="home-hero-form-actions">
+                      <button class="portal-btn primary" type="submit">创建试用账户</button>
+                      <button class="portal-btn secondary" type="button" onclick="openHeroLogin()">已有账号，立即登录</button>
+                    </div>
+                    <div class="home-hero-form-note">
+                      <span>公开预览</span>
+                      <span>登录解锁更多币种</span>
+                      <span>机构方案可扩展</span>
+                    </div>
+                    <div class="home-hero-form-msg" id="home-hero-form-msg"></div>
+                  </form>
+                `
+            }
+          </div>
+          <div class="home-screen">
+            <div class="home-screen-top">
+              <div class="home-screen-title">AI 盯盘驾驶舱</div>
+              <div class="home-screen-badge" id="home-screen-badge">${escapePortalHtml(runtime.accessLabel)}</div>
+            </div>
+            <div class="home-spot-nav" id="home-spot-nav">
+              ${renderHomeSpotlightNav(pulse, spotlightIndex)}
+            </div>
+            <div class="home-screen-main">
+              <div class="home-screen-panel spotlight">
+                <div class="home-panel-kicker">盘中焦点</div>
+                <div class="home-panel-symbol" id="home-panel-symbol">${escapePortalHtml(spotlight.symbol || 'BTCUSDT')}</div>
+                <div class="home-panel-score" id="home-panel-score">${escapePortalHtml(String(spotlight.score || 92))}</div>
+                <div class="home-panel-text" id="home-panel-text">${escapePortalHtml(spotlight.tag || '强势拉升')}</div>
+              </div>
+              <div class="home-screen-side" id="home-screen-side">
+                ${sideItems.map(item=>`
+                  <div class="home-screen-panel mini">
+                    <div class="home-mini-row">
+                      <span>${escapePortalHtml(item.symbol)}</span>
+                      <b>${escapePortalHtml(String(item.score))}</b>
+                    </div>
+                    <div class="home-mini-row sub">
+                      <span>${escapePortalHtml(item.tag)}</span>
+                      <span>${escapePortalHtml(item.change)}</span>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="home-screen-strip">
+              <span>订单簿</span>
+              <span>最新成交</span>
+              <span>分析面板</span>
+              <span>预警通知</span>
+            </div>
+            <div class="home-live-tape" id="home-live-tape">
+              ${renderHomeLiveTape(feedItems)}
+            </div>
+          </div>
+        </div>
+        <div class="home-proof-strip">
+          <div class="home-proof-head">
+            <span class="home-proof-kicker">Trust Layer</span>
+            <strong>面向交易员、Desk 团队与机构席位的统一工作台，不是单点功能页面。</strong>
+          </div>
+          <div class="home-proof-grid">
+            ${trustItems.map(item=>`
+              <div class="home-proof-item">
+                <span>${escapePortalHtml(item.label)}</span>
+                <b>${escapePortalHtml(item.value)}</b>
+                <small>${escapePortalHtml(item.note)}</small>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </section>
+
+      <section class="home-banner home-reveal" data-reveal-delay="0.02">
+        <div class="home-section-head compact">
+          <div>
+            <div class="home-section-kicker">系统 Banner</div>
+            <div class="home-section-title">根据系统能力自动生成的品牌轮播图</div>
+          </div>
+          <div class="home-banner-controls">
+            <button class="home-banner-arrow" type="button" onclick="shiftHomeBanner(-1)" aria-label="上一张">
+              <span>&lsaquo;</span>
+            </button>
+            <div class="home-banner-nav" id="home-banner-nav">
+              ${renderHomeBannerNav(bannerSlides, bannerIndex)}
+            </div>
+            <button class="home-banner-arrow" type="button" onclick="shiftHomeBanner(1)" aria-label="下一张">
+              <span>&rsaquo;</span>
+            </button>
+          </div>
+        </div>
+        <div class="home-banner-stage" id="home-banner-stage">
+          ${renderHomeBannerTrack(bannerSlides, bannerIndex)}
+        </div>
+      </section>
+
+      <section class="home-partners home-reveal" data-reveal-delay="0.04">
+        <div class="home-section-head">
+          <div class="home-section-kicker">系统连接能力</div>
+          <div class="home-section-title">面向交易团队、内容团队与机构桌面的一体化中枢</div>
+        </div>
+        ${renderHomePartnerRail()}
+      </section>
+
+      <section class="home-story home-reveal" data-reveal-delay="0.08">
+        <div class="home-story-main">
+          <div class="home-section-kicker">系统介绍</div>
+          <div class="home-story-title">不是再做一个行情页，而是把交易员最常切换的四类能力做成一个闭环。</div>
+          <div class="home-story-text">
+            BB-Market 把实时信号、订单簿、最新成交、分析面板、预警通知和执行入口统一到同一工作台。
+            首页先讲清楚系统价值与定位，AI盯盘页则直接承接盘中操作，让新用户看得懂，老用户进来就能用。
+          </div>
+        </div>
+        <div class="home-story-grid" id="home-story-metrics">
+          ${renderHomeMetricCards(metrics)}
+        </div>
+      </section>
+
+      ${renderHomeArchitecture(runtime, pulse)}
+
+      <section class="home-capabilities home-reveal" data-reveal-delay="0.12">
+        <div class="home-section-head">
+          <div class="home-section-kicker">核心能力</div>
+          <div class="home-section-title">给盯盘、交易、复盘和运营都能直接落地的系统能力</div>
+        </div>
+        <div class="home-cap-grid">
+          ${capabilities.map((item, index)=>`
+            <article class="home-cap-card home-reveal" data-reveal-delay="${(0.16 + index * 0.06).toFixed(2)}">
+              <div class="home-cap-title">${escapePortalHtml(item.title)}</div>
+              <div class="home-cap-body">${escapePortalHtml(item.body)}</div>
+            </article>
+          `).join('')}
+        </div>
+      </section>
+
+      <section class="home-flow home-reveal" data-reveal-delay="0.16">
+        <div class="home-flow-board">
+          <div class="home-section-kicker">操作路径</div>
+          <div class="home-section-title">一套适合盘前筛选、盘中执行、盘后复盘的工作流</div>
+          <div class="home-flow-list">
+            ${stages.map((item, index)=>`
+              <article class="home-flow-item home-reveal" data-reveal-delay="${(0.18 + index * 0.06).toFixed(2)}">
+                <div class="home-flow-step">${escapePortalHtml(item.step)}</div>
+                <div class="home-flow-title">${escapePortalHtml(item.title)}</div>
+                <div class="home-flow-text">${escapePortalHtml(item.text)}</div>
+              </article>
+            `).join('')}
+          </div>
+        </div>
+        <div class="home-flow-side">
+          <div class="home-side-card emphasis">
+            <div class="home-side-kicker">当前定位</div>
+            <div class="home-side-title">首页展示品牌与系统能力，AI页承接实时控制台。</div>
+            <div class="home-side-text">导航语义更清楚，对外展示和内部使用分层，避免“首页像后台，AI页像介绍页”的错位。</div>
+          </div>
+          <div class="home-side-card">
+            <div class="home-side-kicker">适用对象</div>
+            <div class="home-side-list">
+              <span>短线交易员</span>
+              <span>研究团队</span>
+              <span>社群直播</span>
+              <span>机构桌面</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      ${renderPortalFooter('home')}
+    </section>
+  `;
+}
+
 function renderPortalPage(page) {
   const spec = PORTAL_PAGES[page] || PORTAL_PAGES.about;
   const runtime = portalRuntimeMetrics();
@@ -849,16 +1836,24 @@ function mountSitePage(page) {
   const dashboard = document.getElementById('dashboard-shell');
   if (!portal || !dashboard) return;
 
-  if (page === 'home') {
+  if (page === 'ai') {
+    stopHomePortalMotion();
     portal.classList.remove('is-active');
     portal.innerHTML = '';
     dashboard.classList.remove('is-hidden');
     return;
   }
 
-  portal.innerHTML = renderPortalPage(page);
+  portal.innerHTML = page === 'home' ? renderHomePortalPage() : renderPortalPage(page);
   portal.classList.add('is-active');
   dashboard.classList.add('is-hidden');
+  if (page === 'home') {
+    refreshHomePortalLive();
+    startHomePortalMotion();
+    observeHomeReveal();
+  } else {
+    stopHomePortalMotion();
+  }
 }
 
 function normalizedSitePage(page) {
@@ -883,6 +1878,10 @@ function switchSitePage(page, trigger = null) {
 }
 
 function refreshSitePage() {
+  if (S.site?.page === 'home') {
+    refreshHomePortalLive();
+    return;
+  }
   switchSitePage(S.site?.page || normalizedSitePage(location.hash.replace('#', '')));
 }
 
@@ -972,5 +1971,9 @@ function initPortal() {
 }
 
 window.initPortal = initPortal;
+window.refreshHomePortalLive = refreshHomePortalLive;
+window.selectHomeSpotlight = selectHomeSpotlight;
+window.selectHomeBanner = selectHomeBanner;
+window.shiftHomeBanner = shiftHomeBanner;
 window.refreshSitePage = refreshSitePage;
 window.switchSitePage = switchSitePage;

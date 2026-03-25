@@ -23,7 +23,7 @@ use uuid::Uuid;
 
 const SESSION_COOKIE_NAME: &str = "bbm_session";
 const SESSION_TTL_DAYS: i64 = 7;
-const PUBLIC_SYMBOL_LIMIT: usize = 8;
+const PUBLIC_SYMBOL_LIMIT: usize = 10;
 
 #[derive(Clone)]
 pub struct AuthService {
