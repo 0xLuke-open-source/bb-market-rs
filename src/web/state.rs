@@ -31,6 +31,31 @@ pub struct BigTradeJson {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FactorMetricJson {
+    pub name: String,
+    pub value: String,
+    pub score: f64,
+    pub tip: String,
+    pub tone: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EnterpriseMetricRowJson {
+    pub name: String,
+    pub score: f64,
+    pub value: String,
+    pub tip: String,
+    pub invert: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EnterpriseMetricSectionJson {
+    pub title: String,
+    pub subtitle: String,
+    pub items: Vec<EnterpriseMetricRowJson>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SymbolJson {
     pub symbol: String,
     pub status_summary: String,
@@ -104,6 +129,13 @@ pub struct SymbolJson {
 
     // 最近成交（30分钟窗口）
     pub recent_trades: Vec<BigTradeJson>,
+
+    #[serde(default)]
+    pub signal_history: Vec<FeedEntry>,
+    #[serde(default)]
+    pub factor_metrics: Vec<FactorMetricJson>,
+    #[serde(default)]
+    pub enterprise_metrics: Vec<EnterpriseMetricSectionJson>,
 
     pub update_count: u64,
 }
@@ -264,6 +296,9 @@ impl DashboardState {
                 if symbol.recent_trades.len() > LIVE_RECENT_TRADES_LIMIT {
                     symbol.recent_trades.truncate(LIVE_RECENT_TRADES_LIMIT);
                 }
+                symbol.signal_history.clear();
+                symbol.factor_metrics.clear();
+                symbol.enterprise_metrics.clear();
                 symbol
             })
             .collect();
@@ -287,6 +322,9 @@ impl DashboardState {
             .map(|mut symbol| {
                 symbol.klines.clear();
                 symbol.current_kline.clear();
+                symbol.signal_history.clear();
+                symbol.factor_metrics.clear();
+                symbol.enterprise_metrics.clear();
                 symbol
             })
             .collect();

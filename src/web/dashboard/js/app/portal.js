@@ -84,29 +84,29 @@ const PORTAL_PAGES = {
   vip: {
     kicker: 'VIP Service',
     title: '机构和VIP服务',
-    lead: '把直播盯盘、专属席位、策略陪跑、企业部署、API白名单和专属客服打包成完整服务，而不是只卖一个页面账号。',
-    highlights: ['机构席位', '专属群与客服', '策略共研', '私有部署支持'],
+    lead: '面向交易席位、量化团队与机构桌面，提供分层权限、席位协同、专属支持与定制交付的一体化终端服务。',
+    highlights: ['席位分层授权', '专属支持体系', '策略共研', '终端化交付'],
     metrics: runtime => [
       { label: '开放套餐', value: runtime.planCount, note: '当前接口返回可订阅计划数' },
-      { label: '企业客户线索', value: '128', note: '近30日登记咨询' },
-      { label: '续费率', value: '78.4%', note: '季度 VIP 续费' },
-      { label: '平均响应', value: '7 分钟', note: '专属客服工作时段' }
+      { label: '机构客户线索', value: '128', note: '近 30 日有效咨询' },
+      { label: '续费率', value: '78.4%', note: '季度服务续费' },
+      { label: '平均响应', value: '7 分钟', note: '专属支持工作时段' }
     ],
     sections: [
       {
         type: 'cards',
         title: '服务层级',
-        desc: '把不同客群分清楚，页面上直接讲权益与适用对象。',
+        desc: '按监控深度、协作规模与交付方式划分，便于团队快速判断适配层级。',
         items: [
-          { title: '个人 Pro', body: '适合高频观察盘面和多策略切换的个人交易员，重点是完整监控池与实时推送。', meta: '面向活跃个人用户' },
-          { title: 'Desk 团队版', body: '适合 3-20 人研究 / 交易小组，支持账号席位、内部同步、权限控制与管理后台。', meta: '面向团队' },
-          { title: '机构私有版', body: '支持隔离部署、独立风控、企业白名单、数据保留策略与定制接口。', meta: '面向机构与项目方' }
+          { title: '个人 Pro', body: '适合高频盯盘与多标的切换的活跃交易员，重点解锁完整监控池、实时推送与更深层结构分析。', meta: '个人席位' },
+          { title: 'Desk 团队版', body: '适合 3-20 人交易或研究小组，支持席位管理、内部协同、权限分层与团队级工作台。', meta: '研究与交易团队' },
+          { title: '机构私有版', body: '支持隔离部署、白名单接入、日志保留、独立风控与接口定制，满足机构桌面与合规交付要求。', meta: '机构桌面' }
         ]
       },
       {
         type: 'table',
         title: '权益矩阵',
-        desc: '直接把用户会问的差异列清楚。',
+        desc: '将能力边界、支持方式与部署级别一次说明，减少沟通成本。',
         columns: ['能力', '公开模式', '个人 Pro', 'Desk 团队版', '机构私有版'],
         rows: [
           ['实时币种池', '部分可见', '全量', '全量', '全量 + 定制'],
@@ -119,11 +119,11 @@ const PORTAL_PAGES = {
       {
         type: 'list',
         title: '机构常见诉求',
-        desc: '页面要能承接销售线索，而不是只有一堆形容词。',
+        desc: '围绕不同使用形态概括典型诉求，便于方案判断与交付确认。',
         items: [
-          { title: '量化团队', text: '需要更稳定的信号产出、内部多席位复盘、对接自己的风控和成交系统。' },
-          { title: '媒体 / 社群', text: '需要对外展示的市场异动、公告、热币观察和直播控台。' },
-          { title: '项目方 / 做市商', text: '需要观察市场深度、异常波动和舆情联动，及时处理流动性问题。' }
+          { title: '量化团队', text: '需要稳定的实时信号、统一的复盘链路，以及与内部风控、执行系统配合的接口能力。' },
+          { title: '交易席位', text: '需要低切换成本的盘中界面，把信号、订单簿、成交与处置入口放在同一工作流。' },
+          { title: '项目方与做市团队', text: '需要持续观察订单簿结构、异常波动与流动性状态，及时识别并处置风险。' }
         ]
       }
     ]
@@ -131,29 +131,29 @@ const PORTAL_PAGES = {
   ads: {
     kicker: 'Ad Network',
     title: '广告解决方案',
-    lead: '广告页不是简单放价格表，而是清楚告诉投放方能买到什么位置、什么流量、什么数据回收能力。',
-    highlights: ['首页黄金位', '内容赞助', '社群联动', '效果回传'],
+    lead: '围绕交易终端、研究内容与高频访问场景设计资源合作方案，帮助合作方明确触达位置、目标人群与效果回收方式。',
+    highlights: ['终端曝光位', '专题联动', '研究内容合作', '效果复盘'],
     metrics: () => [
-      { label: '月均曝光', value: '240万+', note: '站内页面 + 社群联动' },
-      { label: '平均 CTR', value: '3.8%', note: '首页核心资源位' },
+      { label: '月均曝光', value: '240万+', note: '站内页面与社群联动' },
+      { label: '平均 CTR', value: '3.8%', note: '核心推荐资源位' },
       { label: '合作品牌', value: '56', note: '近 12 个月已合作项目' },
-      { label: '最快上线', value: '24 小时', note: '素材齐全后' }
+      { label: '最快上线', value: '24 小时', note: '素材齐备后' }
     ],
     sections: [
       {
         type: 'cards',
         title: '可售资源位',
-        desc: '给广告主的页面必须把库存讲明白。',
+        desc: '将主要合作位置与适用场景说明清楚，便于合作方直接判断接入方式。',
         items: [
-          { title: '首页导航推荐', body: '适合交易所活动、工具产品、投研栏目和平台品牌展示。', meta: '品牌曝光' },
-          { title: 'AI盯盘专题赞助', body: '在高关注度内容页中挂出专题卡、权益引导和转化入口。', meta: '精准触达' },
-          { title: '社区联合活动', body: '结合 AMA、抽奖、任务和内容共创，放大单次投放效果。', meta: '活动转化' }
+          { title: '首页核心推荐位', body: '适合交易所、数据服务、研究工具与策略品牌，在高意向访问流量中完成稳定触达。', meta: '终端曝光' },
+          { title: 'AI 盯盘专题合作', body: '在高关注度盘中场景内配置专题卡、说明页与跳转入口，强化目标用户识别。', meta: '精准触达' },
+          { title: '研究内容联合呈现', body: '结合专题解读、方法文章与联名栏目，承接更长期的专业受众曝光。', meta: '内容合作' }
         ]
       },
       {
         type: 'table',
         title: '投放套餐示例',
-        desc: '这里先放一版运营型示例数据，后面你可以直接替换成真实报价。',
+        desc: '用标准化套餐展示资源组合、合作周期与覆盖水平，后续可直接替换真实报价。',
         columns: ['套餐', '展示周期', '资源位', '预计曝光', '参考预算'],
         rows: [
           ['Starter', '7天', '首页推荐 + 公告联动', '18万', '8,800 USDT'],
@@ -164,11 +164,11 @@ const PORTAL_PAGES = {
       {
         type: 'faq',
         title: '广告合作说明',
-        desc: '提前回答预算、审核和追踪相关问题。',
+        desc: '提前说明审核、素材与数据回传规则，降低合作确认成本。',
         items: [
           { q: '支持哪些素材形式？', a: '支持横幅、卡片、长图、视频封面、落地页跳转和外部活动报名页。' },
-          { q: '投放前是否审核项目？', a: '会。高风险金融承诺、传销型活动、虚假空投和违规引流不接。' },
-          { q: '是否提供数据回传？', a: '可提供曝光、点击、跳转、报名和活动参与等维度的投放复盘。' }
+          { q: '投放前是否审核项目？', a: '会。涉及高风险收益承诺、违规引流、虚假空投与不合规金融宣传的项目不予合作。' },
+          { q: '是否提供数据回传？', a: '可按合作方案提供曝光、点击、跳转、报名与行为转化等核心复盘数据。' }
         ]
       }
     ]
@@ -176,8 +176,8 @@ const PORTAL_PAGES = {
   feedback: {
     kicker: 'Feedback Loop',
     title: '产品反馈与建议',
-    lead: '把反馈页做成真正可运营的需求入口，让用户知道该提什么、多久响应、会不会进入排期。',
-    highlights: ['需求收集', 'Bug 反馈', '优先级回执', '路线图沟通'],
+    lead: '将实盘问题、功能建议与策略需求汇集到统一入口，形成可分类、可回执、可跟踪的终端输入机制。',
+    highlights: ['需求收集', '异常回报', '优先级回执', '版本沟通'],
     metrics: () => [
       { label: '本月收集建议', value: '316', note: '含站内与社群反馈' },
       { label: '已采纳', value: '74', note: '进入排期或已发布' },
@@ -188,31 +188,31 @@ const PORTAL_PAGES = {
       {
         type: 'list',
         title: '我们希望收到的反馈',
-        desc: '用户越清楚怎么提，团队收到的需求质量越高。',
+        desc: '反馈越接近真实盘中场景，进入评估与落地的效率越高。',
         items: [
-          { title: '交易工作流痛点', text: '例如你在哪个步骤最容易丢信号、误判、漏单或无法复盘。' },
-          { title: '想新增的数据维度', text: '例如你需要资金费率、新闻事件、链上地址、社媒热度、更多盘口因子。' },
-          { title: '具体页面 Bug', text: '请附上路径、时间、浏览器、账户状态和复现步骤，修复效率会高很多。' }
+          { title: '交易工作流痛点', text: '例如在哪个节点最容易漏信号、误判结构、错过执行或无法完成复盘。' },
+          { title: '新增因子与数据需求', text: '例如资金费率、新闻事件、链上地址、社媒热度或更细的盘口因子。' },
+          { title: '具体终端异常', text: '建议附带页面路径、发生时间、浏览器环境、账户状态与复现步骤，便于快速定位。' }
         ]
       },
       {
         type: 'cards',
         title: '反馈处理流程',
-        desc: '页面上直接告诉用户不是石沉大海。',
+        desc: '明确处理节点与时效，让用户知道反馈如何进入版本与排期。',
         items: [
-          { title: '1. 收集与归类', body: '按照 Bug、体验优化、新功能、商业合作四类进入不同队列。', meta: 'T+0' },
-          { title: '2. 评估优先级', body: '综合影响面、实现成本、商业价值和安全风险分配优先级。', meta: 'T+1' },
-          { title: '3. 回执与排期', body: '对重要需求给出是否采纳、预计版本和替代方案。', meta: 'T+2' }
+          { title: '1. 收集与归类', body: '按 Bug、体验优化、新功能与合作需求进入对应处理队列。', meta: 'T+0' },
+          { title: '2. 评估优先级', body: '综合影响范围、实现成本、商业价值与风险等级进行排序。', meta: 'T+1' },
+          { title: '3. 回执与排期', body: '对重点需求给出是否采纳、预计版本窗口或可行替代方案。', meta: 'T+2' }
         ]
       },
       {
         type: 'faq',
         title: '提交建议前先看',
-        desc: '减少重复反馈。',
+        desc: '先回答高频问题，减少重复提交。',
         items: [
-          { q: '哪里提功能需求最快？', a: '优先通过站内表单或社群管理员提交，附带具体场景与截图会更快进入评估。' },
-          { q: '怎么确认需求有没有被接收？', a: '页面会明确展示回执 SLA，重点需求会收到专门回复或进入公告页更新。' },
-          { q: '可不可以直接约演示？', a: '可以，机构或高价值用户建议走 VIP 服务页对接。' }
+          { q: '哪里提功能需求最快？', a: '优先通过站内表单或社群管理员提交，附上使用场景、截图与标的示例会更快进入评估。' },
+          { q: '怎么确认需求有没有被接收？', a: '页面会显示回执时效，重点需求会收到明确回复，必要时进入公告或版本说明。' },
+          { q: '可不可以直接约演示？', a: '可以。涉及机构接入、团队采购或更深的终端评估，建议直接走 VIP 服务页对接。' }
         ]
       }
     ]
@@ -220,19 +220,19 @@ const PORTAL_PAGES = {
   rebate: {
     kicker: 'Rebate Program',
     title: '超级返佣',
-    lead: '返佣页需要把规则、比例、结算方式和适合人群讲清楚，避免用户只看到“高返佣”却不知道怎么参与。',
-    highlights: ['高比例返佣', '邀请链路可视化', '月度结算', '专属客服支持'],
+    lead: '以清晰的等级规则、结算口径与渠道支持体系承接长期合作，让合作方明确知道如何参与、如何结算与如何稳定放量。',
+    highlights: ['等级返佣', '链路透明', '月度结算', '渠道支持'],
     metrics: () => [
       { label: '合作交易所', value: '9', note: '支持返佣跟踪' },
       { label: '最高返佣', value: '55%', note: '视渠道等级而定' },
-      { label: '月发放佣金', value: '128,000 USDT', note: '示例运营数据' },
+      { label: '月发放佣金', value: '128,000 USDT', note: '示例结算数据' },
       { label: '活跃推广者', value: '1,460', note: '近30日' }
     ],
     sections: [
       {
         type: 'table',
         title: '返佣等级示例',
-        desc: '这里放一版直观的层级表。',
+        desc: '以阶梯方式说明有效交易额、返佣比例与附加支持。',
         columns: ['等级', '月度有效交易额', '返佣比例', '附加权益'],
         rows: [
           ['R1', '0 - 20万 USDT', '25%', '基础推广链接'],
@@ -244,11 +244,11 @@ const PORTAL_PAGES = {
       {
         type: 'cards',
         title: '返佣玩法',
-        desc: '不仅给比例，还要给场景。',
+        desc: '不仅说明比例，更要说明适用场景与稳定推进方式。',
         items: [
-          { title: '内容导流', body: '适合做短视频、直播、图文的交易类 KOL，把专属开户链接和活动页组合起来。', meta: '适合内容型推广' },
-          { title: '社群裂变', body: '适合社区主理人和招商团队，通过群任务、打卡、教程和晒单提升转化。', meta: '适合社群运营' },
-          { title: '机构合作', body: '适合有大量活跃交易用户的团队，用 API 或后台看板追踪实际贡献。', meta: '适合渠道合作' }
+          { title: '研究内容导流', body: '适合方法文章、盘中解读、直播复盘等内容型推广，通过开户链接与专题页承接转化。', meta: '内容型推广' },
+          { title: '社群协同转化', body: '适合社区主理人与招商团队，通过教学活动、实盘分享与群任务提升转化效率。', meta: '社群运营' },
+          { title: '渠道合作', body: '适合拥有稳定交易用户资源的团队，可通过后台或接口持续追踪实际贡献。', meta: '渠道合作' }
         ]
       }
     ]
@@ -256,8 +256,8 @@ const PORTAL_PAGES = {
   invite: {
     kicker: 'Referral Growth',
     title: '邀请奖励',
-    lead: '邀请页主打拉新转化，应该突出奖励门槛、达成路径和实时榜单，而不是把返佣和邀请混在一起。',
-    highlights: ['邀请注册奖励', '订阅转化奖励', '排行榜激励', '活动任务'],
+    lead: '围绕注册、首登、订阅转化与榜单激励设计清晰的邀请机制，便于用户理解门槛、路径与奖励效率。',
+    highlights: ['注册奖励', '转化奖励', '榜单激励', '活动任务'],
     metrics: () => [
       { label: '本周新增邀请', value: '2,186', note: '示例活动周期' },
       { label: '转化率', value: '18.9%', note: '注册到订阅转化' },
@@ -268,21 +268,21 @@ const PORTAL_PAGES = {
       {
         type: 'cards',
         title: '奖励机制',
-        desc: '把不同动作的奖励拆开。',
+        desc: '将不同转化动作拆分说明，避免与返佣口径混淆。',
         items: [
-          { title: '邀请注册', body: '被邀请人成功注册并完成首次登录，即可获得基础积分或现金券。', meta: '拉新奖励' },
-          { title: '订阅转化', body: '被邀请人完成订阅后，邀请人获得更高等级现金奖励。', meta: '核心奖励' },
-          { title: '排行榜加成', body: '每周按有效邀请人数和订阅额进行排行，榜单前列额外获得奖金池。', meta: '活动激励' }
+          { title: '邀请注册', body: '被邀请人完成注册并首次登录后，邀请人即可获得基础积分或现金券奖励。', meta: '拉新奖励' },
+          { title: '订阅转化', body: '被邀请人完成订阅后，邀请人可获得更高等级的现金或权益奖励。', meta: '核心奖励' },
+          { title: '排行榜加成', body: '按有效邀请人数与转化质量进行周榜排行，榜单前列可获得额外奖金池。', meta: '活动激励' }
         ]
       },
       {
         type: 'list',
         title: '适合谁做邀请',
-        desc: '页面要告诉用户“我能不能做”。',
+        desc: '帮助用户快速判断自己是否适合稳定参与邀请机制。',
         items: [
-          { title: '活跃老用户', text: '熟悉产品、有真实使用体验，转化率通常更高。' },
-          { title: '内容创作者', text: '可把教程、复盘、盯盘视频和注册链接组合传播。' },
-          { title: '社群主理人', text: '适合在群内做体验营、训练营和打卡活动。' }
+          { title: '活跃老用户', text: '熟悉产品且具备真实使用经验，通常能带来更高质量的转化。' },
+          { title: '内容创作者', text: '可将教程、复盘、盯盘视频与注册链接组合传播，形成稳定引流。' },
+          { title: '社群主理人', text: '适合结合体验营、训练营与打卡活动开展连续引导。' }
         ]
       }
     ]
@@ -290,8 +290,8 @@ const PORTAL_PAGES = {
   plaza: {
     kicker: 'Plaza',
     title: '广场',
-    lead: '广场页用于承接用户内容、短观点、热帖、精选信号、达人观察和热门话题，做成一个“边看盘边刷”的内容场。',
-    highlights: ['热帖榜', '精选观点', '短线观察', '达人关注'],
+    lead: '围绕市场观点、实盘观察、精选信号与热点标的组织内容流，形成适合高频浏览与即时交流的盘中交流区。',
+    highlights: ['热帖榜', '精选观点', '实盘观察', '高频关注'],
     metrics: () => [
       { label: '今日新帖', value: '428', note: '示例社区活跃数据' },
       { label: '热帖互动', value: '9,240', note: '点赞 + 评论 + 转发' },
@@ -302,7 +302,7 @@ const PORTAL_PAGES = {
       {
         type: 'cards',
         title: '热门讨论',
-        desc: '用卡片模拟广场内容流。',
+        desc: '以主题卡片承接高热度讨论，突出盘中关注点与互动密度。',
         items: [
           { title: 'BTC 是否进入加速段？', body: '多位交易员围绕盘口主动买量、ETF 资金回流和关键阻力位展开讨论。', meta: '2.1k 浏览' },
           { title: 'SOL 巨鲸回补后还能追吗', body: '围绕鲸鱼进场信号、近三小时成交结构和回撤风险做实盘拆解。', meta: '1.6k 浏览' },
@@ -312,11 +312,11 @@ const PORTAL_PAGES = {
       {
         type: 'list',
         title: '广场内容板块',
-        desc: '先做出结构，后续可以对接真实接口。',
+        desc: '先明确内容结构，后续再接入真实讨论与行情内容流。',
         items: [
-          { title: '精选信号', text: '自动把高质量币种信号推送成讨论主题，提高内容和行情联动。' },
-          { title: '实盘复盘', text: '鼓励用户发布自己的进出场逻辑、失误与修正，形成方法库。' },
-          { title: '热点话题', text: '围绕大盘、政策、山寨轮动、链上事件组织主题内容。' }
+          { title: '精选信号', text: '将高质量币种信号自动转化为讨论主题，强化内容与行情联动。' },
+          { title: '实盘复盘', text: '鼓励用户沉淀进出场逻辑、失误与修正过程，形成可复用的盘中方法库。' },
+          { title: '热点话题', text: '围绕大盘、政策、轮动与链上事件组织主题讨论，提高信息聚合效率。' }
         ]
       }
     ]
@@ -324,8 +324,8 @@ const PORTAL_PAGES = {
   blog: {
     kicker: 'Insights',
     title: '博客',
-    lead: '博客页主要承担内容沉淀、SEO 和品牌建立，适合发方法论、产品更新、案例复盘和行业观察。',
-    highlights: ['方法论文章', '功能更新', '市场洞察', '案例复盘'],
+    lead: '用于沉淀策略方法、终端更新、案例研究与行业观察，承担研究输出、内容检索与专业认知建设。',
+    highlights: ['方法论文章', '终端更新', '市场洞察', '案例研究'],
     metrics: () => [
       { label: '月新增文章', value: '18', note: '内容团队 + 嘉宾供稿' },
       { label: '平均阅读完成率', value: '43%', note: '长文内容' },
@@ -336,7 +336,7 @@ const PORTAL_PAGES = {
       {
         type: 'cards',
         title: '推荐文章',
-        desc: '给博客页先放一批看起来像真的内容卡。',
+        desc: '用代表性文章结构展示研究方向、方法深度与终端认知。',
         items: [
           { title: '如何用盘口失衡识别假突破', body: '从订单簿倾斜、主动买卖量差和大额挂单撤单节奏拆解常见骗线。', meta: '策略方法论' },
           { title: '交易员版 Dashboard 的设计思路', body: '为什么我们把信号墙、市场列表、下单区和告警区做成一体化屏幕。', meta: '产品设计' },
@@ -346,11 +346,11 @@ const PORTAL_PAGES = {
       {
         type: 'faq',
         title: '博客运营说明',
-        desc: '内容页也要有管理逻辑。',
+        desc: '明确更新节奏与内容边界，方便后续持续输出。',
         items: [
-          { q: '文章多久更新一次？', a: '建议每周至少 3 篇，覆盖产品、策略、行业和活动内容。' },
-          { q: '是否支持嘉宾投稿？', a: '支持，尤其欢迎真实交易案例、风控经验和深度研究内容。' },
-          { q: '是否能跳转到对应功能页？', a: '可以，文章中可直接引导到 AI 盯盘、VIP 服务、社区和活动页。' }
+          { q: '文章多久更新一次？', a: '建议每周至少更新 3 篇，覆盖终端动态、策略方法、行业研究与案例复盘。' },
+          { q: '是否支持嘉宾投稿？', a: '支持，优先欢迎真实交易案例、风控经验与具备研究深度的内容。' },
+          { q: '是否能跳转到对应功能页？', a: '可以，文章可直接承接到 AI 盯盘、VIP 服务、社区与专题页面。' }
         ]
       }
     ]
@@ -358,8 +358,8 @@ const PORTAL_PAGES = {
   help: {
     kicker: 'Help Center',
     title: '帮助中心',
-    lead: '帮助中心应该覆盖新手入门、功能说明、订阅说明、常见异常和账户问题，减少客服压力。',
-    highlights: ['新手入门', '账号与订阅', '功能操作', '问题排查'],
+    lead: '围绕终端接入、功能说明、权限规则与异常排查建立统一知识库，降低学习成本与人工支持压力。',
+    highlights: ['快速接入', '账号与订阅', '功能操作', '异常排查'],
     metrics: () => [
       { label: '知识库条目', value: '92', note: '建议后续持续扩充' },
       { label: '自助解决率', value: '61%', note: '无需人工介入' },
@@ -370,21 +370,21 @@ const PORTAL_PAGES = {
       {
         type: 'list',
         title: '帮助主题',
-        desc: '帮助页先把目录结构立起来。',
+        desc: '先建立清晰目录，后续再持续补充终端知识条目。',
         items: [
-          { title: '快速开始', text: '如何注册、登录、订阅、切换页面、查看信号、进入交易面板。' },
-          { title: '权限与套餐', text: '公开模式和订阅模式的区别、套餐到期、退款与续费说明。' },
-          { title: '页面问题排查', text: '如果看不到数据、连不上 WebSocket、按钮没反应、图表不显示，先看这里。' }
+          { title: '快速开始', text: '说明注册、登录、订阅、页面切换、信号查看与交易面板使用路径。' },
+          { title: '权限与套餐', text: '解释公开模式与订阅模式差异、套餐到期、续费与退款相关规则。' },
+          { title: '页面问题排查', text: '针对数据缺失、WebSocket 连接异常、按钮无响应与图表未加载提供排查步骤。' }
         ]
       },
       {
         type: 'faq',
         title: '高频问题',
-        desc: '帮助中心一定要先顶最常见问题。',
+        desc: '优先覆盖最常见的访问、环境与终端加载问题。',
         items: [
           { q: '为什么首页有些币种看不到？', a: '公开模式仅开放部分币种与功能，订阅后解锁完整监控池。' },
-          { q: '为什么控制台提示 Origin not allowed？', a: '这通常来自浏览器钱包或第三方扩展注入脚本，不是站点资源 404；页面业务逻辑修好后，这类报错通常可忽略。' },
-          { q: '为什么页面样式或脚本 404？', a: '如果遇到 `/static/css/portal.css` 或 `/static/js/app/portal.js` 404，说明站点页资源未发布完整；本次改造已把它们补上。' }
+          { q: '为什么控制台提示 Origin not allowed？', a: '这类提示通常来自浏览器钱包或第三方扩展注入脚本，并不代表站点主业务请求失败。' },
+          { q: '为什么页面样式或脚本 404？', a: '如果遇到 `/static/css/portal.css` 或 `/static/js/app/portal.js` 404，通常说明静态资源未完整发布或缓存仍在读取旧版本。' }
         ]
       }
     ]
@@ -392,8 +392,8 @@ const PORTAL_PAGES = {
   announcements: {
     kicker: 'Announcements',
     title: '公告',
-    lead: '公告页用于发布版本上线、服务维护、活动通知、套餐变更和重要风险提示，是站内最硬的信息区。',
-    highlights: ['版本更新', '维护通知', '活动上新', '风险提示'],
+    lead: '作为平台正式信息窗口，用于发布版本更新、维护安排、权限调整与重要风险提示。',
+    highlights: ['版本更新', '维护通知', '权限调整', '风险提示'],
     metrics: () => [
       { label: '本月公告', value: '26', note: '运营 + 产品 + 运维' },
       { label: '版本发布', value: '9', note: '本月功能更新' },
@@ -404,11 +404,11 @@ const PORTAL_PAGES = {
       {
         type: 'timeline',
         title: '最新公告',
-        desc: '直接做一条可读的时间线。',
+        desc: '按时间顺序展示正式公告，便于用户快速确认最近的终端与权限变更。',
         items: [
-          { time: '03-24 10:00', title: '站点页门户系统上线', text: '新增 AI 盯盘、VIP 服务、广告、帮助中心、公告、新闻中心、社区等导航页。' },
-          { time: '03-23 21:30', title: '订阅套餐展示优化', text: '新增套餐权益矩阵、访问态提示和订阅后的解锁文案。' },
-          { time: '03-22 14:00', title: '异常监控能力升级', text: '新增盘口断层、异常刷量与大额撤单识别信号。' }
+          { time: '03-24 10:00', title: '站点门户能力上线', text: '新增首页、AI 盯盘、机构服务、内容中心与支持说明等完整导航体系。' },
+          { time: '03-23 21:30', title: '订阅权益展示优化', text: '完善套餐矩阵、访问状态提示与订阅后解锁说明，减少权限理解成本。' },
+          { time: '03-22 14:00', title: '异常监控能力升级', text: '新增盘口断层、异常刷量与大额撤单识别，提高盘中预警覆盖。' }
         ]
       }
     ]
@@ -416,7 +416,7 @@ const PORTAL_PAGES = {
   news: {
     kicker: 'Newsroom',
     title: '新闻中心',
-    lead: '新闻中心偏资讯聚合和专题运营，跟公告不同，它更像“市场发生了什么，以及这对用户意味着什么”。',
+    lead: '聚合市场焦点、政策动态与专题解读，帮助用户快速理解“发生了什么”以及“对盘中判断意味着什么”。',
     highlights: ['市场快讯', '专题深读', '政策动态', '交易热点'],
     metrics: () => [
       { label: '日均快讯', value: '68', note: '示例内容量' },
@@ -428,11 +428,11 @@ const PORTAL_PAGES = {
       {
         type: 'cards',
         title: '今日焦点',
-        desc: '示例新闻卡片。',
+        desc: '以焦点卡片形式承接高关注市场事件与专题解读，服务交易与研究跟踪。',
         items: [
           { title: 'BTC 再次测试关键压力位，AI 盯盘信号同步升温', body: '结合盘口主动买量与鲸鱼行为，平台将其列入首页重点关注列表。', meta: '市场焦点' },
-          { title: '山寨轮动加剧，如何从信号墙筛选高质量标的', body: '从“只看涨幅”切换到“看成交结构 + 异常 + 鲸鱼”的筛选方式。', meta: '专题解析' },
-          { title: '交易员为什么需要一体化盯盘界面', body: '当信号、盘口、交易和告警分散在多个页面时，执行效率会明显下降。', meta: '深度观察' }
+          { title: '山寨轮动加剧，如何从信号墙筛选高质量标的', body: '从单纯追涨切换到观察成交结构、异常信号与鲸鱼行为的组合筛选方式。', meta: '专题解析' },
+          { title: '交易员为什么需要一体化盯盘界面', body: '当信号、盘口、交易与告警分散在多个页面时，执行效率和判断连续性都会明显下降。', meta: '深度观察' }
         ]
       }
     ]
@@ -440,8 +440,8 @@ const PORTAL_PAGES = {
   community: {
     kicker: 'Community',
     title: '社区',
-    lead: '社区页承接官方群、区域群、主题群、活动群和合作伙伴社群，是长期留存与品牌扩散的关键入口。',
-    highlights: ['官方群矩阵', '主题社群', '活动运营', '合作伙伴社群'],
+    lead: '用于承接交易讨论群、主题群与合作伙伴网络，是盘中交流、内容扩散与长期运营的重要入口。',
+    highlights: ['官方群矩阵', '主题社群', '盘中交流', '合作伙伴网络'],
     metrics: () => [
       { label: '社群总人数', value: '48,600+', note: '示例累计数据' },
       { label: '日活跃发言', value: '8,300+', note: '多群合计' },
@@ -452,21 +452,21 @@ const PORTAL_PAGES = {
       {
         type: 'cards',
         title: '社区组成',
-        desc: '先给出结构和定位。',
+        desc: '先定义不同社群的角色定位，便于后续持续维护。',
         items: [
-          { title: '官方公告群', body: '同步版本更新、重要活动、系统维护和福利通知。', meta: '信息同步' },
-          { title: '交易讨论群', body: '围绕热点币种、AI 信号、复盘和策略展开交流。', meta: '核心用户' },
-          { title: '合作伙伴群', body: '适合渠道、KOL、项目方、代理和企业客户对接合作。', meta: '商务拓展' }
+          { title: '官方公告群', body: '同步版本更新、重要活动、系统维护与关键通知，保证信息触达一致。', meta: '信息同步' },
+          { title: '交易讨论群', body: '围绕热点币种、AI 信号、实盘复盘与策略判断展开高频交流。', meta: '核心用户' },
+          { title: '合作伙伴群', body: '服务渠道、研究伙伴、项目方、代理与机构客户的商务对接与联合运营。', meta: '商务拓展' }
         ]
       },
       {
         type: 'faq',
         title: '社区运营说明',
-        desc: '把规则讲清楚，减少后续治理成本。',
+        desc: '提前说明规则与边界，降低后续治理成本。',
         items: [
-          { q: '社区是否允许发广告？', a: '普通讨论群不允许乱发广告，合作需求请走广告页或商务渠道。' },
-          { q: '是否有地区或语言分群？', a: '可以逐步扩展到中文主群、英文群、区域群和主题群。' },
-          { q: '是否有官方直播或活动？', a: '建议和公告页、广场页、博客页联动，形成周期性内容节奏。' }
+          { q: '社区是否允许发广告？', a: '普通讨论群不开放自由广告发布，合作需求请通过广告页或商务渠道申请。' },
+          { q: '是否有地区或语言分群？', a: '可以逐步扩展为中文主群、英文群、区域群与主题群的分层结构。' },
+          { q: '是否有官方直播或活动？', a: '建议与公告、广场和博客联动，形成固定频次的内容与活动节奏。' }
         ]
       }
     ]
@@ -474,8 +474,8 @@ const PORTAL_PAGES = {
   agreement: {
     kicker: 'Legal',
     title: '服务协议',
-    lead: '协议页不必做成纯法务文书堆叠，也可以用分节展示，让用户至少知道最关键的边界条件。',
-    highlights: ['服务边界', '用户义务', '风险声明', '责任限制'],
+    lead: '以可读化方式说明平台提供的终端服务边界、用户义务、风险揭示与责任限制，帮助用户快速理解关键条款。',
+    highlights: ['服务边界', '用户义务', '风险揭示', '责任限制'],
     metrics: () => [
       { label: '协议版本', value: 'v1.2.0', note: '示例法务版本号' },
       { label: '最近更新', value: '2026-03-24', note: '本次站点页同步' },
@@ -486,12 +486,12 @@ const PORTAL_PAGES = {
       {
         type: 'list',
         title: '核心条款摘要',
-        desc: '先做成用户能读完的版本。',
+        desc: '先提供用户可快速理解的摘要版本，后续可补充完整法务文本。',
         items: [
-          { title: '信息服务属性', text: '平台提供数据展示、分析信号、内容服务和相关工具，不构成任何收益承诺。' },
-          { title: '账户安全责任', text: '用户需要妥善保管账户凭据，不得共享、转售、盗用或进行破坏性访问。' },
-          { title: '风险自担', text: '所有交易行为由用户自行决策并承担风险，平台不对行情波动和外部平台风险负责。' },
-          { title: '违规处理', text: '对于刷号、滥用、违法内容和攻击行为，平台保留限制、终止和追责权利。' }
+          { title: '信息服务属性', text: '平台提供数据展示、分析信号、内容服务与相关工具，不构成收益承诺或投资建议。' },
+          { title: '账户安全责任', text: '用户需妥善保管账户凭据，不得共享、转售、盗用或实施破坏性访问行为。' },
+          { title: '风险自担', text: '所有交易行为均由用户独立决策并自行承担风险，平台不对市场波动或第三方平台风险负责。' },
+          { title: '违规处理', text: '对刷号、滥用、违法内容、恶意攻击等行为，平台保留限制、终止服务与追责权利。' }
         ]
       }
     ]
@@ -499,8 +499,8 @@ const PORTAL_PAGES = {
   privacy: {
     kicker: 'Privacy',
     title: '隐私说明',
-    lead: '隐私页要回答三件事：收什么、为什么收、怎么保护，以及用户能做什么。',
-    highlights: ['收集范围', '使用目的', '安全措施', '用户权利'],
+    lead: '围绕收集范围、处理目的、安全措施与用户权利四个方面，说明平台如何处理和保护终端相关数据。',
+    highlights: ['收集范围', '处理目的', '安全措施', '用户权利'],
     metrics: () => [
       { label: '数据分类', value: '4 类', note: '账号、设备、行为、订阅' },
       { label: '安全策略', value: '最小权限', note: '示例治理原则' },
@@ -511,12 +511,12 @@ const PORTAL_PAGES = {
       {
         type: 'list',
         title: '隐私要点',
-        desc: '先把要点说人话。',
+        desc: '用清晰直白的方式说明用户最关心的终端数据问题。',
         items: [
           { title: '我们收集什么', text: '包括账户信息、订阅记录、页面使用日志和用于保障稳定性的必要技术信息。' },
-          { title: '为什么收集', text: '用于提供功能、保障安全、改进产品、处理工单、完成交易与订阅相关服务。' },
-          { title: '如何保护', text: '采取权限控制、日志审计、分级存储和必要的传输保护措施。' },
-          { title: '你能做什么', text: '可申请查看、更正、注销或删除部分个人信息，法律另有规定的除外。' }
+          { title: '为什么收集', text: '用于提供功能、保障安全、改进终端、处理工单，并完成订阅与相关服务流程。' },
+          { title: '如何保护', text: '通过权限控制、日志审计、分级存储与必要的传输保护措施降低数据风险。' },
+          { title: '你能做什么', text: '可申请查询、更正、注销或删除部分个人信息，法律法规另有规定的除外。' }
         ]
       }
     ]
@@ -524,33 +524,33 @@ const PORTAL_PAGES = {
   about: {
     kicker: 'About BB-Market',
     title: '关于我们',
-    lead: '关于页用于讲清楚团队在做什么、为什么做、面向谁，以及希望形成怎样的产品路线和品牌认知。',
-    highlights: ['交易员视角', '数据驱动', '内容与工具一体化', '面向长期产品化'],
+    lead: '围绕产品定位、服务对象与长期交付方向，说明团队为什么做这套终端，以及它希望解决什么问题。',
+    highlights: ['交易员视角', '数据驱动', '终端化交付', '长期产品化'],
     metrics: () => [
-      { label: '产品方向', value: '交易工具 + 内容平台', note: '双轮驱动' },
-      { label: '覆盖场景', value: '盯盘 / 交易 / 内容 / 商务', note: '多页面协同' },
-      { label: '迭代节奏', value: '周更', note: '建议运营节奏' },
-      { label: '当前版本', value: 'Portal + Dashboard', note: '首页与门户统一' }
+      { label: '产品方向', value: '专业终端 + 内容能力', note: '双线协同' },
+      { label: '覆盖场景', value: '盯盘 / 交易 / 内容 / 商务', note: '统一体系' },
+      { label: '迭代节奏', value: '周更', note: '持续演进' },
+      { label: '当前版本', value: 'Portal + Dashboard', note: '前台与终端一体化' }
     ],
     sections: [
       {
         type: 'cards',
         title: '我们在做什么',
-        desc: '把品牌表达和产品结构统一起来。',
+        desc: '从产品价值、交付方式与终端结构三个角度定义 BB-Market。',
         items: [
-          { title: '做交易员真正愿意开的屏', body: '不是堆指标，而是把最关键的市场判断、操作入口和复盘能力集中到一个地方。', meta: '核心产品观' },
-          { title: '做内容和工具一体的平台', body: '用户不只看信号，还能看资讯、活动、教程、社区和商务合作入口。', meta: '平台化方向' },
-          { title: '做能持续运营的站点', body: '每个页面都不仅仅是占位，而是能承接流量、转化、服务和增长的业务模块。', meta: '商业化方向' }
+          { title: '构建交易员愿意长期打开的终端', body: '将关键市场判断、执行入口与复盘能力收敛到同一界面，而不是堆砌孤立指标。', meta: '核心产品观' },
+          { title: '构建研究与工具协同的体系', body: '让用户在查看信号之外，还能获取资讯、案例、专题与合作入口，形成完整使用闭环。', meta: '终端结构' },
+          { title: '构建可持续交付的业务体系', body: '让每个页面都承担明确角色，既服务前台表达，也支持销售转化与长期运营。', meta: '交付方向' }
         ]
       },
       {
         type: 'list',
         title: '下一阶段重点',
-        desc: '给页面一点 roadmap 感。',
+        desc: '说明下一阶段的终端建设重点与落地顺序。',
         items: [
-          { title: '接入真实内容源', text: '把博客、新闻、公告、广场和社区逐步接到真实后台。' },
-          { title: '补充表单与提交能力', text: '反馈页、广告页、VIP 页和合作页后续应补充正式提交入口。' },
-          { title: '继续打磨首页控制台', text: '优化移动端、响应式和权限态下的展示差异。' }
+          { title: '接入真实内容与数据源', text: '逐步把博客、新闻、公告、广场与社区接入正式后台与审核流程。' },
+          { title: '补充正式提交与线索承接能力', text: '为反馈、广告、VIP 与合作页面补充表单、工单与 CRM 承接链路。' },
+          { title: '继续完善终端与首页表达', text: '优化移动端、响应式与不同权限状态下的内容与功能展示。' }
         ]
       }
     ]
@@ -910,42 +910,42 @@ function renderHomeArchitecture(runtime, pulse) {
     <section class="home-architecture home-reveal" data-reveal-delay="0.08">
       <div class="home-section-head">
         <div class="home-section-kicker">系统架构</div>
-        <div class="home-section-title">把行情输入、信号引擎、预警路由和交易桌面，做成一条可执行的数据链路</div>
+        <div class="home-section-title">把行情接入、因子计算、预警分发与交易执行，组织成适用于交易席位与量化团队的数据链路</div>
       </div>
       <div class="home-arch-layout">
         <div class="home-arch-board">
           <div class="home-arch-line" aria-hidden="true"></div>
           <article class="home-arch-node home-reveal is-node-accent" data-reveal-delay="0.14">
             <div class="home-arch-node-kicker">输入层</div>
-            <div class="home-arch-node-title">Market Feed</div>
-            <div class="home-arch-node-text">盘口、成交、K线、异动事件统一进入同一条实时链路。</div>
+            <div class="home-arch-node-title">行情接入层</div>
+            <div class="home-arch-node-text">盘口、成交、K线与异动事件统一接入，形成连续、可追踪的实时数据流。</div>
           </article>
           <article class="home-arch-node home-reveal" data-reveal-delay="0.22">
             <div class="home-arch-node-kicker">计算层</div>
-            <div class="home-arch-node-title">Signal Engine</div>
-            <div class="home-arch-node-text">OBI、OFI、主动买卖量差、鲸鱼轨迹和异常结构在这里收敛成评分。</div>
+            <div class="home-arch-node-title">因子计算层</div>
+            <div class="home-arch-node-text">OBI、OFI、主动买卖量差、鲸鱼轨迹与异常结构在这里收敛为统一评分。</div>
           </article>
           <article class="home-arch-node home-reveal is-node-primary" data-reveal-delay="0.30">
             <div class="home-arch-node-kicker">决策层</div>
-            <div class="home-arch-node-title">AI Radar</div>
-            <div class="home-arch-node-text">将复杂市场结构翻译成交易员能直接用的强提醒、关注理由和优先级。</div>
+            <div class="home-arch-node-title">决策引擎</div>
+            <div class="home-arch-node-text">将复杂市场结构转译为可执行的强提醒、关注理由与优先级排序。</div>
           </article>
           <article class="home-arch-node home-reveal" data-reveal-delay="0.38">
             <div class="home-arch-node-kicker">分发层</div>
-            <div class="home-arch-node-title">Alert Router</div>
-            <div class="home-arch-node-text">实时信号、预警通知、回放链路和订阅权限在这里完成路由。</div>
+            <div class="home-arch-node-title">预警分发层</div>
+            <div class="home-arch-node-text">实时信号、预警通知、回放链路与订阅权限在这里完成统一路由。</div>
           </article>
           <article class="home-arch-node home-reveal is-node-accent-alt" data-reveal-delay="0.46">
             <div class="home-arch-node-kicker">执行层</div>
-            <div class="home-arch-node-title">Trader Desk</div>
-            <div class="home-arch-node-text">最终落到 AI 盯盘控制台、交易面板和复盘流程，形成闭环。</div>
+            <div class="home-arch-node-title">交易工作台</div>
+            <div class="home-arch-node-text">最终落到 AI 盯盘终端、交易面板与复盘流程，形成面向席位执行的完整闭环。</div>
           </article>
         </div>
         <div class="home-arch-side home-reveal" data-reveal-delay="0.18">
           <div class="home-arch-side-card">
-            <div class="home-side-kicker">当前焦点链路</div>
+            <div class="home-side-kicker">当前优先监控标的</div>
             <div class="home-side-title">${escapePortalHtml(primary.symbol)}</div>
-            <div class="home-side-text">${escapePortalHtml(primary.tag)}，系统会把该币种直接推进到盯盘驾驶舱与预警流中。</div>
+            <div class="home-side-text">${escapePortalHtml(primary.tag)}，系统会将该标的优先推进到席位终端与预警事件流中。</div>
           </div>
           <div class="home-arch-side-grid">
             <div class="home-arch-mini">
@@ -1016,7 +1016,66 @@ function svgToDataUri(svg) {
     .replace(/%20/g, ' ')}`;
 }
 
+function bannerTextUnits(text = '') {
+  return [...String(text || '')].reduce((sum, ch) => {
+    if (/\s/.test(ch)) return sum + 0.28;
+    return sum + (/[\u0000-\u00ff]/.test(ch) ? 0.56 : 1);
+  }, 0);
+}
+
+function wrapBannerSvgText(text, maxUnitsPerLine, maxLines = 2) {
+  const source = String(text || '').trim();
+  if (!source) return [''];
+  const lines = [];
+  let line = '';
+  let units = 0;
+  [...source].forEach(ch => {
+    const nextUnits = bannerTextUnits(ch);
+    if (line && units + nextUnits > maxUnitsPerLine && lines.length < maxLines - 1) {
+      lines.push(line.trim());
+      line = ch;
+      units = nextUnits;
+      return;
+    }
+    line += ch;
+    units += nextUnits;
+  });
+  if (line) lines.push(line.trim());
+  if (lines.length > maxLines) {
+    const head = lines.slice(0, maxLines - 1);
+    const tail = lines.slice(maxLines - 1).join('');
+    return [...head, tail];
+  }
+  return lines;
+}
+
+function renderBannerSvgText(x, y, lines, options = {}) {
+  const {
+    fill = '#FFFFFF',
+    fontSize = 28,
+    fontWeight = 800,
+    lineHeight = fontSize * 1.1,
+    letterSpacing = 0
+  } = options;
+  return `
+    <text x="${x}" y="${y}" fill="${fill}" font-size="${fontSize}" font-weight="${fontWeight}"${letterSpacing ? ` letter-spacing="${letterSpacing}"` : ''}>
+      ${lines.map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapePortalHtml(line)}</tspan>`).join('')}
+    </text>
+  `;
+}
+
 function buildHomeBannerSvg(spec) {
+  const titleLines = wrapBannerSvgText(spec.title, 10.2, 2);
+  const titleFont = titleLines.length > 1 ? 50 : 66;
+  const titleLineHeight = titleLines.length > 1 ? 52 : 68;
+  const titleY = titleLines.length > 1 ? 186 : 212;
+  const subtitleLines = wrapBannerSvgText(spec.subtitle, 24, 2);
+  const subtitleFont = subtitleLines.length > 1 ? 18 : 24;
+  const subtitleLineHeight = subtitleLines.length > 1 ? 24 : 28;
+  const subtitleY = titleY + (titleLines.length - 1) * titleLineHeight + (titleLines.length > 1 ? 56 : 46);
+  const contentBottom = subtitleY + (subtitleLines.length - 1) * subtitleLineHeight;
+  const panelTop = Math.min(368, contentBottom + 40);
+  const panelShift = panelTop - 330;
   const bars = (spec.bars || []).map((value, index) => {
     const height = Math.max(30, Math.min(124, Number(value) || 48));
     const x = 86 + index * 54;
@@ -1044,20 +1103,20 @@ function buildHomeBannerSvg(spec) {
     </circle>
   `).join('');
   const chips = (spec.chips || []).slice(0, 3).map((item, index) => `
-    <g transform="translate(${332 + index * 104},64)">
-      <rect width="92" height="28" rx="14" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)"/>
-      <text x="46" y="18" text-anchor="middle" fill="#F3F6FB" font-size="10" font-weight="700">${item}</text>
+    <g transform="translate(${700 + index * 176},356)">
+      <rect width="164" height="36" rx="18" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)"/>
+      <text x="82" y="24" text-anchor="middle" fill="#F3F6FB" font-size="13" font-weight="700">${item}</text>
     </g>
   `).join('');
   const cards = (spec.cards || []).slice(0, 3).map((item, index) => `
-    <g transform="translate(${324 + index * 108},118)">
-      <rect width="96" height="86" rx="18" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)"/>
-      <text x="16" y="24" fill="#9FB0C7" font-size="9" font-weight="700">${item.label}</text>
-      <text x="16" y="50" fill="#FFFFFF" font-size="22" font-weight="800">${item.value}
+    <g transform="translate(${678 + index * 244},406)">
+      <rect width="228" height="118" rx="22" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)"/>
+      <text x="20" y="32" fill="#9FB0C7" font-size="14" font-weight="700">${item.label}</text>
+      <text x="20" y="74" fill="#FFFFFF" font-size="36" font-weight="800">${item.value}
         <animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="${1.7 + index * 0.2}s" repeatCount="indefinite"/>
         <animate attributeName="opacity" values="0.82;1;0.82" dur="${1.7 + index * 0.2}s" repeatCount="indefinite"/>
       </text>
-      <text x="16" y="68" fill="${spec.accent}" font-size="9" font-weight="700">${item.note}</text>
+      <text x="20" y="98" fill="${spec.accent}" font-size="13" font-weight="700">${item.note}</text>
     </g>
   `).join('');
   const svg = `
@@ -1094,25 +1153,27 @@ function buildHomeBannerSvg(spec) {
       <rect x="72" y="72" width="1456" height="756" rx="34" fill="rgba(7,10,15,0.26)" stroke="rgba(255,255,255,0.10)"/>
       ${particles}
       <text x="116" y="144" fill="#F2C760" font-size="28" font-weight="800" letter-spacing="4">${spec.kicker}</text>
-      <text x="116" y="224" fill="#F5F7FB" font-size="74" font-weight="900">${spec.title}</text>
-      <text x="116" y="274" fill="#C8D1DC" font-size="28">${spec.subtitle}</text>
-      <rect x="104" y="330" width="474" height="264" rx="28" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.12)"/>
-      <text x="138" y="382" fill="#9FB0C7" font-size="20" font-weight="700">${spec.panelTitle}</text>
-      ${bars}
-      <path d="${spec.linePath}" stroke="${spec.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="460" stroke-dashoffset="460">
-        <animate attributeName="stroke-dashoffset" values="460;0;0" dur="2.8s" repeatCount="indefinite"/>
-      </path>
-      <circle cx="302" cy="436" r="10" fill="${spec.accent}"/>
-      <circle cx="408" cy="384" r="10" fill="${spec.accent}"/>
-      <circle cx="516" cy="344" r="10" fill="${spec.accent}"/>
-      <rect x="650" y="330" width="774" height="264" rx="28" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.10)"/>
-      ${chips}
-      ${cards}
-      <rect x="104" y="646" width="1316" height="128" rx="26" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
-      <text x="138" y="700" fill="#FFFFFF" font-size="34" font-weight="800">${spec.footerTitle}</text>
-      <text x="138" y="740" fill="#C8D1DC" font-size="22">${spec.footerText}</text>
-      <rect x="1122" y="676" width="262" height="56" rx="28" fill="url(#glow-${spec.key})"/>
-      <text x="1253" y="712" text-anchor="middle" fill="#101318" font-size="20" font-weight="900">${spec.bannerCta || spec.ctaLabel || 'BB-Market'}</text>
+      ${renderBannerSvgText(116, titleY, titleLines, { fill: '#F5F7FB', fontSize: titleFont, fontWeight: 900, lineHeight: titleLineHeight })}
+      ${renderBannerSvgText(116, subtitleY, subtitleLines, { fill: '#C8D1DC', fontSize: subtitleFont, fontWeight: 500, lineHeight: subtitleLineHeight })}
+      <g transform="translate(0, ${panelShift})">
+        <rect x="104" y="330" width="474" height="264" rx="28" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.12)"/>
+        <text x="138" y="382" fill="#9FB0C7" font-size="20" font-weight="700">${spec.panelTitle}</text>
+        ${bars}
+        <path d="${spec.linePath}" stroke="${spec.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="460" stroke-dashoffset="460">
+          <animate attributeName="stroke-dashoffset" values="460;0;0" dur="2.8s" repeatCount="indefinite"/>
+        </path>
+        <circle cx="302" cy="436" r="10" fill="${spec.accent}"/>
+        <circle cx="408" cy="384" r="10" fill="${spec.accent}"/>
+        <circle cx="516" cy="344" r="10" fill="${spec.accent}"/>
+        <rect x="650" y="330" width="774" height="264" rx="28" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.10)"/>
+        ${chips}
+        ${cards}
+        <rect x="104" y="646" width="1316" height="128" rx="26" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
+        <text x="138" y="700" fill="#FFFFFF" font-size="34" font-weight="800">${spec.footerTitle}</text>
+        <text x="138" y="740" fill="#C8D1DC" font-size="22">${spec.footerText}</text>
+        <rect x="1122" y="676" width="262" height="56" rx="28" fill="url(#glow-${spec.key})"/>
+        <text x="1253" y="712" text-anchor="middle" fill="#101318" font-size="20" font-weight="900">${spec.bannerCta || spec.ctaLabel || 'BB-Market'}</text>
+      </g>
     </svg>`;
   return svgToDataUri(svg);
 }
@@ -1120,41 +1181,41 @@ function buildHomeBannerSvg(spec) {
 function homeBannerSlides(runtime) {
   const isAuthenticated = !!S.auth?.user;
   const hasFullAccess = !!S.access?.full_access;
-  const accessLabel = hasFullAccess ? '已订阅解锁' : (isAuthenticated ? '已登录未订阅' : '公开预览');
+  const accessLabel = hasFullAccess ? '全量访问已开通' : (isAuthenticated ? '已登录，待升级权限' : '公开预览');
   const primaryBannerCta = hasFullAccess
-    ? { label: '进入实时控制台', action: "switchSitePage('ai')" }
+    ? { label: '进入专业终端', action: "switchSitePage('ai')" }
     : (isAuthenticated
-      ? { label: '升级完整权限', action: "switchSitePage('vip')" }
-      : { label: '创建试用账户', action: "openAuthModal('register')" });
+      ? { label: '升级机构权限', action: "switchSitePage('vip')" }
+      : { label: '申请试用席位', action: "openAuthModal('register')" });
   const secondaryBannerCta = hasFullAccess
-    ? { label: '查看系统方案', action: "switchSitePage('vip')" }
+    ? { label: '查看机构方案', action: "switchSitePage('vip')" }
     : (isAuthenticated
       ? { label: '进入 AI 盯盘', action: "switchSitePage('ai')" }
-      : { label: '已有账号，立即登录', action: "openAuthModal('login')" });
+      : { label: '登录已有席位', action: "openAuthModal('login')" });
   return [
     {
       key: 'signals',
-      kicker: 'REAL-TIME SIGNALS',
+      kicker: '实时信号体系',
       eyebrow: '实时信号中枢',
-      title: hasFullAccess ? '完整实时中枢已经就绪' : (isAuthenticated ? '已登录，下一步解锁完整信号覆盖' : '让强提醒先于波动出现'),
+      title: hasFullAccess ? '完整实时信号体系已就绪' : (isAuthenticated ? '已登录，下一步解锁席位级信号覆盖' : '让强提醒先于市场波动出现'),
       lead: hasFullAccess
-        ? '当前账户已具备完整访问能力，可以直接进入 AI 盯盘控制台。'
+        ? '当前账户已具备完整访问权限，可直接进入 AI 盯盘终端执行盘中决策。'
         : (isAuthenticated
-          ? '你已经进入系统访问态，继续升级即可解锁更多币种、完整推送与更深层信号。'
-          : '把拉盘、砸盘、成交节奏和盘口异动压缩成交易员可执行的首屏判断。'),
+          ? '当前账户已进入系统访问态，继续升级即可解锁更多标的、完整推送与席位级信号能力。'
+          : '将拉升、回落、成交节奏与盘口异动压缩为交易席位可直接采用的首屏判断。'),
       stateLabel: accessLabel,
       bgStart: '#0A1016',
       bgEnd: '#132231',
       accent: '#F2C760',
       glow: '#1890FF',
-      panelTitle: 'Signal Scoreboard',
-      subtitle: `监控 ${runtime.totalSymbols}+ 币种，持续刷新 ${runtime.feedCount}+ 条事件流`,
+      panelTitle: '实时信号看板',
+      subtitle: `覆盖 ${runtime.totalSymbols}+ 个交易标的，持续刷新 ${runtime.feedCount}+ 条盘中事件`,
       linePath: 'M194 486 C246 454 302 438 356 418 C394 404 438 392 470 374 C500 358 530 340 546 320',
-      footerTitle: `实时信号 + 盘口确认 + 执行入口`,
-      footerText: '避免在行情页、预警页、成交页之间来回切换，首屏直接给出交易员视角。',
-      bannerCta: 'Signal First',
+      footerTitle: `信号识别、结构确认与执行入口在同一专业终端协同`,
+      footerText: '减少在行情页、预警页与成交页之间来回切换，首屏直接呈现交易席位视角。',
+      bannerCta: '实时信号',
       bars: [58, 82, 96, 72, 114, 94, 126],
-      chips: ['Signal Wall', 'Depth Flow', 'Alert Engine'],
+      chips: ['信号看板', '深度结构', '预警引擎'],
       cards: [
         { label: '强提醒候选', value: `${runtime.strongSignals}`, note: '盘中优先级' },
         { label: '事件流', value: `${runtime.feedCount}+`, note: '实时刷新' },
@@ -1163,25 +1224,25 @@ function homeBannerSlides(runtime) {
     },
     {
       key: 'whales',
-      kicker: 'WHALE + ORDERBOOK',
+      kicker: '大额行为与盘口',
       eyebrow: '鲸鱼与盘口联动',
-      title: isAuthenticated ? '把鲸鱼动作和盘口确认合到同一层' : '把大资金轨迹放回盘口上下文',
+      title: isAuthenticated ? '把大额行为与盘口确认合并到同一层' : '把大额资金轨迹放回盘口上下文',
       lead: isAuthenticated
-        ? '登录后继续放大订单簿、最新成交和鲸鱼联动的判断深度，减少只看大单的误判。'
-        : '不是只看一笔大单，而是结合挂单、撤单、吃单和最新成交，判断动作真假。',
+        ? '登录后可继续提升订单簿、最新成交与大额行为联动的判断深度，降低只看单笔大单的误判概率。'
+        : '不是只看单笔大单，而是结合挂单、撤单、吃单与最新成交判断动作真假，适合短线席位与量化监控场景。',
       stateLabel: accessLabel,
       bgStart: '#0B0F16',
       bgEnd: '#1A1610',
       accent: '#20D59E',
       glow: '#F2C760',
-      panelTitle: 'Whale Context Matrix',
-      subtitle: `追踪 ${runtime.whales}+ 类鲸鱼异动，叠加订单簿与成交结构同步观察`,
+      panelTitle: '大额行为上下文',
+      subtitle: `追踪 ${runtime.whales}+ 类大额异动，并与订单簿及成交结构同步交叉验证`,
       linePath: 'M192 502 C256 470 320 442 382 414 C428 394 468 368 514 350 C538 340 552 328 546 316',
-      footerTitle: '大额挂单、撤单、扫单不再是孤立事件',
-      footerText: '同一张图里交叉对照订单簿、最新成交和分析面板，过滤噪声动作。',
-      bannerCta: 'Whale Context',
+      footerTitle: '大额挂单、撤单与扫单不再是孤立事件',
+      footerText: '在同一张图中交叉对照订单簿、最新成交与分析面板，过滤噪声动作。',
+      bannerCta: '大额行为',
       bars: [48, 76, 88, 70, 104, 112, 94],
-      chips: ['Whale Trace', 'Order Flow', 'Trade Tape'],
+      chips: ['大额行为', '订单流', '成交明细'],
       cards: [
         { label: '鲸鱼异动', value: `${runtime.whales}`, note: '大额行为' },
         { label: '分析面板', value: '联动', note: '同屏判断' },
@@ -1190,25 +1251,25 @@ function homeBannerSlides(runtime) {
     },
     {
       key: 'desk',
-      kicker: 'DESK WORKFLOW',
+      kicker: '机构与团队工作流',
       eyebrow: '团队与机构工作流',
-      title: hasFullAccess ? '团队与机构工作流可以直接承接' : '从个人盯盘到团队席位共用一套中枢',
+      title: hasFullAccess ? '团队与机构工作流可直接承接' : '从个人盯盘到交易席位共用一套专业中枢',
       lead: hasFullAccess
-        ? '当前账户已处于完整访问状态，可以继续查看机构方案、团队接入和更深层部署能力。'
-        : '公开预览先承接认知，登录后承接试用，机构方案承接团队与部署能力。',
+        ? '当前账户已处于完整访问状态，可继续查看机构方案、团队接入与更深层部署能力。'
+        : '公开预览承接认知，账户开通承接试用，机构方案承接交易席位协作、量化团队接入与部署能力。',
       stateLabel: accessLabel,
       bgStart: '#0A0F16',
       bgEnd: '#141A25',
       accent: '#7CC7FF',
       glow: '#20D59E',
-      panelTitle: 'Desk Access Layer',
-      subtitle: `支持公开预览、登录解锁与机构接入三层转化路径`,
+      panelTitle: '机构接入架构',
+      subtitle: `支持公开预览、账户开通与机构接入三层转化路径`,
       linePath: 'M186 510 C236 486 292 456 352 426 C420 390 472 358 546 322',
-      footerTitle: '个人 / Desk / 机构 接入语义清楚',
-      footerText: '首页负责品牌和转化，AI 页负责实时控制台，路径更清晰，转化更直接。',
-      bannerCta: 'Desk Layer',
+      footerTitle: '个人、席位团队与机构客户的接入路径清晰分层',
+      footerText: '方案展示、席位开通与终端使用形成连续路径，便于机构客户完成评估、接入与落地。',
+      bannerCta: '机构接入',
       bars: [42, 58, 74, 88, 102, 118, 132],
-      chips: ['Public Preview', 'Login Unlock', 'Desk Access'],
+      chips: ['公开预览', '账户开通', '机构接入'],
       cards: [
         { label: '接入场景', value: '3 层', note: '预览到机构' },
         { label: '币种覆盖', value: `${runtime.totalSymbols}+`, note: '统一数据底座' },
@@ -1217,25 +1278,25 @@ function homeBannerSlides(runtime) {
     },
     {
       key: 'alerts',
-      kicker: 'ALERT STREAM',
+      kicker: '预警通知体系',
       eyebrow: '预警通知与事件流',
-      title: hasFullAccess ? '预警流、信号流和通知流已并到同一层' : '让预警不再只是被动通知',
+      title: hasFullAccess ? '预警流、信号流与通知流已并到同一层' : '让预警不再只是被动通知',
       lead: hasFullAccess
-        ? '完整权限下可以直接把预警通知、事件流和实时判断整合到同一工作台。'
-        : '把强提醒、异动通知、事件流和最近同类提醒放在统一入口，避免消息碎片化。',
+        ? '完整权限下可直接把预警通知、事件流与实时判断整合到同一工作台。'
+        : '将强提醒、异动通知、事件流与最近同类提醒放在统一入口，避免消息碎片化。',
       stateLabel: accessLabel,
       bgStart: '#0C1017',
       bgEnd: '#1C1320',
       accent: '#F97316',
       glow: '#F2C760',
-      panelTitle: 'Alert Stream Router',
+      panelTitle: '预警分发中枢',
       subtitle: `最近 ${runtime.feedCount}+ 条事件持续刷新，承接预警通知与同类提醒联动`,
       linePath: 'M188 502 C248 488 308 454 364 428 C422 402 470 376 522 344 C536 336 544 326 548 316',
       footerTitle: '预警不是单点提示，而是带上下文的连续事件流',
-      footerText: '最近同类提醒、实时通知、关注理由与联动币种在同一层解释，减少漏看和误读。',
-      bannerCta: 'Alert Flow',
+      footerText: '最近同类提醒、实时通知、关注理由与联动标的在同一层解释，减少漏看与误读。',
+      bannerCta: '预警联动',
       bars: [38, 64, 82, 96, 90, 118, 136],
-      chips: ['Alert Queue', 'Recent Similar', 'Push Routing'],
+      chips: ['预警队列', '同类提醒', '推送策略'],
       cards: [
         { label: '通知流', value: `${runtime.feedCount}+`, note: '连续刷新' },
         { label: '同类提醒', value: '10 条', note: '保留最新' },
@@ -1244,25 +1305,25 @@ function homeBannerSlides(runtime) {
     },
     {
       key: 'replay',
-      kicker: 'ANALYTICS + REPLAY',
+      kicker: '分析与回放闭环',
       eyebrow: '分析面板与回放闭环',
       title: hasFullAccess ? '分析、执行与回放闭环已经形成' : '把分析面板做成可复盘的交易闭环',
       lead: hasFullAccess
-        ? '当前访问层级已经足够承接分析面板、执行入口与盘后回放的闭环使用。'
-        : '不只给结论，还把盘口、成交、分析面板和关键时刻回放串成能复盘的路径。',
+        ? '当前访问层级已足以承接分析面板、执行入口与盘后回放的闭环使用。'
+        : '不只给出结论，还把盘口、成交、分析面板与关键时刻回放串成可复盘路径。',
       stateLabel: accessLabel,
       bgStart: '#091118',
       bgEnd: '#111B14',
       accent: '#7DD3FC',
       glow: '#20D59E',
-      panelTitle: 'Replay Decision Stack',
-      subtitle: `把分析面板、订单簿、最新成交与回放入口统一到一张决策屏`,
+      panelTitle: '复盘决策闭环',
+      subtitle: `把分析面板、订单簿、最新成交与回放入口统一到同一张决策屏`,
       linePath: 'M190 508 C240 488 286 460 344 442 C404 424 458 392 512 356 C532 344 544 332 548 322',
       footerTitle: '从盘中判断到盘后复盘，不再断链',
-      footerText: '关键时刻回放、分析面板和执行入口在同一套语言里工作，形成复用型交易工作流。',
-      bannerCta: 'Replay Loop',
+      footerText: '关键时刻回放、分析面板与执行入口在同一套终端语言中协同，形成可复用的交易席位工作流。',
+      bannerCta: '复盘闭环',
       bars: [46, 52, 74, 92, 108, 122, 138],
-      chips: ['Analysis Panel', 'Trade Replay', 'Execution Loop'],
+      chips: ['分析面板', '关键回放', '执行链路'],
       cards: [
         { label: '分析面板', value: '固定', note: '同屏判断' },
         { label: '回放入口', value: '闭环', note: '关键时刻' },
@@ -1491,10 +1552,10 @@ function renderHomePortalPage() {
     { label: '实时事件流', value: `${runtime.feedCount}+`, note: '信号、预警、回放入口统一沉淀' }
   ];
   const trustItems = [
-    { label: '团队接入场景', value: '个人 / Desk / 机构', note: '从个人交易员到团队席位，再到机构接入统一承接。' },
-    { label: '策略工作流', value: `${Math.max(Number(runtime.strongSignals) || 0, 12)}+`, note: '强提醒、盘口、预警、成交与回放联动形成完整工作流。' },
-    { label: '币种覆盖', value: `${runtime.totalSymbols}+`, note: '公开预览与登录解锁共用同一套币种与实时刷新体系。' },
-    { label: '实时事件流', value: `${runtime.feedCount}+`, note: '盘中信号、异动、成交变化与通知流持续刷新。' }
+    { label: '覆盖场景', value: '个人 / 团队 / 机构', note: '从个人交易员到团队席位，再到机构接入统一承接。' },
+    { label: '决策链路', value: `${Math.max(Number(runtime.strongSignals) || 0, 12)}+`, note: '强提醒、盘口、预警、成交与回放联动形成完整决策链路。' },
+    { label: '监控标的', value: `${runtime.totalSymbols}+`, note: '公开预览与账户开通共用同一套标的池与实时刷新体系。' },
+    { label: '事件处理', value: `${runtime.feedCount}+`, note: '盘中信号、异动、成交变化与通知流持续刷新。' }
   ];
   const feedItems = (S.feed || []).slice(0, 8);
   const capabilities = [
@@ -1525,11 +1586,11 @@ function renderHomePortalPage() {
       <section class="home-hero home-reveal is-visible">
         ${renderHomeHeroBackdrop()}
         <div class="home-hero-copy">
-          <div class="home-hero-kicker">BB-Market / AI Native Trading Intelligence</div>
-          <h1 class="home-hero-title">不是看行情，而是比市场更早一步发现机会。</h1>
+          <div class="home-hero-kicker">BB-Market / 交易席位与量化团队专业终端</div>
+          <h1 class="home-hero-title">面向交易席位、量化团队与机构桌面的实时决策终端。</h1>
           <p class="home-hero-lead">
-            把实时信号、鲸鱼轨迹、盘口结构、预警通知和交易执行，
-            压缩进一张秒级响应的决策屏。首页讲清系统价值，AI盯盘直接承接实时控制台。
+            围绕交易席位、量化团队与机构桌面的实际使用场景，整合实时信号、订单簿、最新成交、预警通知与执行入口，
+            形成覆盖盘前筛选、盘中跟踪与盘后复盘的统一终端能力。
           </p>
           <div class="home-hero-tags">
             <span>实时信号</span>
@@ -1541,26 +1602,26 @@ function renderHomePortalPage() {
           </div>
           <div class="home-hero-actions">
             <button class="portal-btn primary" type="button" onclick="switchSitePage('ai')">进入 AI 盯盘</button>
-            <button class="portal-btn secondary" type="button" onclick="openAuthModal('login')">登录解锁全量币种</button>
+            <button class="portal-btn secondary" type="button" onclick="openAuthModal('login')">登录席位账户</button>
             <button class="portal-btn secondary" type="button" onclick="switchSitePage('vip')">申请机构方案</button>
           </div>
           <div class="home-hero-manifesto">
             <div class="home-hero-manifesto-head">
-              <span class="home-hero-manifesto-kicker">Brand Manifesto</span>
-              <strong>让交易员用一张屏完成发现机会、确认结构、接收预警和执行动作，不再被多个页面拆碎。</strong>
+              <span class="home-hero-manifesto-kicker">系统定位</span>
+              <strong>为交易席位、量化团队与机构客户提供同一套实时决策终端，覆盖机会识别、结构确认、预警接收与执行承接。</strong>
             </div>
             <div class="home-hero-manifesto-grid">
               <div class="home-hero-manifesto-item">
-                <b>更早发现</b>
-                <span>把实时信号、鲸鱼轨迹和盘口异动放在同一个判断入口，减少错过窗口的概率。</span>
+                <b>席位决策</b>
+                <span>将实时信号、鲸鱼轨迹与盘口异动汇总到统一入口，提升交易席位盘中决策效率。</span>
               </div>
               <div class="home-hero-manifesto-item">
-                <b>更快确认</b>
-                <span>订单簿、最新成交、分析面板和预警通知联动显示，不靠来回切屏确认真假动作。</span>
+                <b>量化监控</b>
+                <span>订单簿、最新成交、分析面板与预警通知联动展示，适合量化团队做连续监控与因子验证。</span>
               </div>
               <div class="home-hero-manifesto-item">
-                <b>更好转化</b>
-                <span>公开预览先看能力边界，登录后继续放大可见币种、实时推送和机构协作能力。</span>
+                <b>机构交付</b>
+                <span>从公开预览、账户开通到机构接入逐层承接，统一扩展标的权限、实时推送与部署能力。</span>
               </div>
             </div>
           </div>
@@ -1579,12 +1640,12 @@ function renderHomePortalPage() {
               isAuthenticated
                 ? `
                   <div class="home-hero-form-card access">
-                    <div class="home-hero-form-kicker">Access Console</div>
-                    <div class="home-hero-form-title">${hasFullAccess ? '当前账户已解锁完整市场访问' : '当前账户已登录，可继续升级到全量权限'}</div>
+                    <div class="home-hero-form-kicker">账户访问状态</div>
+                    <div class="home-hero-form-title">${hasFullAccess ? '当前席位已开通全量市场访问权限' : '当前席位已登录，可继续升级到机构级权限'}</div>
                     <div class="home-hero-form-subtitle">
                       ${hasFullAccess
-                        ? `当前状态为 ${escapePortalHtml(runtime.accessLabel)}，可见币种 ${escapePortalHtml(runtime.totalSymbols)} / ${escapePortalHtml(runtime.totalSymbols)}。`
-                        : `当前状态为 ${escapePortalHtml(runtime.accessLabel)}，可见币种 ${escapePortalHtml(runtime.visibleSymbols)} / ${escapePortalHtml(runtime.totalSymbols)}。`
+                        ? `当前权限状态为 ${escapePortalHtml(runtime.accessLabel)}，已开通 ${escapePortalHtml(runtime.totalSymbols)} / ${escapePortalHtml(runtime.totalSymbols)} 个可见标的。`
+                        : `当前权限状态为 ${escapePortalHtml(runtime.accessLabel)}，已开通 ${escapePortalHtml(runtime.visibleSymbols)} / ${escapePortalHtml(runtime.totalSymbols)} 个可见标的，可继续升级机构级访问范围。`
                       }
                     </div>
                     <div class="home-hero-form-metrics">
@@ -1602,16 +1663,16 @@ function renderHomePortalPage() {
                       </div>
                     </div>
                     <div class="home-hero-form-actions">
-                      <button class="portal-btn primary" type="button" onclick="switchSitePage('ai')">进入实时控制台</button>
-                      <button class="portal-btn secondary" type="button" onclick="switchSitePage('vip')">${hasFullAccess ? '查看机构方案' : '升级完整权限'}</button>
+                      <button class="portal-btn primary" type="button" onclick="switchSitePage('ai')">进入专业终端</button>
+                      <button class="portal-btn secondary" type="button" onclick="switchSitePage('vip')">${hasFullAccess ? '查看机构方案' : '升级机构权限'}</button>
                     </div>
                   </div>
                 `
                 : `
                   <form class="home-hero-form-card" onsubmit="submitHeroTrial(event)">
-                    <div class="home-hero-form-kicker">Start Free Preview</div>
-                    <div class="home-hero-form-title">30 秒内创建试用账户，直接进入 AI 盯盘。</div>
-                    <div class="home-hero-form-subtitle">公开预览可先体验，创建账户后继续解锁更多币种、推送与后续订阅能力。</div>
+                    <div class="home-hero-form-kicker">试用席位开通</div>
+                    <div class="home-hero-form-title">快速开通试用席位，体验 AI 盯盘专业终端。</div>
+                    <div class="home-hero-form-subtitle">适合交易席位、量化团队与机构客户先行验证系统能力，后续可按权限范围扩展标的、推送与服务能力。</div>
                     <label class="home-hero-form-field">
                       <span>用户名</span>
                       <input id="hero-trial-username" autocomplete="username" placeholder="trader01">
@@ -1625,13 +1686,13 @@ function renderHomePortalPage() {
                       <input id="hero-trial-password" type="password" autocomplete="new-password" placeholder="至少 6 位">
                     </label>
                     <div class="home-hero-form-actions">
-                      <button class="portal-btn primary" type="submit">创建试用账户</button>
-                      <button class="portal-btn secondary" type="button" onclick="openHeroLogin()">已有账号，立即登录</button>
+                      <button class="portal-btn primary" type="submit">申请试用席位</button>
+                      <button class="portal-btn secondary" type="button" onclick="openHeroLogin()">登录已有席位</button>
                     </div>
                     <div class="home-hero-form-note">
                       <span>公开预览</span>
-                      <span>登录解锁更多币种</span>
-                      <span>机构方案可扩展</span>
+                      <span>席位开通后扩展标的</span>
+                      <span>机构方案可按需接入</span>
                     </div>
                     <div class="home-hero-form-msg" id="home-hero-form-msg"></div>
                   </form>
@@ -1681,8 +1742,8 @@ function renderHomePortalPage() {
         </div>
         <div class="home-proof-strip">
           <div class="home-proof-head">
-            <span class="home-proof-kicker">Trust Layer</span>
-            <strong>面向交易员、Desk 团队与机构席位的统一工作台，不是单点功能页面。</strong>
+            <span class="home-proof-kicker">能力证明</span>
+            <strong>面向交易席位、量化团队与机构客户的统一专业终端，而不是割裂的单点功能页面。</strong>
           </div>
           <div class="home-proof-grid">
             ${trustItems.map(item=>`
@@ -1699,8 +1760,8 @@ function renderHomePortalPage() {
       <section class="home-banner home-reveal" data-reveal-delay="0.02">
         <div class="home-section-head compact">
           <div>
-            <div class="home-section-kicker">系统 Banner</div>
-            <div class="home-section-title">根据系统能力自动生成的品牌轮播图</div>
+            <div class="home-section-kicker">核心场景</div>
+            <div class="home-section-title">围绕交易席位、量化团队与机构客户组织的五类核心能力</div>
           </div>
           <div class="home-banner-controls">
             <button class="home-banner-arrow" type="button" onclick="shiftHomeBanner(-1)" aria-label="上一张">
@@ -1721,19 +1782,19 @@ function renderHomePortalPage() {
 
       <section class="home-partners home-reveal" data-reveal-delay="0.04">
         <div class="home-section-head">
-          <div class="home-section-kicker">系统连接能力</div>
-          <div class="home-section-title">面向交易团队、内容团队与机构桌面的一体化中枢</div>
+          <div class="home-section-kicker">连接能力</div>
+          <div class="home-section-title">面向交易席位、量化团队与机构客户的一体化连接中枢</div>
         </div>
         ${renderHomePartnerRail()}
       </section>
 
       <section class="home-story home-reveal" data-reveal-delay="0.08">
         <div class="home-story-main">
-          <div class="home-section-kicker">系统介绍</div>
-          <div class="home-story-title">不是再做一个行情页，而是把交易员最常切换的四类能力做成一个闭环。</div>
+          <div class="home-section-kicker">系统说明</div>
+          <div class="home-story-title">不是单一行情终端，而是覆盖盘前筛选、盘中决策与盘后复盘的专业 SaaS 终端。</div>
           <div class="home-story-text">
-            BB-Market 把实时信号、订单簿、最新成交、分析面板、预警通知和执行入口统一到同一工作台。
-            首页先讲清楚系统价值与定位，AI盯盘页则直接承接盘中操作，让新用户看得懂，老用户进来就能用。
+            BB-Market 以 SaaS 方式交付实时信号、订单簿、最新成交、分析面板、预警通知与执行入口，统一服务于交易席位、量化团队与机构客户。
+            产品表达聚焦能力边界、适用场景与服务路径，终端入口则面向实时监控、交易判断与执行协同。
           </div>
         </div>
         <div class="home-story-grid" id="home-story-metrics">
@@ -1746,7 +1807,7 @@ function renderHomePortalPage() {
       <section class="home-capabilities home-reveal" data-reveal-delay="0.12">
         <div class="home-section-head">
           <div class="home-section-kicker">核心能力</div>
-          <div class="home-section-title">给盯盘、交易、复盘和运营都能直接落地的系统能力</div>
+          <div class="home-section-title">可直接服务于交易席位、量化团队与机构协同的核心系统能力</div>
         </div>
         <div class="home-cap-grid">
           ${capabilities.map((item, index)=>`
@@ -1760,8 +1821,8 @@ function renderHomePortalPage() {
 
       <section class="home-flow home-reveal" data-reveal-delay="0.16">
         <div class="home-flow-board">
-          <div class="home-section-kicker">操作路径</div>
-          <div class="home-section-title">一套适合盘前筛选、盘中执行、盘后复盘的工作流</div>
+          <div class="home-section-kicker">工作流</div>
+          <div class="home-section-title">一套适用于席位交易、量化监控与盘后复盘的统一工作流</div>
           <div class="home-flow-list">
             ${stages.map((item, index)=>`
               <article class="home-flow-item home-reveal" data-reveal-delay="${(0.18 + index * 0.06).toFixed(2)}">
@@ -1774,16 +1835,16 @@ function renderHomePortalPage() {
         </div>
         <div class="home-flow-side">
           <div class="home-side-card emphasis">
-            <div class="home-side-kicker">当前定位</div>
-            <div class="home-side-title">首页展示品牌与系统能力，AI页承接实时控制台。</div>
-            <div class="home-side-text">导航语义更清楚，对外展示和内部使用分层，避免“首页像后台，AI页像介绍页”的错位。</div>
+            <div class="home-side-kicker">产品定位</div>
+            <div class="home-side-title">围绕机构客户评估、接入与使用形成清晰的产品路径。</div>
+            <div class="home-side-text">页面内容聚焦方案能力、适用对象与服务方式，终端入口聚焦实时决策与交易执行，前台表达与后台使用边界更清楚。</div>
           </div>
           <div class="home-side-card">
             <div class="home-side-kicker">适用对象</div>
             <div class="home-side-list">
-              <span>短线交易员</span>
-              <span>研究团队</span>
-              <span>社群直播</span>
+              <span>交易席位</span>
+              <span>量化团队</span>
+              <span>研究支持</span>
               <span>机构桌面</span>
             </div>
           </div>

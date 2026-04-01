@@ -17,6 +17,8 @@ use tokio::time::Duration;
 use crate::analysis::multi_monitor::signal;
 use crate::analysis::multi_monitor::SymbolMonitor;
 use crate::codec::binance_msg::StreamMsg;
+use crate::market::big_trade::{BigTradePersistenceService, BigTradeRecord};
+use crate::market::trade::{RecentTradePersistenceService, RecentTradeRecord};
 
 /// 全局多币种监控器。
 ///
@@ -27,6 +29,8 @@ use crate::codec::binance_msg::StreamMsg;
 pub struct MultiSymbolMonitor {
     pub monitors: Arc<Mutex<HashMap<String, Arc<Mutex<SymbolMonitor>>>>>,
     pub report_interval: Duration,
+    trade_persistence: Option<RecentTradePersistenceService>,
+    big_trade_persistence: Option<BigTradePersistenceService>,
 }
 
 impl MultiSymbolMonitor {
@@ -34,10 +38,16 @@ impl MultiSymbolMonitor {
     ///
     /// `report_interval` 控制订单簿采样与部分统计的刷新频率，
     /// 避免每一笔深度更新都触发较重的历史采样。
-    pub fn new(report_interval_secs: u64) -> Self {
+    pub fn new(
+        report_interval_secs: u64,
+        trade_persistence: Option<RecentTradePersistenceService>,
+        big_trade_persistence: Option<BigTradePersistenceService>,
+    ) -> Self {
         Self {
             monitors: Arc::new(Mutex::new(HashMap::new())),
             report_interval: Duration::from_secs(report_interval_secs),
+            trade_persistence,
+            big_trade_persistence,
         }
     }
 
@@ -123,7 +133,18 @@ impl MultiSymbolMonitor {
             StreamMsg::Depth(update) => {
                 guard.handle_depth_update(update, self.report_interval)?;
             }
-            StreamMsg::Trade(trade) => guard.apply_trade(&trade),
+            StreamMsg::Trade(trade) => {
+                let big_trade = guard.apply_trade(&trade);
+                if let Some(persistence) = &self.trade_persistence {
+                    persistence.submit_trade(RecentTradeRecord::from_agg_trade(&trade));
+                }
+                if let (Some(persistence), Some(event)) = (&self.big_trade_persistence, big_trade) {
+                    persistence.submit_trade(BigTradeRecord::from_agg_trade(
+                        &trade,
+                        event.threshold_qty,
+                    ));
+                }
+            }
             StreamMsg::Ticker(ticker) => guard.apply_ticker(&ticker),
             StreamMsg::Kline(kline) => guard.apply_kline(&kline),
         }
@@ -134,6 +155,14 @@ impl MultiSymbolMonitor {
     /// 返回当前已注册的交易对列表，供外部展示或调试使用。
     pub async fn get_active_symbols(&self) -> Vec<String> {
         self.monitors.lock().await.keys().cloned().collect()
+    }
+
+    pub async fn get_monitor(&self, symbol: &str) -> Option<Arc<Mutex<SymbolMonitor>>> {
+        self.monitors
+            .lock()
+            .await
+            .get(&symbol.to_ascii_uppercase())
+            .cloned()
     }
 
     /// 扫描所有 symbol 的拉盘/砸盘信号。

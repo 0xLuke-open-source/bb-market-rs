@@ -1,14 +1,23 @@
 function filterP(q){searchQ=q.toUpperCase();renderPairList();}
 
+function applyFavoriteSymbols(symbols,persistLocal=false){
+  S.favorites=Array.isArray(symbols)?[...new Set(symbols.map(item=>String(item||'').toUpperCase()).filter(Boolean))]:[];
+  if(persistLocal)saveViewPrefs();
+  renderPairList();
+  renderPairMini();
+  renderTicker();
+  refreshFavoriteButton();
+}
+
 function normalizeMarketQuickFilter(mode){
-  return mode==='all' ? 'key' : (mode||'key');
+  return mode||'all';
 }
 
 function saveViewPrefs(){
   try{
     localStorage.setItem(VIEW_PREF_KEY,JSON.stringify({
       marketSort,signalWindow,marketQuickFilter,
-      favorites:S.favorites||[],
+      favorites:S.auth?.user?[]:(S.favorites||[]),
       selectedSymbol:S.sel||null,
       selectedInterval:curIv||'60'
     }));
@@ -65,18 +74,35 @@ function isFavorite(sym){
   return (S.favorites||[]).includes(sym);
 }
 
-function toggleFavorite(sym=S.sel){
+async function toggleFavorite(sym=S.sel){
   if(!sym)return;
-  if(isFavorite(sym)){
-    S.favorites=(S.favorites||[]).filter(x=>x!==sym);
-  }else{
-    S.favorites=[...(S.favorites||[]),sym];
+  if(!S.auth?.user){
+    if(typeof openAuthModal==='function')openAuthModal('login');
+    if(typeof setAuthMessage==='function')setAuthMessage('登录后才可收藏自选币种。');
+    return;
   }
-  saveViewPrefs();
-  renderPairList();
-  renderPairMini();
-  renderTicker();
-  refreshFavoriteButton();
+  try{
+    let json;
+    if(isFavorite(sym)){
+      const res=await apiFetch(`/api/auth/favorites/${encodeURIComponent(sym)}`,{method:'DELETE'});
+      json=await res.json();
+    }else{
+      json=await postJson(`/api/auth/favorites/${encodeURIComponent(sym)}`,{});
+    }
+    if(!json.ok){
+      if(typeof setAuthMessage==='function')setAuthMessage(json.message||'收藏操作失败','err');
+      if(!S.auth?.user && typeof openAuthModal==='function')openAuthModal('login');
+      return;
+    }
+    applyFavoriteSymbols(json.data||[],false);
+  }catch(err){
+    if(err?.code==='AUTH_REQUIRED'){
+      if(typeof openAuthModal==='function')openAuthModal('login');
+      if(typeof setAuthMessage==='function')setAuthMessage('登录后才可收藏自选币种。');
+      return;
+    }
+    if(typeof setAuthMessage==='function')setAuthMessage('收藏操作失败，请稍后重试。','err');
+  }
 }
 
 function refreshFavoriteButton(){
@@ -104,6 +130,9 @@ function mergeSymbols(next){
     if((keepLiveDetail || ((!Number(symbol.spread_bps))&&Number(prev.spread_bps))))symbol.spread_bps=prev.spread_bps;
     if((keepLiveDetail || ((!Number(symbol.bid))&&Number(prev.bid))))symbol.bid=prev.bid;
     if((keepLiveDetail || ((!Number(symbol.ask))&&Number(prev.ask))))symbol.ask=prev.ask;
+    if((keepLiveDetail || !Array.isArray(symbol.signal_history) || symbol.signal_history.length===0) && Array.isArray(prev.signal_history))symbol.signal_history=prev.signal_history;
+    if((keepLiveDetail || !Array.isArray(symbol.factor_metrics) || symbol.factor_metrics.length===0) && Array.isArray(prev.factor_metrics))symbol.factor_metrics=prev.factor_metrics;
+    if((keepLiveDetail || !Array.isArray(symbol.enterprise_metrics) || symbol.enterprise_metrics.length===0) && Array.isArray(prev.enterprise_metrics))symbol.enterprise_metrics=prev.enterprise_metrics;
     if(prev.__detailFreshAt)symbol.__detailFreshAt=prev.__detailFreshAt;
     return symbol;
   });
@@ -265,6 +294,9 @@ function upsertSymbolDetail(detail,options={}){
     if((!Number(detail.spread_bps))&&Number(prev.spread_bps))next.spread_bps=prev.spread_bps;
     if((!Number(detail.bid))&&Number(prev.bid))next.bid=prev.bid;
     if((!Number(detail.ask))&&Number(prev.ask))next.ask=prev.ask;
+    if((!Array.isArray(detail.signal_history) || detail.signal_history.length===0) && Array.isArray(prev.signal_history))next.signal_history=prev.signal_history;
+    if((!Array.isArray(detail.factor_metrics) || detail.factor_metrics.length===0) && Array.isArray(prev.factor_metrics))next.factor_metrics=prev.factor_metrics;
+    if((!Array.isArray(detail.enterprise_metrics) || detail.enterprise_metrics.length===0) && Array.isArray(prev.enterprise_metrics))next.enterprise_metrics=prev.enterprise_metrics;
     if(markDetailFresh)next.__detailFreshAt=Date.now();
     else if(prev.__detailFreshAt)next.__detailFreshAt=prev.__detailFreshAt;
     S.syms[idx]=next;

@@ -35,7 +35,6 @@ function render(data){
     ema(s.symbol,'ds',s.dump_score||0);ema(s.symbol,'ofi',s.ofi||0);ema(s.symbol,'mid',s.mid||0);
     if(!S.sm[s.symbol])S.sm[s.symbol]={};
     S.sm[s.symbol].cvd=s.cvd||0;S.sm[s.symbol].tbr=s.taker_buy_ratio||50;
-    ensureMetricHistory(s.symbol,s);
     if(!S.cvdH[s.symbol])S.cvdH[s.symbol]=[];
     S.cvdH[s.symbol].push({t:nowT(),v:s.cvd||0});
     if(S.cvdH[s.symbol].length>HL)S.cvdH[s.symbol].shift();
@@ -49,7 +48,6 @@ function render(data){
 
   const act=S.syms.filter(s=>sv(s.symbol,'ps')>=60||sv(s.symbol,'ds')>=60).length;
   e('nc',S.syms.length);e('ns2',act);
-  updateSignalPerfStats();
   if(typeof refreshHomePortalLive==='function')refreshHomePortalLive();
 
   if(typeof scheduleBottomStripRefresh==='function')scheduleBottomStripRefresh();
@@ -123,7 +121,7 @@ function focusSignalCall(sym,signalTag='',signalDesc=''){
   return `focusSignal(${toJs(sym)},${toJs(signalTag)},${toJs(signalDesc)})`;
 }
 
-// ── 币对列表（三区同时渲染，scard 风格）──────────────────────
+// ── 币对列表（全市场统一渲染）────────────────────────────────
 function renderPairList(){
   let all=[...S.syms];
   const scoreOf=s=>Math.max(sv(s.symbol,'ps'),sv(s.symbol,'ds'));
@@ -150,26 +148,66 @@ function renderPairList(){
     all=all.filter(s=>(s.anomaly_max_severity||0)>=75 || (s.anomaly_count_1m||0)>=30);
   }
   if(searchQ) all=all.filter(s=>s.symbol.includes(searchQ));
-  const sigs=all.filter(s=>sv(s.symbol,'ps')>=60||sv(s.symbol,'ds')>=60);
-  const whales=all.filter(s=>s.whale_entry||s.whale_exit);
+  const denseMode=all.length>140 && !searchQ;
 
   const mkCard=(s)=>{
     const sym=s.symbol.replace('USDT','');
-    const ps=sv(s.symbol,'ps'),ds=sv(s.symbol,'ds'),obi=sv(s.symbol,'obi');
-    const mid=sv(s.symbol,'mid'),chg=s.change_24h_pct||0;
+    const ps=sv(s.symbol,'ps');
+    const ds=sv(s.symbol,'ds');
+    const obi=sv(s.symbol,'obi');
+    const tbr=Number.isFinite(Number(s.taker_buy_ratio))?Number(s.taker_buy_ratio):sv(s.symbol,'tbr');
+    const cvd=sv(s.symbol,'cvd');
+    const mid=sv(s.symbol,'mid');
+    const chg=Number(s.change_24h_pct||0);
+    const spreadBps=Number(s.spread_bps||0);
+    const anomalyCount=Number(s.anomaly_count_1m||0);
+    const anomalySeverity=Number(s.anomaly_max_severity||0);
+    const whaleStrength=Math.max(Number(s.max_bid_ratio||0),Number(s.max_ask_ratio||0));
     const chgColor=chg>=0?'var(--g)':'var(--r)';
     const chgBg=chg>=0?'var(--g-dim)':'var(--r-dim)';
-    // 决定卡片类型
-    let cls='',tagHtml='';
+    let cls='';
     if(s.whale_entry){
       cls='cc-whale';
-      tagHtml=`<span class="cc-tag" style="background:var(--b-glow);color:var(--b);border:1px solid rgba(24,144,255,.2)">🐋 大户进场</span>`;
     } else if(sv(s.symbol,'ps')>=70||(s.pump_signal)){
       cls='cc-pump';
-      tagHtml=`<span class="cc-tag" style="background:var(--g-dim);color:var(--g);border:1px solid rgba(14,203,129,.2)">🚀 上涨 ${Math.round(ps)}</span>`;
     } else if(sv(s.symbol,'ds')>=70||(s.dump_signal)){
       cls='cc-dump';
-      tagHtml=`<span class="cc-tag" style="background:var(--r-dim);color:var(--r);border:1px solid rgba(246,70,93,.2)">📉 下跌 ${Math.round(ds)}</span>`;
+    }
+    const watchLevel=s.watch_level||'观察';
+    const watchClass=watchLevel==='强提醒'
+      ?'cc-chip-watch-strong'
+      :(watchLevel==='重点关注'?'cc-chip-watch-key':'cc-chip-watch-observe');
+    const tags=[
+      `<span class="cc-chip ${watchClass}">${watchLevel}</span>`
+    ];
+    if(ps>=65 || s.pump_signal)tags.push(`<span class="cc-chip cc-chip-pump">拉升 ${Math.round(ps)}</span>`);
+    if(ds>=65 || s.dump_signal)tags.push(`<span class="cc-chip cc-chip-dump">回撤 ${Math.round(ds)}</span>`);
+    if(s.whale_entry)tags.push(`<span class="cc-chip cc-chip-whale">大单流入</span>`);
+    else if(s.whale_exit)tags.push(`<span class="cc-chip cc-chip-whale">大单流出</span>`);
+    if(anomalySeverity>=75 || anomalyCount>=10){
+      tags.push(`<span class="cc-chip cc-chip-anomaly">异常 ${Math.round(anomalySeverity || anomalyCount)}</span>`);
+    }
+    const metricValueClass=value=>value>0?'pos':(value<0?'neg':'');
+    const summary=s.signal_reason||s.status_summary||'继续观察盘口、成交与主动买卖变化。';
+    if(denseMode){
+      const compactTags=tags.slice(0,3).join('');
+      return `<div class="coin-card coin-card-compact ${cls}${S.sel===s.symbol?' act':''}" onclick='${focusSignalCall(s.symbol,s.watch_level||'观察',s.signal_reason||s.status_summary||'继续观察市场变化')}'>
+        <div class="cc-h">
+          <div class="cc-head-main">
+            <span class="cc-sym">${sym}<span class="cc-subsym">/USDT</span></span>
+            <div class="cc-price-wrap">
+              <span class="cc-price" style="color:${chgColor}">${fP(mid,s)}</span>
+              <span class="cc-chg" style="color:${chgColor};background:${chgBg}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>
+            </div>
+          </div>
+          <div class="cc-head-actions">
+            <button class="cc-fav ${isFavorite(s.symbol)?'act':''}" onclick="event.stopPropagation();toggleFavorite('${s.symbol}')">${isFavorite(s.symbol)?'★':'☆'}</button>
+          </div>
+        </div>
+        <div class="cc-chip-row">${compactTags}</div>
+        <div class="cc-stats">拉 <span style="color:${ps>=60?'var(--g)':'var(--t2)'}">${Math.round(ps)}</span> · 砸 <span style="color:${ds>=60?'var(--r)':'var(--t2)'}">${Math.round(ds)}</span> · OBI ${obi.toFixed(1)}% · TBR ${tbr.toFixed(1)}% · 异常 ${anomalyCount}</div>
+        <div class="cc-summary">${summary}</div>
+      </div>`;
     }
     const scoreBar=ps>0||ds>0?`
       <div class="cc-bars">
@@ -180,7 +218,7 @@ function renderPairList(){
     return `<div class="coin-card ${cls}${S.sel===s.symbol?' act':''}" onclick='${focusSignalCall(s.symbol,s.watch_level||'观察',s.signal_reason||s.status_summary||'继续观察市场变化')}'>
       <div class="cc-h">
         <div class="cc-head-main">
-          <span class="cc-sym">${sym}<span style="font-size:9px;color:var(--t3);font-weight:400">/USDT</span></span>
+          <span class="cc-sym">${sym}<span class="cc-subsym">/USDT</span></span>
           <div class="cc-price-wrap">
             <span class="cc-price" style="color:${chgColor}">${fP(mid,s)}</span>
             <span class="cc-chg" style="color:${chgColor};background:${chgBg}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>
@@ -190,29 +228,49 @@ function renderPairList(){
           <button class="cc-fav ${isFavorite(s.symbol)?'act':''}" onclick="event.stopPropagation();toggleFavorite('${s.symbol}')">${isFavorite(s.symbol)?'★':'☆'}</button>
         </div>
       </div>
-      ${tagHtml?`<div>${tagHtml}</div>`:''}
-      <div class="cc-stats" style="color:var(--t3)">拉:<span style="color:${ps>=60?'var(--g)':'var(--t2)'}">${Math.round(ps)}</span> &nbsp;砸:<span style="color:${ds>=60?'var(--r)':'var(--t2)'}">${Math.round(ds)}</span> &nbsp;买卖盘失衡:<span>${obi.toFixed(1)}%</span></div>
-      <div class="cc-stats" style="color:var(--t3)">${s.watch_level||'观察'} · ${s.status_summary||'继续观察市场变化'}</div>
+      <div class="cc-chip-row">${tags.join('')}</div>
+      <div class="cc-grid">
+        <div class="cc-metric">
+          <div class="cc-mk">拉升</div>
+          <div class="cc-mv ${metricValueClass(ps-50)}">${Math.round(ps)}</div>
+        </div>
+        <div class="cc-metric">
+          <div class="cc-mk">回撤</div>
+          <div class="cc-mv ${metricValueClass(50-ds)}">${Math.round(ds)}</div>
+        </div>
+        <div class="cc-metric">
+          <div class="cc-mk">OBI</div>
+          <div class="cc-mv ${metricValueClass(obi)}">${obi.toFixed(1)}%</div>
+        </div>
+        <div class="cc-metric">
+          <div class="cc-mk">TBR</div>
+          <div class="cc-mv ${metricValueClass(tbr-50)}">${tbr.toFixed(1)}%</div>
+        </div>
+        <div class="cc-metric">
+          <div class="cc-mk">点差</div>
+          <div class="cc-mv">${spreadBps.toFixed(2)} bps</div>
+        </div>
+        <div class="cc-metric">
+          <div class="cc-mk">大单</div>
+          <div class="cc-mv ${metricValueClass(whaleStrength)}">${whaleStrength>0?`${whaleStrength.toFixed(1)}%`:'--'}</div>
+        </div>
+      </div>
+      <div class="cc-stats" style="color:var(--t3)">异常 ${anomalyCount} 次 · CVD ${fN(cvd)}</div>
+      <div class="cc-summary">${summary}</div>
       ${scoreBar}
     </div>`;
   };
 
-  updateSoftStreamList('sec-sigs',sigs,{
+  updateSoftStreamList('sec-all',all,{
     getKey:s=>s.symbol,
     renderItem:mkCard,
-    emptyHtml:'<div class="ls-empty">暂无信号币种</div>',
+    emptyHtml:'<div class="ls-empty">暂无符合条件的币对</div>',
     minAnimateInterval:5000,
-    pauseOnHover:true
+    pauseOnHover:true,
+    animate:false
   });
-  updateSoftStreamList('sec-whales',whales,{
-    getKey:s=>s.symbol,
-    renderItem:mkCard,
-    emptyHtml:'<div class="ls-empty">暂无鲸鱼动态</div>',
-    minAnimateInterval:5000,
-    pauseOnHover:true
-  });
-  document.getElementById('sec-sig-cnt').textContent=sigs.length;
-  document.getElementById('sec-whale-cnt').textContent=whales.length;
+  const countNode=document.getElementById('sec-all-cnt');
+  if(countNode)countNode.textContent=all.length;
 }
 
 // ── 底部币对快选（当前选中附近5个） ─────────────────────────────
@@ -302,16 +360,18 @@ function buildSignalHistory(sym,signal){
   }).slice(0,10);
 }
 
-function updateSignalDetail(sym,signal){
-  const s=S.syms.find(x=>x.symbol===sym);
+function updateSignalDetail(sym,signal,sourceSymbol=null){
+  const s=sourceSymbol||S.syms.find(x=>x.symbol===sym);
   if(!s)return;
   const change=(s.change_24h_pct||0);
+  const detailMid=Number(s.mid||0)||sv(sym,'mid');
+  const detailTbr=Number.isFinite(Number(s.taker_buy_ratio))?Number(s.taker_buy_ratio):sv(sym,'tbr');
   e('signal-detail-tag',signal?.tag||'当前币种');
   e('signal-detail-text',signal?.desc||s.signal_reason||'当前没有特别突出的异常信号。');
   e('signal-detail-level',s.watch_level||'观察');
-  e('signal-detail-price',fP(sv(sym,'mid'),s));
+  e('signal-detail-price',fP(detailMid,s));
   e('signal-detail-change',`${change>=0?'+':''}${change.toFixed(2)}%`);
-  e('signal-detail-tbr',`${sv(sym,'tbr').toFixed(1)}%`);
+  e('signal-detail-tbr',`${detailTbr.toFixed(1)}%`);
   const history=buildSignalHistory(sym,signal);
   document.getElementById('signal-detail-history').innerHTML=history.length
     ?history.map(item=>`<div class="sigdetail-item"><span class="sigdetail-time">${item.time}</span><span class="sigdetail-desc">${item.desc}</span></div>`).join('')
@@ -382,6 +442,7 @@ function renderDetailLoadingState(sym,s){
   const quoteBal=getBalance('USDT');
   const baseBal=getBalance(symShort);
   refreshFavoriteButton();
+  if(typeof syncPanelReplayUi==='function')syncPanelReplayUi();
 
   e('nav-sym',fmtSym(sym));
   es('nav-price','--',null,'var(--t2)');
@@ -455,10 +516,17 @@ function renderDetailLoadingState(sym,s){
   if(typeof syncTvOverlay==='function')syncTvOverlay(sym,s,false);
 }
 
+function resolvePanelRenderState(sym,s){
+  const replay=typeof getActivePanelReplay==='function'?getActivePanelReplay(sym):null;
+  if(!replay)return s;
+  return {...s,...replay};
+}
+
 // ── 详情 ─────────────────────────────────────────────────────────
 function renderDetail(sym){
   const s=getSymbolState(sym);if(!s)return;
   if(S.sel===sym)S.selectedCache=s;
+  if(typeof syncPanelReplayUi==='function')syncPanelReplayUi();
   const detailKey=selectedDetailKey(sym);
   if(S.ui.detailKey===detailKey){
     renderEnterpriseMetrics(sym);
@@ -470,6 +538,15 @@ function renderDetail(sym){
   const cvd=sv(sym,'cvd'),ps=sv(sym,'ps'),ds=sv(sym,'ds');
   const obi=sv(sym,'obi'),ofi=sv(sym,'ofi'),tbr=sv(sym,'tbr');
   const symShort=sym.replace('USDT','');
+  const panelS=resolvePanelRenderState(sym,s);
+  const panelReplayActive=panelS!==s;
+  const panelMid=Number(panelS.mid||0)||mid;
+  const panelChange=Number(panelS.change_24h_pct||0);
+  const panelCvd=Number.isFinite(Number(panelS.cvd))?Number(panelS.cvd):cvd;
+  const panelPs=Number.isFinite(Number(panelS.pump_score))?Number(panelS.pump_score):ps;
+  const panelDs=Number.isFinite(Number(panelS.dump_score))?Number(panelS.dump_score):ds;
+  const panelWatchLevel=panelS.watch_level||'观察';
+  const panelLevelColor=panelWatchLevel==='强提醒'?'var(--r)':panelWatchLevel==='重点关注'?'var(--y)':panelWatchLevel==='普通关注'?'var(--b)':'var(--t2)';
   const watchLevel=s.watch_level||'观察';
   const levelColor=watchLevel==='强提醒'?'var(--r)':watchLevel==='重点关注'?'var(--y)':watchLevel==='普通关注'?'var(--b)':'var(--t2)';
   if(!hasRenderableMarketData(s)){
@@ -557,42 +634,26 @@ function renderDetail(sym){
 
   // 分析面板
   e('rd-sym',sym.replace('USDT','/USDT'));
-  setSoftValue('rd-p',fP(mid,s),{color:gc,effect:'pulse'});
+  setSoftValue('rd-p',fP(panelMid,panelS),{color:panelChange>=0?'var(--g)':'var(--r)',effect:panelReplayActive?'none':'pulse'});
   const rc=document.getElementById('rd-c');
-  rc.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';
-  rc.style.cssText=`background:${chg>=0?'rgba(14,203,129,.12)':'rgba(246,70,93,.12)'};color:${gc}`;
-  setSoftValue('rd-bid',fP(s.bid||0,s),{color:'var(--g)'});
-  setSoftValue('rd-ask',fP(s.ask||0,s),{color:'var(--r)'});
-  es('rd-chg',(chg>=0?'+':'')+chg.toFixed(2)+'%',null,gc);
-  e('rd-vol',fN(s.volume_24h||0));e('rd-hi',fP(s.high_24h||0,s));e('rd-lo',fP(s.low_24h||0,s));
-  e('rd-ps',Math.round(ps));e('rd-ds',Math.round(ds));
-  e('rd-watch-level',watchLevel);
-  document.getElementById('rd-watch-level').style.color=levelColor;
-  document.getElementById('rd-watch-level').style.borderColor=levelColor;
-  e('rd-summary',s.status_summary||'当前没有明显的主导方向，先继续观察。');
-  e('rd-reason',s.signal_reason||'当前没有特别突出的异常信号。');
-  updateSignalDetail(sym,S.detailSignal&&S.detailSignal.sym===sym?S.detailSignal:null);
-  es('cvd-v',fN(cvd),null,cvd>=0?'var(--g)':'var(--r)');
+  rc.textContent=(panelChange>=0?'+':'')+panelChange.toFixed(2)+'%';
+  rc.style.cssText=`background:${panelChange>=0?'rgba(14,203,129,.12)':'rgba(246,70,93,.12)'};color:${panelChange>=0?'var(--g)':'var(--r)'}`;
+  setSoftValue('rd-bid',fP(panelS.bid||0,panelS),{color:'var(--g)'});
+  setSoftValue('rd-ask',fP(panelS.ask||0,panelS),{color:'var(--r)'});
+  es('rd-chg',(panelChange>=0?'+':'')+panelChange.toFixed(2)+'%',null,panelChange>=0?'var(--g)':'var(--r)');
+  e('rd-vol',fN(panelS.volume_24h||0));e('rd-hi',fP(panelS.high_24h||0,panelS));e('rd-lo',fP(panelS.low_24h||0,panelS));
+  e('rd-ps',Math.round(panelPs));e('rd-ds',Math.round(panelDs));
+  e('rd-watch-level',panelWatchLevel);
+  document.getElementById('rd-watch-level').style.color=panelLevelColor;
+  document.getElementById('rd-watch-level').style.borderColor=panelLevelColor;
+  e('rd-summary',panelS.status_summary||'当前没有明显的主导方向，先继续观察。');
+  e('rd-reason',panelS.signal_reason||'当前没有特别突出的异常信号。');
+  updateSignalDetail(sym,S.detailSignal&&S.detailSignal.sym===sym?S.detailSignal:null,panelS);
+  es('cvd-v',fN(panelCvd),null,panelCvd>=0?'var(--g)':'var(--r)');
   drawCVD(sym);
 
-  // 因子
-  const factors=[
-    {n:'上涨动能',v:`${Math.round(ps)}/100`,bw:Math.min(100,ps),bc:'gf',vc:ps>=60?'fg':ps>=30?'fy':'fn',tip:ps>=70?'上涨力量很强':ps>=60?'上涨信号明显':ps>=30?'略偏强':'暂不明显'},
-    {n:'下跌压力',v:`${Math.round(ds)}/100`,bw:Math.min(100,ds),bc:'rf2',vc:ds>=60?'fr':ds>=30?'fy':'fn',tip:ds>=70?'下跌压力很强':ds>=60?'回落风险偏高':ds>=30?'略偏弱':'暂不明显'},
-    {n:'买卖盘失衡',v:`${obi>=0?'+':''}${obi.toFixed(1)}%`,bw:Math.min(100,Math.abs(obi)*2),bc:obi>=0?'gf':'rf2',vc:obi>10?'fg':obi<-10?'fr':'fn',tip:obi>20?'买盘明显压过卖盘':obi>10?'买盘偏多':obi<-20?'卖盘明显压过买盘':obi<-10?'卖盘偏多':'买卖比较均衡'},
-    {n:'主动买入占比',v:`${tbr.toFixed(1)}%`,bw:tbr,bc:tbr>60?'gf':tbr<40?'rf2':'yf',vc:tbr>60?'fg':tbr<40?'fr':'fy',tip:tbr>70?'主动买入很强':tbr>60?'偏多':tbr<30?'主动卖出很强':'偏空'},
-    {n:'主动买卖量差',v:fN(cvd),bw:Math.min(100,Math.abs(cvd)/500),bc:cvd>=0?'gf':'rf2',vc:cvd>0?'fg':'fr',tip:cvd>50000?'大量净流入':cvd>0?'净买入':cvd<-50000?'大量净流出':'净卖出'},
-    {n:'挂单变化强度',v:fN(ofi),bw:Math.min(100,Math.abs(ofi)/100),bc:ofi>0?'gf':'rf2',vc:ofi>3000?'fg':ofi<-3000?'fr':'fn',tip:ofi>5000?'买方挂单明显增强':ofi>2000?'买方在持续加单':ofi<-5000?'卖方挂单明显增强':'买卖挂单较平衡'},
-    {n:'买卖价差',v:`${(s.spread_bps/100).toFixed(2)}%`,bw:Math.min(100,s.spread_bps*3),bc:s.spread_bps<20?'gf':'yf',vc:s.spread_bps<10?'fg':s.spread_bps<30?'fy':'fn',tip:s.spread_bps<10?'成交环境很好':s.spread_bps<20?'正常':'价差偏大'},
-    {n:'大户资金',v:s.whale_entry?'进场':s.whale_exit?'离场':'观望',bw:s.whale_entry?80:s.whale_exit?60:20,bc:s.whale_entry?'gf':s.whale_exit?'rf2':'yf',vc:s.whale_entry?'fg':s.whale_exit?'fr':'fn',tip:s.whale_entry?`大单占比${s.max_bid_ratio.toFixed(1)}%`:s.whale_exit?'大户有离场迹象':'暂无明显动作'},
-    {n:'异常波动',v:`${s.anomaly_count_1m}次`,bw:Math.min(100,s.anomaly_count_1m),bc:s.anomaly_count_1m>50?'rf2':'yf',vc:s.anomaly_count_1m>100?'fr':s.anomaly_count_1m>50?'fy':'fn',tip:s.anomaly_count_1m>200?'波动非常剧烈':s.anomaly_count_1m>50?'波动偏多':'整体平稳'},
-  ];
-  document.getElementById('rf-list').innerHTML=factors.map(f=>`
-    <div class="fi"><div class="fi-n">${f.n}</div>
-      <div><div class="fi-bar"><div class="fi-f ${f.bc}" style="width:${f.bw}%"></div></div>
-      <div class="fi-tip">${f.tip}</div></div>
-      <div class="fi-v ${f.vc}">${f.v}</div></div>`).join('');
-  renderEnterpriseMetrics(sym);
+  renderFactorMetrics(panelS);
+  renderEnterpriseMetrics(sym,panelS);
   if(typeof syncTvOverlay==='function')syncTvOverlay(sym,s,true);
 
   // 大单

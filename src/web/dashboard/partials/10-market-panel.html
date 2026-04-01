@@ -13,24 +13,21 @@
       <button class="sortbtn" data-sort="anomaly" onclick="setMarketSort('anomaly',this)">异常优先</button>
     </div>
     <div class="quickbar">
+      <button class="quickbtn act" data-filter="all" onclick="setMarketQuickFilter('all',this)">全部币对</button>
       <button class="quickbtn" data-filter="fav" onclick="setMarketQuickFilter('fav',this)">只看自选</button>
-      <button class="quickbtn act" data-filter="key" onclick="setMarketQuickFilter('key',this)">重点以上</button>
+      <button class="quickbtn" data-filter="key" onclick="setMarketQuickFilter('key',this)">重点以上</button>
       <button class="quickbtn" data-filter="strong" onclick="setMarketQuickFilter('strong',this)">只看强提醒</button>
       <button class="quickbtn" data-filter="whale" onclick="setMarketQuickFilter('whale',this)">只看大户</button>
       <button class="quickbtn" data-filter="anomaly" onclick="setMarketQuickFilter('anomaly',this)">只看异常</button>
     </div>
-    <div class="ls-vsec ls-vsec-whale">
-      <div class="ls-sec-hdr ls-whale" style="border-top:none">
-        <span class="ls-sec-ttl">🐋 鲸鱼</span>
-        <span class="ls-sec-cnt" id="sec-whale-cnt">0</span>
+    <div class="ls-vsec ls-vsec-all">
+      <div class="ls-sec-hdr ls-all" style="border-top:none">
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+          <span class="ls-sec-ttl">全市场币对</span>
+          <span style="font-size:10px;color:var(--t3)">实时价格 / 涨跌幅 / 分析标签 / 关注级别</span>
+        </div>
+        <span class="ls-sec-cnt" id="sec-all-cnt">0</span>
       </div>
-      <div class="ls-vsec-list" id="sec-whales"><div class="ls-empty">等待鲸鱼...</div></div>
-    </div>
-    <div class="ls-vsec ls-vsec-sig">
-      <div class="ls-sec-hdr ls-sig">
-        <span class="ls-sec-ttl">📡 信号</span>
-        <span class="ls-sec-cnt" id="sec-sig-cnt">0</span>
-      </div>
-      <div class="ls-vsec-list" id="sec-sigs"><div class="ls-empty">等待信号...</div></div>
+      <div class="ls-vsec-list pair-scroll" id="sec-all"><div class="ls-empty">等待市场数据...</div></div>
     </div>
   </div>

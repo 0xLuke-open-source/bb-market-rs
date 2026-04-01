@@ -50,6 +50,7 @@ pub struct BigTradeEvent {
     pub price: f64,
     pub qty: f64,
     pub is_buy: bool,
+    pub threshold_qty: f64,
 }
 
 /// 单个 symbol 的完整监控上下文。
@@ -156,9 +157,9 @@ impl SymbolMonitor {
     /// - `cvd`：累计主动成交 delta
     /// - `taker_buy_ratio`：当前 1m 窗口主动买比例
     /// - `big_trades`：相对盘口深度足够大的成交事件
-    pub fn apply_trade(&mut self, trade: &AggTrade) {
+    pub fn apply_trade(&mut self, trade: &AggTrade) -> Option<BigTradeEvent> {
         if !trade.symbol.eq_ignore_ascii_case(&self.symbol) {
-            return;
+            return None;
         }
         let qty = trade.qty_decimal();
         let delta = trade.delta();
@@ -166,7 +167,6 @@ impl SymbolMonitor {
         let price = trade.price.parse().unwrap_or(0.0);
         let qty_f64 = qty.to_f64().unwrap_or(0.0);
         let is_buy = trade.is_taker_buy();
-
         self.cvd += delta;
 
         if trade.is_taker_buy() {
@@ -200,6 +200,7 @@ impl SymbolMonitor {
             price,
             qty: qty_f64,
             is_buy,
+            threshold_qty: 0.0,
         });
 
         let threshold = self
@@ -220,13 +221,18 @@ impl SymbolMonitor {
             {
                 self.big_trades.pop_front();
             }
-            self.big_trades.push_back(BigTradeEvent {
+            let event = BigTradeEvent {
                 time_ms: now,
                 price,
                 qty: qty_f64,
                 is_buy,
-            });
+                threshold_qty: threshold.to_f64().unwrap_or(0.0),
+            };
+            self.big_trades.push_back(event.clone());
+            return Some(event);
         }
+
+        None
     }
 
     /// 写入 24h ticker 背景数据，主要服务于前端展示和辅助解释。

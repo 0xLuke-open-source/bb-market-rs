@@ -146,6 +146,7 @@ function applyAccessState(authStatus,userOverride=null){
 }
 
 function handleAuthExpired(){
+  if(typeof applyFavoriteSymbols==='function')applyFavoriteSymbols([],false);
   applyAccessState({authenticated:false,subscribed:false,full_access:false,symbol_limit:10,user:null});
   setAuthMessage('登录状态已失效，请重新登录。','err');
   openAuthModal('login');
@@ -174,6 +175,7 @@ async function login(ev){
     return;
   }
   applyAccessState(json.data,json.data.user||null);
+  await syncFavoriteSymbolsFromServer();
   closeAuthModal();
   connect();
   apiFetch('/api/state').then(r=>r.json()).then(d=>render(d)).catch(()=>{});
@@ -196,6 +198,7 @@ async function register(ev){
     return;
   }
   applyAccessState(json.data,json.data.user||null);
+  await syncFavoriteSymbolsFromServer();
   setAuthMessage('注册成功，当前账户尚未订阅，仍只显示部分币种。');
   closeAuthModal();
   connect();
@@ -231,6 +234,7 @@ async function submitHeroTrial(ev){
     return;
   }
   applyAccessState(json.data,json.data.user||null);
+  await syncFavoriteSymbolsFromServer();
   setHeroTrialMessage('账户已创建，正在进入 AI 盯盘。','ok');
   connect();
   apiFetch('/api/state').then(r=>r.json()).then(d=>render(d)).catch(()=>{});
@@ -258,10 +262,27 @@ async function subscribeNow(){
   apiFetch('/api/state').then(r=>r.json()).then(d=>render(d)).catch(()=>{});
 }
 
+async function syncFavoriteSymbolsFromServer(){
+  if(!S.auth.user){
+    if(typeof applyFavoriteSymbols==='function')applyFavoriteSymbols([],false);
+    return;
+  }
+  try{
+    const res=await apiFetch('/api/auth/favorites');
+    const json=await res.json();
+    if(json.ok){
+      if(typeof applyFavoriteSymbols==='function')applyFavoriteSymbols(json.data||[],false);
+      return;
+    }
+  }catch(_){}
+  if(typeof applyFavoriteSymbols==='function')applyFavoriteSymbols([],false);
+}
+
 async function logout(){
   try{
     await fetch('/api/auth/logout',{method:'POST'});
   }catch(_){}
+  if(typeof applyFavoriteSymbols==='function')applyFavoriteSymbols([],false);
   applyAccessState({authenticated:false,subscribed:false,full_access:false,symbol_limit:10,user:null});
   connect();
   apiFetch('/api/state').then(r=>r.json()).then(d=>render(d)).catch(()=>{});
@@ -288,7 +309,9 @@ async function bootAuth(){
     const res=await fetch('/api/auth/me');
     const data=await res.json();
     applyAccessState(data,data.user||null);
+    await syncFavoriteSymbolsFromServer();
   }catch(_){
+    if(typeof applyFavoriteSymbols==='function')applyFavoriteSymbols([],false);
     applyAccessState({authenticated:false,subscribed:false,full_access:false,symbol_limit:10,user:null});
   }
 }

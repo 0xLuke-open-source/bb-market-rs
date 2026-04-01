@@ -2,6 +2,17 @@
 <module type="EMPTY_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/crates/execution-context/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/identity-context/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/market-context/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/operations-context/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/portfolio-context/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/research-context/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/risk-context/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/shared-events/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/shared-kernel/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/shared-postgres/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/strategy-context/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

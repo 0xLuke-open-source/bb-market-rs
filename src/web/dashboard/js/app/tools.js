@@ -426,7 +426,8 @@ function updateSoftStreamList(containerId,items,options={}){
     updateClass='',
     scopeKey=null,
     minAnimateInterval=0,
-    pauseOnHover=false
+    pauseOnHover=false,
+    animate=true
   }=options;
   if(pauseOnHover){
     if(container.dataset.softPauseBound!=='1'){
@@ -484,7 +485,7 @@ function updateSoftStreamList(containerId,items,options={}){
   const scopeChanged=scopeKey!=null && container.dataset.softScope!==scopeValue;
   const now=Date.now();
   const lastAnimateAt=Number(container.dataset.softLastAnimateAt||0);
-  const canAnimate=container.dataset.softLive==='1' && !scopeChanged;
+  const canAnimate=animate && container.dataset.softLive==='1' && !scopeChanged;
   const allowAnimate=canAnimate && (!minAnimateInterval || now-lastAnimateAt>=minAnimateInterval);
   const prevRects=canAnimate
     ?new Map([...container.children]
@@ -763,12 +764,20 @@ function filledPct(order){const q=+order.quantity||0;if(q<=0)return 0;return Mat
 function getBalance(asset){return (S.trader.balances||[]).find(b=>b.asset===asset)||{available:0,locked:0};}
 function sideLabel(side){return String(side||'').toUpperCase()==='BUY'?'买':'卖';}
 function sideColor(side){return String(side||'').toUpperCase()==='BUY'?'var(--g)':'var(--r)';}
+function getActivePanelReplay(sym=S.sel){
+  const replay=S.panelReplay||{};
+  if(!replay.active||!replay.snapshot)return null;
+  if(sym&&replay.symbol&&replay.symbol!==sym)return null;
+  return replay.snapshot;
+}
 function selectedDetailKey(sym){
   const s=getSymbolState(sym);if(!s)return '';
   const quoteBal=getBalance('USDT');
   const baseBal=getBalance(sym.replace('USDT',''));
+  const replay=getActivePanelReplay(sym);
   return JSON.stringify({
     sym,
+    replay:replay?{ts:replay.event_ts||replay.event_time||'',uc:replay.update_count||0}:{},
     uc:s.update_count||0,
     summary:s.status_summary,
     level:s.watch_level,
@@ -848,6 +857,397 @@ async function openReplay(){
   const lines=(res.data.events||[]).slice(0,10).map(e=>`${e.seq} | ${e.kind} | ${e.summary}`);
   alert(`已载入回放快照\n事件数: ${(res.data.events||[]).length}\n`+(lines.length?('\n最近事件:\n'+lines.join('\n')):''));
 }
+function escapePanelReplayHtml(value){
+  return String(value??'')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+function panelHistoryModal(){
+  return document.getElementById('panel-history-modal');
+}
+function bigTradeHistoryModal(){
+  return document.getElementById('big-trade-history-modal');
+}
+function ensureFloatingModal(modal){
+  if(!modal)return null;
+  if(modal.parentElement!==document.body){
+    document.body.appendChild(modal);
+  }
+  return modal;
+}
+function panelHistoryStatus(text,color='var(--t3)'){
+  const el=document.getElementById('panel-history-status');
+  if(!el)return;
+  el.textContent=text;
+  el.style.color=color;
+}
+function bigTradeHistoryStatus(text,color='var(--t3)'){
+  const el=document.getElementById('big-trade-history-status');
+  if(!el)return;
+  el.textContent=text;
+  el.style.color=color;
+}
+function formatPanelHistoryInput(ts){
+  const dt=new Date(Number(ts||Date.now()));
+  const pad=v=>String(v).padStart(2,'0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+function formatPanelHistoryLabel(value){
+  const dt=new Date(value);
+  if(!Number.isFinite(dt.getTime()))return String(value||'--');
+  return dt.toLocaleString('zh-CN',{hour12:false});
+}
+function parsePanelHistoryInput(id){
+  const el=document.getElementById(id);
+  const raw=String(el?.value||'').trim();
+  if(!raw)return null;
+  const ts=new Date(raw).getTime();
+  return Number.isFinite(ts)?ts:null;
+}
+function renderBigTradeHistoryStats(){
+  const el=document.getElementById('big-trade-history-stats');
+  if(!el)return;
+  const stats=S.bigTradeHistory?.stats;
+  if(S.bigTradeHistory?.loading){
+    el.innerHTML='';
+    return;
+  }
+  if(!stats){
+    el.innerHTML='';
+    return;
+  }
+  const buyRatio=Number(stats.buy_ratio||0);
+  const sellRatio=Number(stats.sell_ratio||0);
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
+    <div style="padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,.12);background:rgba(255,255,255,.02)">
+      <div style="font-size:11px;color:var(--t3)">大单总数</div>
+      <div style="margin-top:6px;font-size:20px;font-weight:800;color:var(--t1)">${stats.total_count||0}</div>
+    </div>
+    <div style="padding:12px 14px;border-radius:14px;border:1px solid rgba(14,203,129,.16);background:rgba(14,203,129,.06)">
+      <div style="font-size:11px;color:var(--t3)">主动买 / 占比</div>
+      <div style="margin-top:6px;font-size:18px;font-weight:800;color:var(--g)">${stats.buy_count||0} / ${buyRatio.toFixed(1)}%</div>
+      <div style="margin-top:4px;font-size:11px;color:var(--t3)">买入金额 ${fN(stats.buy_quote_quantity||0)}</div>
+    </div>
+    <div style="padding:12px 14px;border-radius:14px;border:1px solid rgba(246,70,93,.16);background:rgba(246,70,93,.06)">
+      <div style="font-size:11px;color:var(--t3)">主动卖 / 占比</div>
+      <div style="margin-top:6px;font-size:18px;font-weight:800;color:var(--r)">${stats.sell_count||0} / ${sellRatio.toFixed(1)}%</div>
+      <div style="margin-top:4px;font-size:11px;color:var(--t3)">卖出金额 ${fN(stats.sell_quote_quantity||0)}</div>
+    </div>
+    <div style="padding:12px 14px;border-radius:14px;border:1px solid rgba(148,163,184,.12);background:rgba(255,255,255,.02)">
+      <div style="font-size:11px;color:var(--t3)">总额 / 均额 / 最大</div>
+      <div style="margin-top:6px;font-size:16px;font-weight:800;color:var(--t1)">${fN(stats.total_quote_quantity||0)}</div>
+      <div style="margin-top:4px;font-size:11px;color:var(--t3)">均额 ${fN(stats.avg_quote_quantity||0)} · 最大 ${fN(stats.max_quote_quantity||0)}</div>
+      <div style="margin-top:4px;font-size:11px;color:var(--t3)">平均阈值 ${fQ(stats.avg_threshold_quantity||0,getSymbolState(S.sel)||null)}</div>
+    </div>
+  </div>`;
+}
+function renderBigTradeHistoryList(){
+  const list=document.getElementById('big-trade-history-list');
+  if(!list)return;
+  const items=Array.isArray(S.bigTradeHistory?.items)?S.bigTradeHistory.items:[];
+  if(S.bigTradeHistory?.loading){
+    list.innerHTML='<div class="loading-empty">正在查询历史大单...</div>';
+    return;
+  }
+  if(S.bigTradeHistory?.error){
+    list.innerHTML=`<div class="loading-empty" style="color:var(--r)">${escapePanelReplayHtml(S.bigTradeHistory.error)}</div>`;
+    return;
+  }
+  if(!items.length){
+    list.innerHTML='<div class="loading-empty">当前区间没有独立入库的大单事件。</div>';
+    return;
+  }
+  const ctx=getSymbolState(S.sel)||null;
+  list.innerHTML=items.map(item=>{
+    const buy=!!item.is_taker_buy;
+    return `<div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.9fr) minmax(0,1fr) minmax(0,.9fr);gap:12px;align-items:center;padding:12px 14px;margin-bottom:10px;border-radius:14px;border:1px solid rgba(148,163,184,.12);background:rgba(255,255,255,.02)">
+      <div style="min-width:0">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:12px;font-weight:800;color:${buy?'var(--g)':'var(--r)'}">${buy?'主动买大单':'主动卖大单'}</span>
+          <span style="font-size:12px;color:var(--t1)">${escapePanelReplayHtml(item.trade_time_label||'--')}</span>
+          <span style="font-size:11px;color:var(--t3)">ID ${escapePanelReplayHtml(item.agg_trade_id)}</span>
+        </div>
+        <div style="margin-top:6px;font-size:12px;color:var(--t3)">阈值 ${escapePanelReplayHtml(fQ(Number(item.threshold_quantity||0),ctx))} · BuyerMaker ${item.is_buyer_maker?'是':'否'}</div>
+      </div>
+      <div style="font-size:12px;color:var(--t3)">
+        <div>价格</div>
+        <div style="margin-top:5px;font-size:15px;font-weight:800;color:${buy?'var(--g)':'var(--r)'}">${escapePanelReplayHtml(fP(Number(item.price||0),ctx))}</div>
+      </div>
+      <div style="font-size:12px;color:var(--t3)">
+        <div>数量</div>
+        <div style="margin-top:5px;font-size:15px;font-weight:800;color:var(--t1)">${escapePanelReplayHtml(fQ(Number(item.quantity||0),ctx))}</div>
+      </div>
+      <div style="font-size:12px;color:var(--t3)">
+        <div>成交额</div>
+        <div style="margin-top:5px;font-size:15px;font-weight:800;color:var(--y)">${escapePanelReplayHtml(fN(Number(item.quote_quantity||0)))}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function setBigTradeHistoryPreset(minutes){
+  const end=Date.now();
+  const start=end-Math.max(1,Number(minutes)||120)*60000;
+  const from=document.getElementById('big-trade-history-from');
+  const to=document.getElementById('big-trade-history-to');
+  if(from)from.value=formatPanelHistoryInput(start);
+  if(to)to.value=formatPanelHistoryInput(end);
+}
+async function loadBigTradeHistory(){
+  if(!S.sel){
+    alert('请先选择币种');
+    return;
+  }
+  const limitInput=document.getElementById('big-trade-history-limit');
+  const limit=Math.max(1,Math.min(500,Number(limitInput?.value||120)||120));
+  const from=parsePanelHistoryInput('big-trade-history-from');
+  const to=parsePanelHistoryInput('big-trade-history-to');
+  if(from!=null && to!=null && from>to){
+    bigTradeHistoryStatus('开始时间不能大于结束时间','var(--r)');
+    return;
+  }
+  S.bigTradeHistory.loading=true;
+  S.bigTradeHistory.error='';
+  S.bigTradeHistory.items=[];
+  S.bigTradeHistory.stats=null;
+  S.bigTradeHistory.symbol=S.sel;
+  S.bigTradeHistory.range={from:from||0,to:to||0,limit};
+  renderBigTradeHistoryStats();
+  renderBigTradeHistoryList();
+  bigTradeHistoryStatus(`正在查询 ${S.sel} 历史大单...`);
+  const params=new URLSearchParams();
+  params.set('limit',String(limit));
+  if(from!=null)params.set('from',String(from));
+  if(to!=null)params.set('to',String(to));
+  try{
+    const [itemsRes,statsRes]=await Promise.all([
+      apiFetch(`/api/big-trades/${encodeURIComponent(S.sel)}?${params.toString()}`),
+      apiFetch(`/api/big-trades/stats/${encodeURIComponent(S.sel)}?${params.toString()}`)
+    ]);
+    if(!itemsRes.ok || !statsRes.ok){
+      const code=!itemsRes.ok?itemsRes.status:statsRes.status;
+      const msg=code===403?'当前账号无权查看该币种历史大单':code===400?'时间区间参数不合法':'历史大单查询失败';
+      throw new Error(msg);
+    }
+    const [items,stats]=await Promise.all([itemsRes.json(),statsRes.json()]);
+    S.bigTradeHistory.items=(Array.isArray(items)?items:[]).map(item=>({
+      ...item,
+      trade_time_label:formatPanelHistoryLabel(item?.trade_time||item?.trade_ts||'')
+    }));
+    S.bigTradeHistory.stats=stats||null;
+    bigTradeHistoryStatus(`已加载 ${S.bigTradeHistory.items.length} 条 ${S.sel} 历史大单。`,S.bigTradeHistory.items.length?'var(--t2)':'var(--t3)');
+  }catch(err){
+    S.bigTradeHistory.error=String(err?.message||'历史大单查询失败');
+    bigTradeHistoryStatus(S.bigTradeHistory.error,'var(--r)');
+  }finally{
+    S.bigTradeHistory.loading=false;
+    renderBigTradeHistoryStats();
+    renderBigTradeHistoryList();
+  }
+}
+function openBigTradeHistory(){
+  if(!S.sel){
+    alert('请先选择币种');
+    return;
+  }
+  const modal=ensureFloatingModal(bigTradeHistoryModal());
+  if(!modal)return;
+  modal.style.display='flex';
+  document.body.style.overflow='hidden';
+  const subtitle=document.getElementById('big-trade-history-subtitle');
+  if(subtitle)subtitle.textContent=`${S.sel} 大单历史查询。返回独立大单事件明细和统计分析。`;
+  const range=S.bigTradeHistory?.range||{};
+  if(!range.from || !range.to){
+    setBigTradeHistoryPreset(120);
+  }else{
+    const from=document.getElementById('big-trade-history-from');
+    const to=document.getElementById('big-trade-history-to');
+    if(from)from.value=formatPanelHistoryInput(range.from);
+    if(to)to.value=formatPanelHistoryInput(range.to);
+  }
+  const limitInput=document.getElementById('big-trade-history-limit');
+  if(limitInput)limitInput.value=String(range.limit||120);
+  renderBigTradeHistoryStats();
+  renderBigTradeHistoryList();
+  if(!Array.isArray(S.bigTradeHistory?.items) || !S.bigTradeHistory.items.length || S.bigTradeHistory.symbol!==S.sel){
+    loadBigTradeHistory();
+  }else{
+    bigTradeHistoryStatus(`已载入 ${S.bigTradeHistory.items.length} 条 ${S.sel} 历史大单。`);
+  }
+}
+function closeBigTradeHistory(){
+  const modal=bigTradeHistoryModal();
+  if(!modal)return;
+  modal.style.display='none';
+  document.body.style.overflow='';
+}
+function syncPanelReplayUi(){
+  const clearBtn=document.getElementById('panel-history-clear');
+  const historyBtn=document.getElementById('rb-history');
+  const replay=getActivePanelReplay();
+  if(clearBtn)clearBtn.style.display=replay?'inline-flex':'none';
+  if(historyBtn)historyBtn.textContent=replay?'历史回放中':'历史回放';
+}
+function setPanelHistoryPreset(minutes){
+  const end=Date.now();
+  const start=end-Math.max(1,Number(minutes)||120)*60000;
+  const from=document.getElementById('panel-history-from');
+  const to=document.getElementById('panel-history-to');
+  if(from)from.value=formatPanelHistoryInput(start);
+  if(to)to.value=formatPanelHistoryInput(end);
+}
+function renderPanelHistoryList(){
+  const list=document.getElementById('panel-history-list');
+  if(!list)return;
+  const history=Array.isArray(S.panelReplay?.history)?S.panelReplay.history:[];
+  const replay=getActivePanelReplay();
+  if(S.panelReplay?.loading){
+    list.innerHTML='<div class="loading-empty">正在查询历史快照...</div>';
+    return;
+  }
+  if(S.panelReplay?.error){
+    list.innerHTML=`<div class="loading-empty" style="color:var(--r)">${escapePanelReplayHtml(S.panelReplay.error)}</div>`;
+    return;
+  }
+  if(!history.length){
+    list.innerHTML='<div class="loading-empty">当前区间没有分析面板快照。</div>';
+    return;
+  }
+  list.innerHTML=history.map((item,index)=>{
+    const active=replay && ((replay.event_ts||0)===(item.event_ts||0)) && replay.update_count===item.update_count;
+    const change=Number(item.change_24h_pct||0);
+    const score=Math.max(Number(item.pump_score||0),Number(item.dump_score||0));
+    const tone=change>=0?'var(--g)':'var(--r)';
+    return `<div style="display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 16px;margin-bottom:10px;border-radius:14px;border:1px solid ${active?'rgba(14,203,129,.32)':'rgba(148,163,184,.12)'};background:${active?'rgba(14,203,129,.08)':'rgba(255,255,255,.02)'}">
+      <div style="min-width:0">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:700;color:var(--t1)">${escapePanelReplayHtml(item.event_time||'--')}</span>
+          <span style="font-size:12px;color:${tone}">${change>=0?'+':''}${change.toFixed(2)}%</span>
+          <span style="font-size:12px;color:var(--t3)">更新 ${escapePanelReplayHtml(item.update_count)}</span>
+          ${active?'<span style="font-size:12px;color:var(--g)">当前回放</span>':''}
+        </div>
+        <div style="margin-top:7px;font-size:13px;color:var(--t2);line-height:1.55">${escapePanelReplayHtml(item.signal_reason||item.status_summary||'--')}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;font-size:12px;color:var(--t3)">
+        <span>价格 <b style="color:var(--t1)">${escapePanelReplayHtml(fP(Number(item.mid||0),getSymbolState(S.sel)||{price_precision:4}))}</b></span>
+        <span>级别 <b style="color:var(--t1)">${escapePanelReplayHtml(item.watch_level||'观察')}</b></span>
+        <span>拉盘 <b style="color:var(--g)">${escapePanelReplayHtml(item.pump_score)}</b></span>
+        <span>砸盘 <b style="color:var(--r)">${escapePanelReplayHtml(item.dump_score)}</b></span>
+        <span>CVD <b style="color:${Number(item.cvd||0)>=0?'var(--g)':'var(--r)'}">${escapePanelReplayHtml(fN(Number(item.cvd||0)))}</b></span>
+        <span>主导分 <b style="color:var(--t1)">${escapePanelReplayHtml(score)}</b></span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="cbtn" onclick="applyPanelReplay(${index})">${active?'重新定位':'回放'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function applyPanelReplay(index){
+  const history=Array.isArray(S.panelReplay?.history)?S.panelReplay.history:[];
+  const snapshot=history[index];
+  if(!snapshot||!S.sel)return;
+  S.panelReplay.active=true;
+  S.panelReplay.symbol=S.sel;
+  S.panelReplay.snapshot=snapshot;
+  syncPanelReplayUi();
+  renderPanelHistoryList();
+  renderDetail(S.sel);
+  panelHistoryStatus(`已回放 ${S.sel} ${snapshot.event_time||''}`,'var(--g)');
+}
+function clearPanelReplay(){
+  if(!S.panelReplay)return;
+  S.panelReplay.active=false;
+  S.panelReplay.symbol='';
+  S.panelReplay.snapshot=null;
+  syncPanelReplayUi();
+  renderPanelHistoryList();
+  if(S.sel)renderDetail(S.sel);
+  panelHistoryStatus('已退出回放，分析面板恢复实时视图。');
+}
+async function loadPanelHistory(){
+  if(!S.sel){
+    alert('请先选择币种');
+    return;
+  }
+  const limitInput=document.getElementById('panel-history-limit');
+  const limit=Math.max(1,Math.min(500,Number(limitInput?.value||120)||120));
+  const from=parsePanelHistoryInput('panel-history-from');
+  const to=parsePanelHistoryInput('panel-history-to');
+  if(from!=null && to!=null && from>to){
+    panelHistoryStatus('开始时间不能大于结束时间','var(--r)');
+    return;
+  }
+  S.panelReplay.loading=true;
+  S.panelReplay.error='';
+  S.panelReplay.history=[];
+  S.panelReplay.range={from:from||0,to:to||0,limit};
+  syncPanelReplayUi();
+  renderPanelHistoryList();
+  panelHistoryStatus(`正在查询 ${S.sel} 历史快照...`);
+  const params=new URLSearchParams();
+  params.set('limit',String(limit));
+  if(from!=null)params.set('from',String(from));
+  if(to!=null)params.set('to',String(to));
+  try{
+    const res=await apiFetch(`/api/panel/${encodeURIComponent(S.sel)}?${params.toString()}`);
+    if(!res.ok){
+      const msg=res.status===403?'当前账号无权查看该币种历史快照':res.status===400?'时间区间参数不合法':'历史快照查询失败';
+      throw new Error(msg);
+    }
+    const data=await res.json();
+    S.panelReplay.history=(Array.isArray(data)?data:[]).map(item=>({
+      ...item,
+      event_time:formatPanelHistoryLabel(item?.event_time||item?.event_ts||'')
+    }));
+    S.panelReplay.error='';
+    panelHistoryStatus(`已加载 ${S.panelReplay.history.length} 条 ${S.sel} 分析快照。`,S.panelReplay.history.length?'var(--t2)':'var(--t3)');
+  }catch(err){
+    S.panelReplay.error=String(err?.message||'历史快照查询失败');
+    panelHistoryStatus(S.panelReplay.error,'var(--r)');
+  }finally{
+    S.panelReplay.loading=false;
+    renderPanelHistoryList();
+  }
+}
+function openPanelHistory(){
+  if(!S.sel){
+    alert('请先选择币种');
+    return;
+  }
+  const modal=panelHistoryModal();
+  if(!modal)return;
+  modal.style.display='flex';
+  document.body.style.overflow='hidden';
+  const subtitle=document.getElementById('panel-history-subtitle');
+  if(subtitle)subtitle.textContent=`${S.sel} 分析快照回放。只回放分析区字段，不覆盖实时盘口、最新成交与 K 线。`;
+  const range=S.panelReplay?.range||{};
+  if(!range.from || !range.to){
+    setPanelHistoryPreset(120);
+  }else{
+    const from=document.getElementById('panel-history-from');
+    const to=document.getElementById('panel-history-to');
+    if(from)from.value=formatPanelHistoryInput(range.from);
+    if(to)to.value=formatPanelHistoryInput(range.to);
+  }
+  const limitInput=document.getElementById('panel-history-limit');
+  if(limitInput)limitInput.value=String(range.limit||120);
+  syncPanelReplayUi();
+  renderPanelHistoryList();
+  if(!Array.isArray(S.panelReplay?.history) || !S.panelReplay.history.length || S.panelReplay.symbol!==S.sel){
+    S.panelReplay.symbol=S.sel;
+    loadPanelHistory();
+  }else{
+    panelHistoryStatus(`已载入 ${S.panelReplay.history.length} 条 ${S.sel} 历史快照。`);
+  }
+}
+function closePanelHistory(){
+  const modal=panelHistoryModal();
+  if(!modal)return;
+  modal.style.display='none';
+  document.body.style.overflow='';
+}
 function copySym(){
   if(!S.sel)return;const t=S.sel.replace('USDT','_USDT');
   navigator.clipboard.writeText(t).then(()=>{
@@ -920,6 +1320,16 @@ window.addEventListener('resize',()=>{if(S.sel)drawCVD(S.sel);});
 window.addEventListener('DOMContentLoaded',()=>{
   bindTradeButtonFx();
   bindTradeSliderTips();
+  syncPanelReplayUi();
+  const historyModal=panelHistoryModal();
+  if(historyModal){
+    historyModal.addEventListener('click',ev=>{
+      if(ev.target===historyModal)closePanelHistory();
+    });
+  }
+  document.addEventListener('keydown',ev=>{
+    if(ev.key==='Escape' && historyModal?.style.display==='block')closePanelHistory();
+  });
   const input=document.getElementById('site-search-input');
   if(input){
     input.addEventListener('keydown',ev=>{

@@ -29,6 +29,58 @@ pub struct BridgeUpdate {
 }
 
 pub fn build_bridge_update(symbol: &str, monitor: &mut SymbolMonitor) -> BridgeUpdate {
+    let ctx = build_symbol_snapshot(symbol, monitor, SnapshotMode::Light);
+    let feed_entries = build_feed_entries(
+        symbol,
+        &ctx.watch_level,
+        &ctx.reason,
+        &ctx.features,
+        ctx.anomaly_max_severity,
+        ctx.cvd,
+    );
+
+    BridgeUpdate {
+        snapshot: ctx.snapshot,
+        feed_entries,
+        top_bids_raw: ctx.top_bids_raw,
+        top_asks_raw: ctx.top_asks_raw,
+    }
+}
+
+pub fn build_symbol_detail(symbol: &str, monitor: &mut SymbolMonitor) -> SymbolJson {
+    build_symbol_snapshot(symbol, monitor, SnapshotMode::Full).snapshot
+}
+
+pub fn build_panel_persistence_snapshot(base: &SymbolJson, monitor: &SymbolMonitor) -> SymbolJson {
+    let mut snapshot = base.clone();
+    snapshot.klines = map_klines(monitor);
+    snapshot.current_kline = map_current_klines(monitor);
+    snapshot.big_trades = map_big_trades(monitor);
+    snapshot.recent_trades = map_recent_trades(monitor);
+    snapshot
+}
+
+struct SnapshotContext {
+    snapshot: SymbolJson,
+    top_bids_raw: Vec<(Decimal, Decimal)>,
+    top_asks_raw: Vec<(Decimal, Decimal)>,
+    features: OrderBookFeatures,
+    watch_level: String,
+    reason: String,
+    anomaly_max_severity: u8,
+    cvd: f64,
+}
+
+enum SnapshotMode {
+    Light,
+    Full,
+}
+
+fn build_symbol_snapshot(
+    symbol: &str,
+    monitor: &mut SymbolMonitor,
+    mode: SnapshotMode,
+) -> SnapshotContext {
     // 先统一计算一次特征，避免在同一轮桥接里重复跑多次 compute_features。
     let features = monitor.book.compute_features(10);
     let (top_bids_raw, top_asks_raw) = monitor.book.top_n(25);
@@ -81,6 +133,21 @@ pub fn build_bridge_update(symbol: &str, monitor: &mut SymbolMonitor) -> BridgeU
         features.whale_exit,
     );
 
+    let (klines, current_kline, big_trades, recent_trades) = match mode {
+        SnapshotMode::Light => (
+            HashMap::new(),
+            HashMap::new(),
+            Vec::new(),
+            Vec::new(),
+        ),
+        SnapshotMode::Full => (
+            map_klines(monitor),
+            map_current_klines(monitor),
+            map_big_trades(monitor),
+            map_recent_trades(monitor),
+        ),
+    };
+
     let snapshot = SymbolJson {
         symbol: symbol.to_string(),
         status_summary: summary,
@@ -131,27 +198,25 @@ pub fn build_bridge_update(symbol: &str, monitor: &mut SymbolMonitor) -> BridgeU
         recommendation: recommendation_str(&analysis.trading_recommendation),
         whale_type: format!("{:?}", analysis.whale.whale_type),
         pump_probability: analysis.pump_dump.pump_probability,
-        klines: map_klines(monitor),
-        current_kline: map_current_klines(monitor),
-        big_trades: map_big_trades(monitor),
-        recent_trades: map_recent_trades(monitor),
+        klines,
+        current_kline,
+        big_trades,
+        recent_trades,
+        signal_history: Vec::new(),
+        factor_metrics: Vec::new(),
+        enterprise_metrics: Vec::new(),
         update_count,
     };
 
-    let feed_entries = build_feed_entries(
-        symbol,
-        &watch_level,
-        &reason,
-        &features,
-        anomaly_max_severity,
-        cvd,
-    );
-
-    BridgeUpdate {
+    SnapshotContext {
         snapshot,
-        feed_entries,
         top_bids_raw,
         top_asks_raw,
+        features,
+        watch_level,
+        reason,
+        anomaly_max_severity,
+        cvd,
     }
 }
 

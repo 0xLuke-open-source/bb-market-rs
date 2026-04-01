@@ -33,7 +33,10 @@
           <div class="ca-bigtrades">
             <div class="ca-bt-hdr">
               <span>近期大单</span>
-              <span class="ca-bt-cnt" id="bt-cnt">0</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="cbtn" type="button" onclick="openBigTradeHistory()" style="height:24px;padding:0 10px;font-size:11px">历史</button>
+                <span class="ca-bt-cnt" id="bt-cnt">0</span>
+              </div>
             </div>
             <div id="bt-list"></div>
           </div>
@@ -93,6 +96,82 @@
             <div class="cae-grid" id="enterprise-metrics"></div>
           </div>
         </div>
+      </div>
+    </div>
+    <div id="panel-history-modal" style="display:none;position:fixed;inset:0;z-index:120;background:rgba(3,8,20,.72);backdrop-filter:blur(8px);padding:24px 18px;align-items:center;justify-content:center">
+      <div style="width:min(1080px,100%);height:min(82vh,920px);margin:0 auto;background:linear-gradient(180deg,rgba(8,16,34,.98),rgba(4,10,24,.98));border:1px solid rgba(148,163,184,.18);border-radius:20px;box-shadow:0 30px 100px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid rgba(148,163,184,.12)">
+          <div>
+            <div style="font-size:18px;font-weight:700;color:var(--t1)">分析面板历史回放</div>
+            <div id="panel-history-subtitle" style="margin-top:6px;font-size:12px;color:var(--t3)">只回放分析快照，不覆盖实时盘口、最新成交与 K 线。</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <button class="cbtn" id="panel-history-clear" onclick="clearPanelReplay()" style="display:none">退出回放</button>
+            <button class="cbtn" onclick="closePanelHistory()">关闭</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;padding:16px 20px;border-bottom:1px solid rgba(148,163,184,.08);background:rgba(255,255,255,.015)">
+          <label style="display:flex;flex-direction:column;gap:6px;min-width:220px">
+            <span style="font-size:12px;color:var(--t3)">开始时间</span>
+            <input id="panel-history-from" type="datetime-local" style="height:38px;border-radius:10px;border:1px solid rgba(148,163,184,.18);background:rgba(7,14,28,.85);color:var(--t1);padding:0 12px">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;min-width:220px">
+            <span style="font-size:12px;color:var(--t3)">结束时间</span>
+            <input id="panel-history-to" type="datetime-local" style="height:38px;border-radius:10px;border:1px solid rgba(148,163,184,.18);background:rgba(7,14,28,.85);color:var(--t1);padding:0 12px">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;min-width:110px">
+            <span style="font-size:12px;color:var(--t3)">条数</span>
+            <input id="panel-history-limit" type="number" min="1" max="500" value="120" style="height:38px;border-radius:10px;border:1px solid rgba(148,163,184,.18);background:rgba(7,14,28,.85);color:var(--t1);padding:0 12px">
+          </label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="cbtn" onclick="setPanelHistoryPreset(30)">近30分钟</button>
+            <button class="cbtn" onclick="setPanelHistoryPreset(120)">近2小时</button>
+            <button class="cbtn" onclick="setPanelHistoryPreset(360)">近6小时</button>
+            <button class="cbtn cbn" onclick="loadPanelHistory()">查询</button>
+          </div>
+        </div>
+        <div style="padding:10px 20px 0;font-size:12px;color:var(--t3)">
+          <span id="panel-history-status">等待查询</span>
+        </div>
+        <div id="panel-history-list" style="flex:1;overflow:auto;padding:14px 20px 22px"></div>
+      </div>
+    </div>
+    <div id="big-trade-history-modal" style="display:none;position:fixed;inset:0;z-index:120;background:rgba(3,8,20,.72);backdrop-filter:blur(8px);padding:24px 18px;align-items:center;justify-content:center">
+      <div style="width:min(1120px,100%);height:min(82vh,920px);margin:0 auto;background:linear-gradient(180deg,rgba(8,16,34,.98),rgba(4,10,24,.98));border:1px solid rgba(148,163,184,.18);border-radius:20px;box-shadow:0 30px 100px rgba(0,0,0,.42);display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:1px solid rgba(148,163,184,.12)">
+          <div>
+            <div style="font-size:18px;font-weight:700;color:var(--t1)">历史大单查询</div>
+            <div id="big-trade-history-subtitle" style="margin-top:6px;font-size:12px;color:var(--t3)">查询独立入库的大单事件，并返回方向、金额和阈值统计。</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <button class="cbtn" onclick="closeBigTradeHistory()">关闭</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;padding:16px 20px;border-bottom:1px solid rgba(148,163,184,.08);background:rgba(255,255,255,.015)">
+          <label style="display:flex;flex-direction:column;gap:6px;min-width:220px">
+            <span style="font-size:12px;color:var(--t3)">开始时间</span>
+            <input id="big-trade-history-from" type="datetime-local" style="height:38px;border-radius:10px;border:1px solid rgba(148,163,184,.18);background:rgba(7,14,28,.85);color:var(--t1);padding:0 12px">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;min-width:220px">
+            <span style="font-size:12px;color:var(--t3)">结束时间</span>
+            <input id="big-trade-history-to" type="datetime-local" style="height:38px;border-radius:10px;border:1px solid rgba(148,163,184,.18);background:rgba(7,14,28,.85);color:var(--t1);padding:0 12px">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;min-width:110px">
+            <span style="font-size:12px;color:var(--t3)">条数</span>
+            <input id="big-trade-history-limit" type="number" min="1" max="500" value="120" style="height:38px;border-radius:10px;border:1px solid rgba(148,163,184,.18);background:rgba(7,14,28,.85);color:var(--t1);padding:0 12px">
+          </label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="cbtn" onclick="setBigTradeHistoryPreset(30)">近30分钟</button>
+            <button class="cbtn" onclick="setBigTradeHistoryPreset(120)">近2小时</button>
+            <button class="cbtn" onclick="setBigTradeHistoryPreset(360)">近6小时</button>
+            <button class="cbtn cbn" onclick="loadBigTradeHistory()">查询</button>
+          </div>
+        </div>
+        <div style="padding:10px 20px 0;font-size:12px;color:var(--t3)">
+          <span id="big-trade-history-status">等待查询</span>
+        </div>
+        <div id="big-trade-history-stats" style="padding:14px 20px 0"></div>
+        <div id="big-trade-history-list" style="flex:1;overflow:auto;padding:14px 20px 22px"></div>
       </div>
     </div>
   </div>

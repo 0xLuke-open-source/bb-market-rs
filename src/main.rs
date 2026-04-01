@@ -9,9 +9,13 @@
 //   cargo run --release -- （单币种调试模式）
 
 mod analysis;
+mod auth;
 mod client;
 mod codec;
+mod config;
 mod engine;
+mod market;
+mod postgres;
 mod store;
 mod symbols;
 mod web;
@@ -20,7 +24,13 @@ use crate::analysis::algorithms::MarketIntelligence;
 use crate::analysis::multi_monitor::{MultiSymbolMonitor, MultiWebSocketManager};
 use crate::analysis::MarketAnalysis;
 use crate::codec::binance_msg::{Snapshot, StreamMsg};
+use crate::config::AppConfig;
 use crate::engine::run_spot_engine_demo;
+use crate::market::big_trade::{BigTradePersistenceService, BigTradeQueryService};
+use crate::market::orderbook::OrderBookPersistenceService;
+use crate::market::panel::{SymbolPanelPersistenceService, SymbolPanelQueryService};
+use crate::market::trade::{RecentTradePersistenceService, RecentTradeQueryService};
+use crate::postgres::PgPool;
 use crate::store::l2_book::OrderBook;
 use crate::symbols::sync_symbols;
 use crate::web::auth::AuthService;
@@ -55,9 +65,9 @@ struct Args {
     #[clap(long, action)]
     sync_usdt: bool,
 
-    /// 输出文件
-    #[clap(short, long, default_value = "usdt_symbols.txt")]
-    output: String,
+    /// 从本地币种文件同步到 PostgreSQL 并退出
+    #[clap(long)]
+    sync_symbol_file: Option<String>,
 
     /// 多币种监控模式
     #[clap(short, long, action)]
@@ -67,9 +77,29 @@ struct Args {
     #[clap(short, long, default_value_t = 10)]
     count: usize,
 
-    /// 币种列表文件
-    #[clap(long)]
-    symbol_file: Option<String>,
+    /// 启用指定币种，支持逗号分隔，如 BTCUSDT,ETHUSDT
+    #[clap(long, value_delimiter = ',')]
+    enable_symbol: Vec<String>,
+
+    /// 禁用指定币种，支持逗号分隔，如 BTCUSDT,ETHUSDT
+    #[clap(long, value_delimiter = ',')]
+    disable_symbol: Vec<String>,
+
+    /// 显示指定币种，统一对未登录/已登录/已订阅生效
+    #[clap(long, value_delimiter = ',')]
+    show_symbol: Vec<String>,
+
+    /// 隐藏指定币种，统一对未登录/已登录/已订阅生效
+    #[clap(long, value_delimiter = ',')]
+    hide_symbol: Vec<String>,
+
+    /// 显示全部已启用币种
+    #[clap(long, action)]
+    show_all_symbols: bool,
+
+    /// 隐藏全部已启用币种
+    #[clap(long, action)]
+    hide_all_symbols: bool,
 
     /// 启用 Web Dashboard（浏览器可视化）
     #[clap(long, action)]
@@ -97,16 +127,99 @@ async fn main() -> anyhow::Result<()> {
         return run_spot_engine_demo();
     }
 
-    let client = Client::builder().timeout(Duration::from_secs(15)).build()?;
+    let needs_db = args.sync_usdt
+        || args.sync_symbol_file.is_some()
+        || args.multi
+        || !args.enable_symbol.is_empty()
+        || !args.disable_symbol.is_empty()
+        || !args.show_symbol.is_empty()
+        || !args.hide_symbol.is_empty()
+        || args.show_all_symbols
+        || args.hide_all_symbols;
+    let db_pool = if needs_db {
+        let config = AppConfig::load()?;
+        Some(Arc::new(PgPool::new(config.database.clone()).await?))
+    } else {
+        None
+    };
 
     if args.sync_usdt {
-        sync_symbols::sync_usdt_symbols(&client, &args.output).await?;
+        let client = Client::builder().timeout(Duration::from_secs(15)).build()?;
+        sync_symbols::sync_usdt_symbols(&client, db_pool.clone().expect("db pool required")).await?;
         return Ok(());
     }
 
+    if let Some(file_path) = &args.sync_symbol_file {
+        sync_symbols::sync_symbols_from_file(
+            db_pool.clone().expect("db pool required"),
+            file_path,
+        )
+        .await?;
+        return Ok(());
+    }
+
+    if !args.enable_symbol.is_empty() {
+        let affected = sync_symbols::set_symbols_enabled(
+            db_pool.clone().expect("db pool required"),
+            &args.enable_symbol,
+            true,
+        )
+        .await?;
+        println!("✅ 已启用 {} 个币种。", affected);
+    }
+
+    if !args.disable_symbol.is_empty() {
+        let affected = sync_symbols::set_symbols_enabled(
+            db_pool.clone().expect("db pool required"),
+            &args.disable_symbol,
+            false,
+        )
+        .await?;
+        println!("✅ 已禁用 {} 个币种。", affected);
+    }
+
+    if args.show_all_symbols {
+        let affected = sync_symbols::set_all_symbols_visibility(
+            db_pool.clone().expect("db pool required"),
+            true,
+        )
+        .await?;
+        println!("✅ 已统一显示 {} 个币种。", affected);
+    }
+
+    if args.hide_all_symbols {
+        let affected = sync_symbols::set_all_symbols_visibility(
+            db_pool.clone().expect("db pool required"),
+            false,
+        )
+        .await?;
+        println!("✅ 已统一隐藏 {} 个币种。", affected);
+    }
+
+    if !args.show_symbol.is_empty() {
+        let affected = sync_symbols::set_symbols_visibility(
+            db_pool.clone().expect("db pool required"),
+            &args.show_symbol,
+            true,
+        )
+        .await?;
+        println!("✅ 已统一显示 {} 个指定币种。", affected);
+    }
+
+    if !args.hide_symbol.is_empty() {
+        let affected = sync_symbols::set_symbols_visibility(
+            db_pool.clone().expect("db pool required"),
+            &args.hide_symbol,
+            false,
+        )
+        .await?;
+        println!("✅ 已统一隐藏 {} 个指定币种。", affected);
+    }
+
     if args.multi {
-        start_multi_monitoring(args).await
+        start_multi_monitoring(args, db_pool.expect("db pool required")).await
     } else {
+        let client = Client::builder().timeout(Duration::from_secs(15)).build()?;
         start_monitoring(client).await
     }
 }
@@ -114,20 +227,21 @@ async fn main() -> anyhow::Result<()> {
 // ─────────────────────────────────────────────────────────────────
 // 多币种监控
 // ─────────────────────────────────────────────────────────────────
-async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
+async fn start_multi_monitoring(args: Args, pg_pool: Arc<PgPool>) -> anyhow::Result<()> {
     // MultiSymbolMonitor 只负责“币种状态集合”和“消息分发”，
     // 不关心 Web 展示或交易仿真。
-    let monitor = Arc::new(MultiSymbolMonitor::new(20));
+    let trade_persistence = RecentTradePersistenceService::new(pg_pool.clone()).await?;
+    let big_trade_persistence = BigTradePersistenceService::new(pg_pool.clone()).await?;
+    let monitor = Arc::new(MultiSymbolMonitor::new(
+        20,
+        Some(trade_persistence),
+        Some(big_trade_persistence),
+    ));
+    let symbol_registry = sync_symbols::SymbolRegistryService::new(pg_pool.clone()).await?;
     let port = args.port;
     let web_on = args.web;
 
-    let symbols = if let Some(file) = args.symbol_file {
-        monitor.load_symbols_from_file(&file, args.count).await?
-    } else {
-        monitor
-            .load_symbols_from_file("usdt_symbols.txt", args.count)
-            .await?
-    };
+    let symbols = symbol_registry.load_enabled_symbols(args.count).await?;
 
     println!("📋 监控 {} 个币种:", symbols.len());
     for (i, s) in symbols.iter().enumerate() {
@@ -165,20 +279,56 @@ async fn start_multi_monitoring(args: Args) -> anyhow::Result<()> {
             println!("📦 已加载 30 分钟内的 Dashboard 缓存快照");
         }
         let spot_service = SpotTradingService::new(&symbols, "logs/spot")?;
-        let auth_service = AuthService::new("logs/auth")?;
+        let auth_service = AuthService::new(pg_pool.clone()).await?;
+        let orderbook_persistence = OrderBookPersistenceService::new(pg_pool.clone()).await?;
+        let panel_persistence = SymbolPanelPersistenceService::new(pg_pool.clone()).await?;
+        let panel_query = SymbolPanelQueryService::new(pg_pool.clone()).await?;
+        let recent_trade_query = RecentTradeQueryService::new(pg_pool.clone()).await?;
+        let big_trade_query = BigTradeQueryService::new(pg_pool.clone()).await?;
 
         let bridge_monitor = monitor.clone();
+        let bridge_registry = symbol_registry.clone();
         let bridge_dash = dash_state.clone();
         let bridge_spot = spot_service.clone();
+        let bridge_orderbook_persistence = orderbook_persistence.clone();
+        let bridge_panel_persistence = panel_persistence.clone();
         tokio::spawn(async move {
-            run_bridge(bridge_monitor, bridge_dash, bridge_spot, 500).await;
+            run_bridge(
+                bridge_monitor,
+                bridge_registry,
+                bridge_dash,
+                bridge_spot,
+                bridge_orderbook_persistence,
+                bridge_panel_persistence,
+                500,
+            )
+            .await;
         });
 
         let server_dash = dash_state.clone();
+        let server_monitor = monitor.clone();
+        let server_registry = symbol_registry.clone();
+        let server_panel_runtime = panel_persistence.clone();
+        let server_panel_query = panel_query.clone();
+        let server_recent_trade_query = recent_trade_query.clone();
+        let server_big_trade_query = big_trade_query.clone();
         let server_spot = spot_service.clone();
         let server_auth = auth_service.clone();
         tokio::spawn(async move {
-            if let Err(e) = run_server(server_dash, server_spot, server_auth, port).await {
+            if let Err(e) = run_server(
+                server_monitor,
+                server_registry,
+                server_panel_runtime,
+                server_panel_query,
+                server_recent_trade_query,
+                server_big_trade_query,
+                server_dash,
+                server_spot,
+                server_auth,
+                port,
+            )
+            .await
+            {
                 eprintln!("❌ Web 服务器错误: {}", e);
             }
         });
