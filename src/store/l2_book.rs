@@ -20,6 +20,93 @@ use std::collections::{BTreeMap, VecDeque};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
+// ==================== 订单簿变化事件 ====================
+
+/// 订单簿单档位的有意义变化事件
+/// 只在以下情况产出：
+///   - add: 新增档位（qty_before = 0）
+///   - cancel: 撤单（qty_after = 0）
+///   - modify: 数量变化 >= 5%（qty_before != 0 && qty_after != 0）
+#[derive(Debug, Clone)]
+pub struct OrderChangeEvent {
+    pub symbol: String,
+    pub event_time_ms: u64,   // Binance 事件时间（毫秒时间戳）
+    pub side: OrderChangeSide,
+    pub price: Decimal,
+    pub qty_before: Decimal,
+    pub qty_after: Decimal,
+    pub change_type: OrderChangeType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrderChangeSide {
+    Bid,
+    Ask,
+}
+
+impl OrderChangeSide {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            OrderChangeSide::Bid => "bid",
+            OrderChangeSide::Ask => "ask",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrderChangeType {
+    Add,
+    Cancel,
+    Modify,
+}
+
+impl OrderChangeType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            OrderChangeType::Add => "add",
+            OrderChangeType::Cancel => "cancel",
+            OrderChangeType::Modify => "modify",
+        }
+    }
+}
+
+/// 判断单个档位变化是否"有意义"并产出事件
+/// threshold_pct: 修改型变化的最小变化百分比，默认传 0.05（5%）
+fn classify_change(
+    symbol: &str,
+    event_time_ms: u64,
+    side: OrderChangeSide,
+    price: Decimal,
+    qty_before: Decimal,
+    qty_after: Decimal,
+    threshold_pct: Decimal,
+) -> Option<OrderChangeEvent> {
+    if qty_before.is_zero() && qty_after.is_zero() {
+        return None;
+    }
+    let change_type = if qty_before.is_zero() {
+        OrderChangeType::Add
+    } else if qty_after.is_zero() {
+        OrderChangeType::Cancel
+    } else {
+        // 修改：只记录变化 >= threshold_pct
+        let diff = (qty_after - qty_before).abs();
+        if diff / qty_before < threshold_pct {
+            return None;
+        }
+        OrderChangeType::Modify
+    };
+    Some(OrderChangeEvent {
+        symbol: symbol.to_string(),
+        event_time_ms,
+        side,
+        price,
+        qty_before,
+        qty_after,
+        change_type,
+    })
+}
+
 // ==================== 采样层数据结构 ====================
 
 #[derive(Debug, Clone)]
@@ -107,9 +194,12 @@ pub struct OrderBook {
 
     pub history: HistoryManager,
 
-    // 新增：用于真实 OFI 计算的增量追踪
+    // 用于真实 OFI 计算的增量追踪
     prev_bid_snapshot: BTreeMap<Reverse<Decimal>, Decimal>,
     prev_ask_snapshot: BTreeMap<Decimal, Decimal>,
+
+    // 每帧产出的有意义档位变化事件，由 take_change_events() 消费
+    pending_change_events: Vec<OrderChangeEvent>,
 }
 
 #[derive(Debug, Clone)]
@@ -284,6 +374,7 @@ impl OrderBook {
             history: HistoryManager::new(),
             prev_bid_snapshot: BTreeMap::new(),
             prev_ask_snapshot: BTreeMap::new(),
+            pending_change_events: Vec::new(),
         }
     }
 
@@ -353,15 +444,31 @@ impl OrderBook {
             );
         }
 
+        let event_time_ms = msg.event_time;
+        let symbol = self.symbol.clone();
+        let modify_threshold = dec!(0.05); // 5% 变化才记录
+
         for bid in msg.bids {
             self.observe_price_scale_str(&bid[0]);
             self.observe_qty_scale_str(&bid[1]);
             let price = Decimal::from_str(&bid[0])?;
             let qty = Decimal::from_str(&bid[1])?;
+            let qty_before = self.bids.get(&Reverse(price)).copied().unwrap_or(Decimal::ZERO);
             if qty.is_zero() {
                 self.bids.remove(&Reverse(price));
             } else {
                 self.bids.insert(Reverse(price), qty);
+            }
+            if let Some(ev) = classify_change(
+                &symbol,
+                event_time_ms,
+                OrderChangeSide::Bid,
+                price,
+                qty_before,
+                qty,
+                modify_threshold,
+            ) {
+                self.pending_change_events.push(ev);
             }
         }
         for ask in msg.asks {
@@ -369,10 +476,22 @@ impl OrderBook {
             self.observe_qty_scale_str(&ask[1]);
             let price = Decimal::from_str(&ask[0])?;
             let qty = Decimal::from_str(&ask[1])?;
+            let qty_before = self.asks.get(&price).copied().unwrap_or(Decimal::ZERO);
             if qty.is_zero() {
                 self.asks.remove(&price);
             } else {
                 self.asks.insert(price, qty);
+            }
+            if let Some(ev) = classify_change(
+                &symbol,
+                event_time_ms,
+                OrderChangeSide::Ask,
+                price,
+                qty_before,
+                qty,
+                modify_threshold,
+            ) {
+                self.pending_change_events.push(ev);
             }
         }
 
@@ -398,6 +517,12 @@ impl OrderBook {
             self.last_update_time = Instant::now();
         }
         Ok(())
+    }
+
+    /// 取走并清空本帧积累的有意义档位变化事件
+    /// 由上层（manager.rs）调用，每帧处理后取走，避免无限增长
+    pub fn take_change_events(&mut self) -> Vec<OrderChangeEvent> {
+        std::mem::take(&mut self.pending_change_events)
     }
 
     pub fn best_bid_ask(&self) -> Option<(Decimal, Decimal)> {

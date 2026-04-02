@@ -16,8 +16,10 @@ use tokio::time::Duration;
 
 use crate::analysis::multi_monitor::signal;
 use crate::analysis::multi_monitor::SymbolMonitor;
+use crate::analysis::pump_detector::PumpDetector;
 use crate::codec::binance_msg::StreamMsg;
 use crate::market::big_trade::{BigTradePersistenceService, BigTradeRecord};
+use crate::market::orderbook_tick::OrderBookTickPersistenceService;
 use crate::market::trade::{RecentTradePersistenceService, RecentTradeRecord};
 
 /// 全局多币种监控器。
@@ -31,6 +33,10 @@ pub struct MultiSymbolMonitor {
     pub report_interval: Duration,
     trade_persistence: Option<RecentTradePersistenceService>,
     big_trade_persistence: Option<BigTradePersistenceService>,
+    /// 订单簿档位变化持久化（撤单/新增/修改 >=5%）
+    orderbook_tick_persistence: Option<OrderBookTickPersistenceService>,
+    /// 跨 symbol 共享的 PumpDetector（维护每个 symbol 的信号状态机）
+    pump_detector: Arc<Mutex<PumpDetector>>,
 }
 
 impl MultiSymbolMonitor {
@@ -48,7 +54,16 @@ impl MultiSymbolMonitor {
             report_interval: Duration::from_secs(report_interval_secs),
             trade_persistence,
             big_trade_persistence,
+            orderbook_tick_persistence: None,
+            pump_detector: Arc::new(Mutex::new(
+                PumpDetector::new("pump_signals.txt").with_min_strength(30),
+            )),
         }
+    }
+
+    /// 注入订单簿变化持久化服务（可选，在 main.rs 中初始化后调用）
+    pub fn set_orderbook_tick_persistence(&mut self, svc: OrderBookTickPersistenceService) {
+        self.orderbook_tick_persistence = Some(svc);
     }
 
     /// 从文件中读取 symbol 列表。
@@ -108,6 +123,11 @@ impl MultiSymbolMonitor {
     ///
     /// 这里不直接在全局层做业务判断，而是把状态更新下沉到
     /// `SymbolMonitor`，让每个交易对自己维护完整上下文。
+    ///
+    /// Depth 消息处理后：
+    /// - 取走本帧产出的 OrderChangeEvent
+    /// - 转入 AnomalyDetector.record_change_batch（已接通撤单检测）
+    /// - 提交到 OrderBookTickPersistenceService 入库
     pub async fn handle_msg(&self, symbol: &str, msg: StreamMsg) -> anyhow::Result<()> {
         let route_symbol = match &msg {
             StreamMsg::Depth(update) => update.symbol.to_ascii_uppercase(),
@@ -121,7 +141,6 @@ impl MultiSymbolMonitor {
             monitors.get(route_symbol.as_str()).cloned()
         };
         if monitor.is_none() && !route_symbol.eq_ignore_ascii_case(&task_symbol) {
-            // 非目标 symbol 的消息不再回退到任务 symbol，避免串币污染。
             return Ok(());
         }
         let Some(monitor) = monitor else {
@@ -132,6 +151,18 @@ impl MultiSymbolMonitor {
         match msg {
             StreamMsg::Depth(update) => {
                 guard.handle_depth_update(update, self.report_interval)?;
+
+                // 取走本帧有意义的档位变化事件
+                let change_events = guard.book.take_change_events();
+                if !change_events.is_empty() {
+                    // 接通撤单 / 激增检测
+                    guard.anomaly_detector.record_change_batch(&change_events);
+
+                    // 持久化到 market.orderbook_tick
+                    if let Some(tick_svc) = &self.orderbook_tick_persistence {
+                        tick_svc.submit_batch(change_events);
+                    }
+                }
             }
             StreamMsg::Trade(trade) => {
                 let big_trade = guard.apply_trade(&trade);
@@ -176,9 +207,10 @@ impl MultiSymbolMonitor {
         };
 
         let mut signals = Vec::new();
+        let mut pump_detector = self.pump_detector.lock().await;
         for monitor in monitors {
             let mut guard = monitor.lock().await;
-            if let Some(signal) = guard.detect_pump_signal() {
+            if let Some(signal) = guard.detect_pump_signal(&mut pump_detector) {
                 signals.push(signal);
             }
         }
@@ -187,3 +219,4 @@ impl MultiSymbolMonitor {
         Ok(())
     }
 }
+

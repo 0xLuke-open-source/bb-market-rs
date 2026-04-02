@@ -572,6 +572,7 @@ function renderDetail(sym){
   document.getElementById('sell-unit2').textContent=symShort;
   document.getElementById('btn-buy').textContent='买入 '+symShort;
   document.getElementById('btn-sell').textContent='卖出 '+symShort;
+  updateTradePrecisionUI(sym);
   const quoteBal=getBalance('USDT');
   const baseBal=getBalance(symShort);
   e('avail-buy',fNum(quoteBal.available||0));

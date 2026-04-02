@@ -12,7 +12,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
-use crate::store::l2_book::{OrderBook, OrderBookFeatures};
+use crate::store::l2_book::{OrderBook, OrderBookFeatures, OrderChangeEvent, OrderChangeSide, OrderChangeType};
 
 use super::types::{AnomalyConfig, AnomalyEvent, AnomalyStats, AnomalyType, ChangeType, OrderSide};
 
@@ -665,6 +665,35 @@ impl OrderBookAnomalyDetector {
             change_type,
             prev_quantity,
         });
+    }
+
+    /// 将 l2_book 产出的 OrderChangeEvent 批量转入 order_history。
+    /// 供 manager.rs 在每帧 Depth 处理后调用，真正接通撤单/激增检测。
+    pub fn record_change_batch(&mut self, events: &[OrderChangeEvent]) {
+        for ev in events {
+            let side = match ev.side {
+                OrderChangeSide::Bid => OrderSide::Bid,
+                OrderChangeSide::Ask => OrderSide::Ask,
+            };
+            let change_type = match ev.change_type {
+                OrderChangeType::Add => ChangeType::New,
+                OrderChangeType::Cancel => ChangeType::Cancel,
+                OrderChangeType::Modify => ChangeType::Update,
+            };
+            let prev_qty = if ev.qty_before.is_zero() {
+                None
+            } else {
+                Some(ev.qty_before)
+            };
+            self.order_history.push_back(OrderChange {
+                timestamp: Local::now(),
+                price: ev.price,
+                quantity: ev.qty_after,
+                side,
+                change_type,
+                prev_quantity: prev_qty,
+            });
+        }
     }
 
     fn update_stats(&mut self, anomaly: &AnomalyEvent) {

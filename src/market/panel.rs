@@ -677,6 +677,10 @@ impl PostgresSymbolPanelSnapshotRepository {
             .client()
             .batch_execute(include_str!("../../sql/postgres/market_signal_performance.sql"))
             .await?;
+        client
+            .client()
+            .batch_execute(include_str!("../../sql/postgres/market_signal_factor_detail.sql"))
+            .await?;
         Ok(())
     }
 
@@ -790,6 +794,7 @@ impl PostgresSymbolPanelSnapshotRepository {
         let trigger_score = snapshot
             .sample_trigger_score
             .unwrap_or_else(|| signal_score_from_record(snapshot, signal_type));
+        let sample_id = Uuid::new_v4();
         client
             .client()
             .execute(
@@ -798,7 +803,7 @@ impl PostgresSymbolPanelSnapshotRepository {
                     watch_level, signal_reason, update_count
                  ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
                 &[
-                    &Uuid::new_v4(),
+                    &sample_id,
                     &snapshot.symbol,
                     &signal_type,
                     &snapshot.event_time,
@@ -810,6 +815,68 @@ impl PostgresSymbolPanelSnapshotRepository {
                 ],
             )
             .await?;
+
+        // 插入因子详情（从 factor_metrics_json 展开）
+        if let Err(e) = self
+            .insert_signal_factor_detail(&client, sample_id, snapshot, signal_type)
+            .await
+        {
+            eprintln!("signal_factor_detail insert error [{}]: {}", snapshot.symbol, e);
+        }
+
+        Ok(())
+    }
+
+    /// 将 factor_metrics_json 里的每个因子展开写入 market.signal_factor_detail
+    async fn insert_signal_factor_detail(
+        &self,
+        client: &crate::postgres::PooledClient,
+        sample_id: Uuid,
+        snapshot: &SymbolPanelSnapshotRecord,
+        signal_type: &str,
+    ) -> Result<()> {
+        // factor_metrics_json 是 Vec<FactorMetric>，结构: [{name, value, change, signal, ...}]
+        #[derive(serde::Deserialize)]
+        struct FactorEntry {
+            name: Option<String>,
+            value: Option<serde_json::Value>,
+            signal: Option<String>,
+        }
+        let factors: Vec<FactorEntry> = serde_json::from_str(&snapshot.factor_metrics_json)
+            .unwrap_or_default();
+        if factors.is_empty() {
+            return Ok(());
+        }
+
+        for factor in &factors {
+            let name = match &factor.name {
+                Some(n) => n.clone(),
+                None => continue,
+            };
+            let raw_value: f64 = match &factor.value {
+                Some(serde_json::Value::Number(n)) => n.as_f64().unwrap_or(0.0),
+                Some(serde_json::Value::String(s)) => s.parse::<f64>().unwrap_or(0.0),
+                _ => 0.0,
+            };
+            // signal_factor_detail 的 contribution_score 暂用 0（真实值在 PumpDetector 层）
+            client
+                .client()
+                .execute(
+                    "insert into market.signal_factor_detail
+                        (sample_id, symbol, signal_type, triggered_at,
+                         factor_name, raw_value, z_score, contribution_score)
+                     values ($1, $2, $3, $4, $5, $6, null, 0.0)",
+                    &[
+                        &sample_id,
+                        &snapshot.symbol,
+                        &signal_type,
+                        &snapshot.event_time,
+                        &name,
+                        &raw_value,
+                    ],
+                )
+                .await?;
+        }
         Ok(())
     }
 

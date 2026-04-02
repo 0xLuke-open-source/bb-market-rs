@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, ensure, Result};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -15,6 +15,7 @@ use rust_decimal_macros::dec;
 use crate::engine::{
     NewOrderRequest, OrderType, SelfTradePrevention, Side, SpotMarketConfig, TimeInForce,
 };
+use crate::symbols::sync_symbols::SymbolPrecision;
 use crate::web::state::TraderOrderJson;
 
 use super::core::TradingCore;
@@ -29,7 +30,11 @@ use super::types::{
 use super::{SpotTradingService, LIQUIDITY_ACCOUNT_ID, USER_ACCOUNT_ID};
 
 impl SpotTradingService {
-    pub fn new(symbols: &[String], log_dir: impl AsRef<Path>) -> Result<Self> {
+    pub fn new(
+        symbols: &[String],
+        precisions: std::collections::HashMap<String, SymbolPrecision>,
+        log_dir: impl AsRef<Path>,
+    ) -> Result<Self> {
         // 启动时顺手创建一个“带流动性账户”的本地市场。
         // 用户账户和流动性账户都预存资产，这样前端下单后立刻可以成交。
         let log_dir = log_dir.as_ref().to_path_buf();
@@ -45,14 +50,17 @@ impl SpotTradingService {
         for symbol in symbols {
             let base_asset = parse_base_asset(symbol)?;
             assets.insert(base_asset.clone());
+            let precision = precisions.get(symbol).copied().unwrap_or_default();
+            let tick_size = step_from_precision(precision.price_precision, dec!(0.00000001));
+            let lot_size = step_from_precision(precision.quantity_precision, dec!(0.00000001));
 
             engine.create_market(SpotMarketConfig {
                 symbol: symbol.clone(),
                 base_asset: base_asset.clone(),
                 quote_asset: "USDT".to_string(),
-                tick_size: dec!(0.00000001),
-                lot_size: dec!(0.00000001),
-                min_qty: dec!(0.00000001),
+                tick_size,
+                lot_size,
+                min_qty: lot_size,
                 min_notional: dec!(0),
                 maker_fee_rate: dec!(0.001),
                 taker_fee_rate: dec!(0.001),
@@ -65,6 +73,7 @@ impl SpotTradingService {
         Ok(Self {
             inner: std::sync::Arc::new(tokio::sync::Mutex::new(TradingCore::new(engine, assets))),
             log_dir: std::sync::Arc::new(log_dir),
+            market_precisions: std::sync::Arc::new(precisions),
         })
     }
 
@@ -130,10 +139,14 @@ impl SpotTradingService {
         };
         let time_in_force = parse_tif(req.time_in_force.as_deref(), engine_order_type)?;
         let quantity = decimal_from_f64(req.quantity, "quantity")?;
+        self.ensure_quantity_precision(&symbol, quantity, "quantity")?;
         let price = req
             .price
             .map(|value| decimal_from_f64(value, "price"))
             .transpose()?;
+        if let Some(price) = price {
+            self.ensure_price_precision(&symbol, price, "price")?;
+        }
 
         let engine_req = match (engine_order_type, side) {
             (OrderType::Market, Side::Buy) => NewOrderRequest {
@@ -551,12 +564,18 @@ impl SpotTradingService {
     async fn submit_stop_order(&self, req: ApiOrderRequest) -> Result<OrderActionResult> {
         // 止损单在本项目里是“虚拟挂单”：
         // 先记录在 open_orders + stop_orders，等价格触发后再转换成真实订单提交给引擎。
+        let symbol = req.symbol.to_uppercase();
+        let quantity = decimal_from_f64(req.quantity, "quantity")?;
+        self.ensure_quantity_precision(&symbol, quantity, "quantity")?;
         let trigger_price = decimal_from_f64(
             req.trigger_price
                 .ok_or_else(|| anyhow!("trigger_price is required"))?,
             "trigger_price",
         )?;
-        let symbol = req.symbol.to_uppercase();
+        self.ensure_price_precision(&symbol, trigger_price, "trigger_price")?;
+        if let Some(price) = req.price {
+            self.ensure_price_precision(&symbol, decimal_from_f64(price, "price")?, "price")?;
+        }
         let mut core = self.inner.lock().await;
         let order_id = core.next_virtual_order_id();
 
@@ -578,8 +597,8 @@ impl SpotTradingService {
                     .clone()
                     .unwrap_or_else(|| "stop_loss".to_string()),
             ),
-            quantity: req.quantity,
-            remaining_qty: req.quantity,
+            quantity: quantity.to_f64().unwrap_or(req.quantity),
+            remaining_qty: quantity.to_f64().unwrap_or(req.quantity),
             filled_qty: 0.0,
             filled_quote_qty: 0.0,
             status: "TriggerPending".to_string(),
@@ -635,8 +654,51 @@ impl SpotTradingService {
             status: "TriggerPending".to_string(),
             filled_qty: 0.0,
             filled_quote_qty: 0.0,
-            remaining_qty: req.quantity,
+            remaining_qty: quantity.to_f64().unwrap_or(req.quantity),
             trade_count: 0,
         })
+    }
+
+    fn precision_for_symbol(&self, symbol: &str) -> SymbolPrecision {
+        self.market_precisions
+            .get(&symbol.to_ascii_uppercase())
+            .copied()
+            .unwrap_or_default()
+    }
+
+    fn ensure_price_precision(&self, symbol: &str, price: Decimal, field: &str) -> Result<()> {
+        let precision = self.precision_for_symbol(symbol).price_precision;
+        if precision > 0 {
+            ensure!(
+                price.round_dp(precision) == price,
+                "{} exceeds {} price precision {}",
+                field,
+                symbol,
+                precision
+            );
+        }
+        Ok(())
+    }
+
+    fn ensure_quantity_precision(&self, symbol: &str, quantity: Decimal, field: &str) -> Result<()> {
+        let precision = self.precision_for_symbol(symbol).quantity_precision;
+        if precision > 0 {
+            ensure!(
+                quantity.round_dp(precision) == quantity,
+                "{} exceeds {} quantity precision {}",
+                field,
+                symbol,
+                precision
+            );
+        }
+        Ok(())
+    }
+}
+
+fn step_from_precision(precision: u32, fallback: Decimal) -> Decimal {
+    if precision == 0 {
+        fallback
+    } else {
+        Decimal::new(1, precision)
     }
 }

@@ -606,19 +606,30 @@ function inferPricePrecision(v){
   const n=Math.abs(+v||0);
   return n>=1000?1:n>=10?2:n>=1?3:n>=.1?4:6;
 }
-function getPricePrecision(ctx=null,v=0){
-  if(typeof ctx==='number'&&Number.isFinite(ctx))return Math.max(0,Math.min(12,Math.round(ctx)));
-  let state=null;
+function clampPrecision(v){
+  return Math.max(0,Math.min(12,Math.round(Number(v)||0)));
+}
+function resolvePrecisionState(ctx=null){
   if(typeof ctx==='string'&&ctx){
-    state=typeof getSymbolState==='function'?getSymbolState(ctx):null;
-  }else if(ctx&&typeof ctx==='object'){
-    if(Number.isFinite(ctx.price_precision))return Math.max(0,Math.min(12,Math.round(ctx.price_precision)));
-    if(ctx.symbol&&typeof getSymbolState==='function')state=getSymbolState(ctx.symbol);
-  }else if(S?.sel&&typeof getSymbolState==='function'){
-    state=getSymbolState(S.sel);
+    return typeof getSymbolState==='function'?getSymbolState(ctx):null;
   }
+  if(ctx&&typeof ctx==='object'){
+    if(ctx.symbol&&typeof getSymbolState==='function'){
+      return getSymbolState(ctx.symbol)||ctx;
+    }
+    return ctx;
+  }
+  if(S?.sel&&typeof getSymbolState==='function'){
+    return getSymbolState(S.sel);
+  }
+  return null;
+}
+function getPricePrecision(ctx=null,v=0){
+  if(typeof ctx==='number'&&Number.isFinite(ctx))return clampPrecision(ctx);
+  const state=resolvePrecisionState(ctx);
+  if(state&&Number.isFinite(state.price_precision))return clampPrecision(state.price_precision);
   const precision=state?.price_precision;
-  if(Number.isFinite(precision))return Math.max(0,Math.min(12,Math.round(precision)));
+  if(Number.isFinite(precision))return clampPrecision(precision);
   return inferPricePrecision(v);
 }
 function fP(p,ctx=null){
@@ -632,23 +643,76 @@ function inferQtyPrecision(v){
   return n>=1000?0:n>=100?2:n>=1?4:8;
 }
 function getQtyPrecision(ctx=null,v=0){
-  let state=null;
-  if(typeof ctx==='string'&&ctx){
-    state=typeof getSymbolState==='function'?getSymbolState(ctx):null;
-  }else if(ctx&&typeof ctx==='object'){
-    if(Number.isFinite(ctx.quantity_precision))return Math.max(0,Math.min(12,Math.round(ctx.quantity_precision)));
-    if(ctx.symbol&&typeof getSymbolState==='function')state=getSymbolState(ctx.symbol);
-  }else if(S?.sel&&typeof getSymbolState==='function'){
-    state=getSymbolState(S.sel);
-  }
+  const state=resolvePrecisionState(ctx);
+  if(state&&Number.isFinite(state.quantity_precision))return clampPrecision(state.quantity_precision);
   const precision=state?.quantity_precision;
-  if(Number.isFinite(precision))return Math.max(0,Math.min(12,Math.round(precision)));
+  if(Number.isFinite(precision))return clampPrecision(precision);
   return inferQtyPrecision(v);
 }
 function fQ(v,ctx=null){
   const n=+v;
   if(!Number.isFinite(n))return '--';
   return trimDecimalString(n.toFixed(getQtyPrecision(ctx,n)));
+}
+function normalizeToPrecision(value,precision,mode='floor'){
+  const n=+value;
+  if(!Number.isFinite(n))return NaN;
+  const p=clampPrecision(precision);
+  const factor=10**p;
+  if(!Number.isFinite(factor) || factor<=0)return n;
+  if(mode==='ceil')return (n>=0?Math.ceil(n*factor):Math.floor(n*factor))/factor;
+  if(mode==='round')return Math.round(n*factor)/factor;
+  return (n>=0?Math.floor(n*factor):Math.ceil(n*factor))/factor;
+}
+function normalizePriceValue(value,ctx=null,mode='floor'){
+  return normalizeToPrecision(value,getPricePrecision(ctx,value),mode);
+}
+function normalizeQtyValue(value,ctx=null,mode='floor'){
+  return normalizeToPrecision(value,getQtyPrecision(ctx,value),mode);
+}
+function precisionStep(precision){
+  const p=clampPrecision(precision);
+  return p<=0?'1':`0.${'0'.repeat(Math.max(0,p-1))}1`;
+}
+function precisionPlaceholder(precision,fallback='0'){
+  const p=clampPrecision(precision);
+  if(p<=0)return fallback;
+  return `0.${'0'.repeat(Math.min(p,8))}`;
+}
+function fQuote(v){
+  const n=+v;
+  if(!Number.isFinite(n))return '--';
+  const abs=Math.abs(n);
+  const precision=abs>=1?2:abs>=0.01?4:8;
+  return trimDecimalString(n.toFixed(precision));
+}
+function normalizeTradeFieldInput(idOrEl,kind='price',ctx=S?.sel||null,mode='floor'){
+  const input=typeof idOrEl==='string'?document.getElementById(idOrEl):idOrEl;
+  if(!input)return null;
+  const raw=String(input.value||'').trim();
+  if(!raw)return null;
+  const value=Number(raw);
+  if(!Number.isFinite(value))return null;
+  const normalized=kind==='qty'?normalizeQtyValue(value,ctx,mode):normalizePriceValue(value,ctx,mode);
+  input.value=kind==='qty'?fQ(normalized,ctx):fP(normalized,ctx);
+  return normalized;
+}
+function updateTradePrecisionUI(symbol=S?.sel||null){
+  const ctx=resolvePrecisionState(symbol)||{};
+  const pricePrecision=getPricePrecision(ctx,ctx.mid||0);
+  const qtyPrecision=getQtyPrecision(ctx,0);
+  ['buy-price','sell-price','buy-trigger-price','sell-trigger-price'].forEach(id=>{
+    const input=document.getElementById(id);
+    if(!input)return;
+    input.step=precisionStep(pricePrecision);
+    if(!input.disabled)input.placeholder=precisionPlaceholder(pricePrecision,'0');
+  });
+  ['buy-qty','sell-qty'].forEach(id=>{
+    const input=document.getElementById(id);
+    if(!input)return;
+    input.step=precisionStep(qtyPrecision);
+    input.placeholder=precisionPlaceholder(qtyPrecision,'0');
+  });
 }
 function fBookNum(v){
   const n=+v;
@@ -1553,6 +1617,11 @@ function startDashboardApp(){
     ['buy-price','buy-qty','sell-price','sell-qty'].forEach(id=>{
       const el=document.getElementById(id);
       if(el) el.addEventListener('input',()=>updateTotals());
+      if(el) el.addEventListener('blur',()=>normalizeTradeFieldInput(el,id.includes('qty')?'qty':'price'));
+    });
+    ['buy-trigger-price','sell-trigger-price'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.addEventListener('blur',()=>normalizeTradeFieldInput(el,'price'));
     });
     S.auth.domBound=true;
   }

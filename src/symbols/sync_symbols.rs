@@ -297,6 +297,22 @@ impl SymbolRegistryService {
         precisions.get(&normalize_symbol(symbol)).copied()
     }
 
+    pub async fn symbol_precisions(
+        &self,
+        symbols: &[String],
+    ) -> std::collections::HashMap<String, SymbolPrecision> {
+        let precisions = self.precisions.read().await;
+        symbols
+            .iter()
+            .filter_map(|symbol| {
+                precisions
+                    .get(&normalize_symbol(symbol))
+                    .copied()
+                    .map(|precision| (normalize_symbol(symbol), precision))
+            })
+            .collect()
+    }
+
     pub async fn apply_symbol_precision(&self, symbol: &mut crate::web::state::SymbolJson) {
         if let Some(precision) = self.symbol_precision(&symbol.symbol).await {
             if precision.price_precision > 0 {

@@ -14,12 +14,12 @@ function setType(i,el){
       priceLabel.textContent=side==='buy'?'参考价格':'参考价格';
     }else{
       priceInput.disabled=false;
-      priceInput.placeholder='0.00';
       priceLabel.textContent=side==='buy'?'买入价格':'卖出价格';
       autofillTradeForm(side);
     }
     stopBox.classList.toggle('show',isStop);
   });
+  updateTradePrecisionUI(S.sel);
 }
 
 // ── BBO 填价 ────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ function setBuyPct(pct){
   const qty=(avail*pct/100/price);
   document.getElementById('buy-qty').value=qty>0?fQ(qty,S.sel):'';
   const total=qty*price;
-  document.getElementById('buy-total').textContent=total.toFixed(2);
+  document.getElementById('buy-total').textContent=fQuote(total);
   setPctActive('buy',pct);
   document.getElementById('buy-pct').value=pct;
   updateTradeSliderTip('buy',pct);
@@ -86,7 +86,7 @@ function setSellPct(pct){
   const qty=(avail*pct/100);
   const price=parseFloat(document.getElementById('sell-price').value)||sv(S.sel||'','mid')||1;
   document.getElementById('sell-qty').value=qty>0?fQ(qty,S.sel):'';
-  document.getElementById('sell-total').textContent=(qty*price).toFixed(2);
+  document.getElementById('sell-total').textContent=fQuote(qty*price);
   setPctActive('sell',pct);
   document.getElementById('sell-pct').value=pct;
   updateTradeSliderTip('sell',pct);
@@ -108,18 +108,19 @@ function autofillTradeForm(side){
   const price = tradeType===0 ? (side==='buy' ? (s.bid||sv(S.sel,'mid')) : (s.ask||sv(S.sel,'mid'))) : sv(S.sel,'mid');
   const id = side==='buy'?'buy-price':'sell-price';
   document.getElementById(id).value = fP(price,S.sel);
+  updateTradePrecisionUI(S.sel);
   updateTotals();
 }
 
 function updateTotals(){
-  const bp=parseFloat(document.getElementById('buy-price').value)||sv(S.sel||'','mid')||0;
+  const bp=normalizePriceValue(parseFloat(document.getElementById('buy-price').value)||sv(S.sel||'','mid')||0,S.sel);
   recalcQtyByPct('buy',document.getElementById('buy-pct')?.value||0);
-  const bq=parseFloat(document.getElementById('buy-qty').value)||0;
-  document.getElementById('buy-total').textContent=(bp*bq).toFixed(2);
-  const sp=parseFloat(document.getElementById('sell-price').value)||sv(S.sel||'','mid')||0;
+  const bq=normalizeQtyValue(parseFloat(document.getElementById('buy-qty').value)||0,S.sel);
+  document.getElementById('buy-total').textContent=fQuote(bp*bq);
+  const sp=normalizePriceValue(parseFloat(document.getElementById('sell-price').value)||sv(S.sel||'','mid')||0,S.sel);
   recalcQtyByPct('sell',document.getElementById('sell-pct')?.value||0);
-  const sq=parseFloat(document.getElementById('sell-qty').value)||0;
-  document.getElementById('sell-total').textContent=(sp*sq).toFixed(2);
+  const sq=normalizeQtyValue(parseFloat(document.getElementById('sell-qty').value)||0,S.sel);
+  document.getElementById('sell-total').textContent=fQuote(sp*sq);
 }
 
 // ── 真实下单 ────────────────────────────────────────────────────
@@ -127,9 +128,13 @@ async function doTrade(side){
   if(!S.sel)return;
   const priceId=side==='buy'?'buy-price':'sell-price';
   const qtyId=side==='buy'?'buy-qty':'sell-qty';
-  const price=parseFloat(document.getElementById(priceId).value)||sv(S.sel,'mid');
-  const qty=parseFloat(document.getElementById(qtyId).value)||0;
+  const priceInput=document.getElementById(priceId);
+  const qtyInput=document.getElementById(qtyId);
+  const price=normalizeTradeFieldInput(priceInput,'price',S.sel) ?? normalizePriceValue(sv(S.sel,'mid')||0,S.sel);
+  const qty=normalizeTradeFieldInput(qtyInput,'qty',S.sel) ?? 0;
   if(!qty||qty<=0){alert('请输入有效数量');return;}
+  const triggerInput=tradeType===2?document.getElementById(`${side}-trigger-price`):null;
+  const triggerPrice=tradeType===2?(normalizeTradeFieldInput(triggerInput,'price',S.sel) ?? null):null;
   const payload={
     symbol:S.sel,
     side,
@@ -137,7 +142,7 @@ async function doTrade(side){
     time_in_force:tradeType===1?'ioc':'gtc',
     price,
     quantity:qty,
-    trigger_price: tradeType===2 ? (parseFloat(document.getElementById(`${side}-trigger-price`).value)||null) : null,
+    trigger_price: triggerPrice,
     trigger_kind: tradeType===2 ? document.getElementById(`${side}-trigger-kind`).value : null
   };
   if(tradeType===2 && !payload.trigger_price){alert('请输入触发价');return;}

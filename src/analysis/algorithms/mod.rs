@@ -16,7 +16,8 @@ use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::cmp::Reverse;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::time::Instant;
 
 // ==================== 多周期分析辅助结构 ====================
 
@@ -136,6 +137,11 @@ pub struct SpoofingLevel {
 /// 维护盘口快照历史的 spoofing 检测器。
 pub struct SpoofingDetector {
     order_history: VecDeque<OrderBookSnapshot>,
+    /// 订单挂单时刻追踪器：key = (price_str, side_str)，value = 首次出现时间
+    /// 当档位消失时计算真实存活时间，用于 spoofing 判断
+    lifetime_tracker: HashMap<(String, String), Instant>,
+    /// 消失档位的历史（最近100条），记录 (lifetime_secs, cancel_count)
+    cancel_history: VecDeque<f64>, // 历史 lifetime_secs
 }
 
 /// 简化后的订单簿快照，只保留 spoofing 需要的前几档信息。
@@ -357,3 +363,4 @@ pub enum TradingRecommendation {
     StrongSell,
     Wait,
 }
+

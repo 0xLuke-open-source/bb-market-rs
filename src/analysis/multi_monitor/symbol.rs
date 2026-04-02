@@ -14,6 +14,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use tokio::time::{Duration, Instant};
 
+use crate::analysis::adaptive_threshold::SymbolAdaptiveThreshold;
 use crate::analysis::algorithms::MarketIntelligence;
 use crate::analysis::multi_monitor::signal;
 use crate::analysis::orderbook_anomaly::OrderBookAnomalyDetector;
@@ -64,6 +65,8 @@ pub struct SymbolMonitor {
     pub last_report: Instant,
     pub update_count: u64,
     pub anomaly_detector: OrderBookAnomalyDetector,
+    /// 自适应阈值：维护 4h 滚动窗口，提供 z-score 查询
+    pub threshold: SymbolAdaptiveThreshold,
     pub cvd: Decimal,
     pub taker_buy_vol_1m: Decimal,
     pub taker_sell_vol_1m: Decimal,
@@ -92,6 +95,7 @@ impl SymbolMonitor {
             last_report: Instant::now(),
             update_count: 0,
             anomaly_detector: OrderBookAnomalyDetector::new(),
+            threshold: SymbolAdaptiveThreshold::new(),
             cvd: Decimal::ZERO,
             taker_buy_vol_1m: Decimal::ZERO,
             taker_sell_vol_1m: Decimal::ZERO,
@@ -113,14 +117,14 @@ impl SymbolMonitor {
 
     /// 应用一笔深度增量更新。
     ///
-    /// 处理顺序是：
+    /// 处理顺序：
     /// 1. 更新本地 L2 订单簿
     /// 2. 基于最新盘口重算特征
-    /// 3. 将特征送入异常检测器
-    /// 4. 在采样周期到达时把特征写入历史
+    /// 3. 推入自适应阈值样本
+    /// 4. 将特征送入异常检测器
+    /// 5. 在采样周期到达时把特征写入历史
     ///
-    /// 如果增量序列不连续，`OrderBook` 会返回错误；这里直接跳过，
-    /// 由上游继续流式同步，而不是在本层中断整个监控流程。
+    /// 返回本帧产出的档位变化事件（由上层消费后转入异常持久化）
     pub fn handle_depth_update(
         &mut self,
         update: DepthUpdate,
@@ -135,6 +139,10 @@ impl SymbolMonitor {
         self.update_count += 1;
 
         let features = self.book.compute_features(10);
+
+        // 每帧推入自适应阈值样本
+        self.threshold.push(&features);
+
         {
             let book = &self.book;
             let detector = &mut self.anomaly_detector;
@@ -297,7 +305,9 @@ impl SymbolMonitor {
     /// 本方法有两层过滤：
     /// - 第一层：`pump_score` / `dump_score` 太低时直接跳过，避免无意义分析
     /// - 第二层：信号生成后再走 30 秒冷却，避免同一交易对频繁重复报警
-    pub fn detect_pump_signal(&mut self) -> Option<PumpSignal> {
+    ///
+    /// 热身完成后自动切换为 z-score 评分；预热期继续使用绝对值阈值。
+    pub fn detect_pump_signal(&mut self, pump_detector: &mut crate::analysis::pump_detector::PumpDetector) -> Option<PumpSignal> {
         let features = self.book.compute_features(10);
         if features.pump_score < 30 && features.dump_score < 30 {
             return None;
@@ -308,12 +318,25 @@ impl SymbolMonitor {
             intel.analyze(&self.book, &features)
         };
 
-        let signal = signal::analyze_signal(
+        // 提取 1m / 5m K 线方向
+        let kline_1m = self.kline_direction("1m");
+        let kline_5m = self.kline_direction("5m");
+
+        let threshold = if self.threshold.is_warm() {
+            Some(&self.threshold)
+        } else {
+            None
+        };
+
+        let signal = pump_detector.analyze_symbol(
             &self.symbol,
             &features,
             analysis.pump_dump.pump_probability,
             analysis.whale.accumulation_score.to_u8().unwrap_or(0),
             analysis.pump_dump.pump_target,
+            threshold,
+            kline_1m,
+            kline_5m,
         )?;
 
         let should_emit = if signal.ofi > 0.0 {
@@ -327,6 +350,17 @@ impl SymbolMonitor {
 
         signal::write_signal(&signal);
         Some(signal)
+    }
+
+    /// 从 K 线历史计算最近收益率方向
+    fn kline_direction(&self, interval: &str) -> Option<f64> {
+        let history = self.klines.get(interval)?;
+        let last = history.back()?;
+        if last.open > 0.0 {
+            Some((last.close - last.open) / last.open)
+        } else {
+            None
+        }
     }
 
     /// 对偏多信号做节流，防止单个 symbol 高频重复触发。

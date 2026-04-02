@@ -36,4 +36,6 @@ pub struct SpotTradingService {
     inner: Arc<Mutex<TradingCore>>,
     // 日志目录，保存订单/成交/余额以及 archive 回放事件。
     log_dir: Arc<PathBuf>,
+    // 每个币种的交易精度，统一约束前端下单和本地撮合。
+    market_precisions: Arc<std::collections::HashMap<String, crate::symbols::sync_symbols::SymbolPrecision>>,
 }

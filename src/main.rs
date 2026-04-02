@@ -1,6 +1,6 @@
 // src/main.rs — 集成 Web Dashboard + 多数据流版本
 //
-// 这是整个程序的总入口，负责把“行情接入、分析层、交易仿真、Web 服务”
+// 这是整个程序的总入口，负责把"行情接入、分析层、交易仿真、Web 服务"
 // 这几条链路装配起来。
 //
 // 启动命令：
@@ -22,12 +22,16 @@ mod web;
 
 use crate::analysis::algorithms::MarketIntelligence;
 use crate::analysis::multi_monitor::{MultiSymbolMonitor, MultiWebSocketManager};
+use crate::analysis::signal_resolver::{SignalResolver, spawn_signal_resolver};
 use crate::analysis::MarketAnalysis;
 use crate::codec::binance_msg::{Snapshot, StreamMsg};
 use crate::config::AppConfig;
 use crate::engine::run_spot_engine_demo;
+use crate::market::adaptive_threshold::AdaptiveThresholdPersistenceService;
+use crate::market::anomaly_event::AnomalyEventPersistenceService;
 use crate::market::big_trade::{BigTradePersistenceService, BigTradeQueryService};
 use crate::market::orderbook::OrderBookPersistenceService;
+use crate::market::orderbook_tick::OrderBookTickPersistenceService;
 use crate::market::panel::{SymbolPanelPersistenceService, SymbolPanelQueryService};
 use crate::market::trade::{RecentTradePersistenceService, RecentTradeQueryService};
 use crate::postgres::PgPool;
@@ -228,15 +232,26 @@ async fn main() -> anyhow::Result<()> {
 // 多币种监控
 // ─────────────────────────────────────────────────────────────────
 async fn start_multi_monitoring(args: Args, pg_pool: Arc<PgPool>) -> anyhow::Result<()> {
-    // MultiSymbolMonitor 只负责“币种状态集合”和“消息分发”，
+    // MultiSymbolMonitor 只负责"币种状态集合"和"消息分发"，
     // 不关心 Web 展示或交易仿真。
     let trade_persistence = RecentTradePersistenceService::new(pg_pool.clone()).await?;
     let big_trade_persistence = BigTradePersistenceService::new(pg_pool.clone()).await?;
-    let monitor = Arc::new(MultiSymbolMonitor::new(
+
+    // 新增：订单簿有意义变化持久化（撤单/新增/modify>=5%）
+    let orderbook_tick_persistence = OrderBookTickPersistenceService::new(pg_pool.clone()).await?;
+
+    // 新增：异动事件持久化
+    let anomaly_persistence = AnomalyEventPersistenceService::new(pg_pool.clone()).await?;
+    let _ = anomaly_persistence; // 暂存（后续 manager 集成时使用）
+
+    let mut monitor_inner = MultiSymbolMonitor::new(
         20,
         Some(trade_persistence),
         Some(big_trade_persistence),
-    ));
+    );
+    monitor_inner.set_orderbook_tick_persistence(orderbook_tick_persistence);
+
+    let monitor = Arc::new(monitor_inner);
     let symbol_registry = sync_symbols::SymbolRegistryService::new(pg_pool.clone()).await?;
     let port = args.port;
     let web_on = args.web;
@@ -252,8 +267,6 @@ async fn start_multi_monitoring(args: Args, pg_pool: Arc<PgPool>) -> anyhow::Res
     let mut manager = MultiWebSocketManager::new(monitor.clone());
 
     // ── 拉盘检测任务（每10秒）
-    // ⚠️ 注意：detect_pump_signals 现在是 MultiSymbolMonitor 的方法，
-    //          不再是 MultiWebSocketManager 的方法
     let pump_monitor = monitor.clone();
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(Duration::from_secs(10));
@@ -263,9 +276,38 @@ async fn start_multi_monitoring(args: Args, pg_pool: Arc<PgPool>) -> anyhow::Res
         }
     });
 
+    // ── 数据清理任务（每天一次）
+    // orderbook_tick 保留 14 天，其余高频表同步清理
+    let cleanup_pool = pg_pool.clone();
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(Duration::from_secs(24 * 60 * 60));
+        tick.tick().await; // 跳过启动时第一次立即触发
+        loop {
+            tick.tick().await;
+            match cleanup_pool.acquire().await {
+                Ok(client) => {
+                    let sqls = [
+                        ("orderbook_tick",    "delete from market.orderbook_tick    where created_at < now() - interval '14 days'"),
+                        ("anomaly_event",     "delete from market.anomaly_event     where detected_at < now() - interval '14 days'"),
+                        ("adaptive_threshold","delete from market.adaptive_threshold where window_end_at < now() - interval '14 days'"),
+                    ];
+                    for (name, sql) in &sqls {
+                        match client.client().execute(*sql, &[]).await {
+                            Ok(n) => {
+                                if n > 0 {
+                                    eprintln!("[cleanup] {} 清理 {} 条", name, n);
+                                }
+                            }
+                            Err(e) => eprintln!("[cleanup] {} 清理失败: {}", name, e),
+                        }
+                    }
+                }
+                Err(e) => eprintln!("[cleanup] 获取数据库连接失败: {}", e),
+            }
+        }
+    });
+
     // ── Web Dashboard ─────────────────────────────────────────────
-    // bridge 负责把 monitor 里的复杂运行时状态压平成前端快照，
-    // server 负责把这些快照通过 HTTP / WebSocket 暴露出去。
     if web_on {
         let dash_state = new_dashboard_state();
         if load_dashboard_cache(
@@ -278,13 +320,35 @@ async fn start_multi_monitoring(args: Args, pg_pool: Arc<PgPool>) -> anyhow::Res
         {
             println!("📦 已加载 30 分钟内的 Dashboard 缓存快照");
         }
-        let spot_service = SpotTradingService::new(&symbols, "logs/spot")?;
+        let spot_precisions = symbol_registry.symbol_precisions(&symbols).await;
+        let spot_service = SpotTradingService::new(&symbols, spot_precisions, "logs/spot")?;
         let auth_service = AuthService::new(pg_pool.clone()).await?;
         let orderbook_persistence = OrderBookPersistenceService::new(pg_pool.clone()).await?;
         let panel_persistence = SymbolPanelPersistenceService::new(pg_pool.clone()).await?;
         let panel_query = SymbolPanelQueryService::new(pg_pool.clone()).await?;
         let recent_trade_query = RecentTradeQueryService::new(pg_pool.clone()).await?;
         let big_trade_query = BigTradeQueryService::new(pg_pool.clone()).await?;
+
+        // 新增：自适应阈值定时快照（每 5 分钟）
+        let adaptive_persistence = AdaptiveThresholdPersistenceService::new(pg_pool.clone()).await?;
+        let adaptive_monitor = monitor.clone();
+        let adaptive_svc = adaptive_persistence.clone();
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(Duration::from_secs(5 * 60));
+            loop {
+                tick.tick().await;
+                let monitors = adaptive_monitor.monitors.lock().await;
+                for (symbol, arc) in monitors.iter() {
+                    let guard = arc.lock().await;
+                    let snapshot = guard.threshold.snapshot();
+                    adaptive_svc.submit(symbol, snapshot);
+                }
+            }
+        });
+
+        // 新增：信号回填任务
+        let signal_resolver = SignalResolver::new(pg_pool.clone());
+        spawn_signal_resolver(signal_resolver, dash_state.clone());
 
         let bridge_monitor = monitor.clone();
         let bridge_registry = symbol_registry.clone();

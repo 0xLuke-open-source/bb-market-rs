@@ -22,8 +22,12 @@ fn test_log_dir(name: &str) -> PathBuf {
 
 #[tokio::test]
 async fn submit_order_updates_snapshot() {
-    let service =
-        SpotTradingService::new(&["BTCUSDT".to_string()], test_log_dir("submit")).unwrap();
+    let service = SpotTradingService::new(
+        &["BTCUSDT".to_string()],
+        std::collections::HashMap::new(),
+        test_log_dir("submit"),
+    )
+    .unwrap();
     service
         .sync_liquidity(
             "BTCUSDT",
@@ -58,8 +62,12 @@ async fn submit_order_updates_snapshot() {
 
 #[tokio::test]
 async fn cancel_all_clears_open_orders() {
-    let service =
-        SpotTradingService::new(&["BTCUSDT".to_string()], test_log_dir("cancel")).unwrap();
+    let service = SpotTradingService::new(
+        &["BTCUSDT".to_string()],
+        std::collections::HashMap::new(),
+        test_log_dir("cancel"),
+    )
+    .unwrap();
     service
         .submit_order(ApiOrderRequest {
             symbol: "BTCUSDT".to_string(),
