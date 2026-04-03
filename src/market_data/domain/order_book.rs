@@ -11,7 +11,7 @@
 // 5. whale_entry 阈值从 40% 降低到 25%，鲸鱼检测 threshold 从 30% 降低到 20%
 // ═══════════════════════════════════════════════
 
-use crate::codec::binance_msg::{DepthUpdate, Snapshot};
+use crate::market_data::domain::stream::{DepthUpdate, Snapshot};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;

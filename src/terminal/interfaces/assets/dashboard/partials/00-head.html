@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BB-Market</title>
+<link rel="stylesheet" href="/static/css/base.css?v=20260330b">
+<link rel="stylesheet" href="/static/css/shell.css?v=20260330b">
+<link rel="stylesheet" href="/static/css/market.css?v=20260330b">
+<link rel="stylesheet" href="/static/css/trading.css?v=20260330b">
+<link rel="stylesheet" href="/static/css/analytics.css?v=20260330b">
+<link rel="stylesheet" href="/static/css/alerts.css?v=20260330b">
+<link rel="stylesheet" href="/static/css/portal.css?v=20260330b">
+</head>
+<body>
+
+<div class="site-nav-wrap">
+  <div class="site-nav-bar">
+    <button class="site-nav-brand" type="button" onclick="switchSitePage('home')">
+      <span class="site-nav-brand-icon">B</span>
+      <span class="site-nav-brand-text">BB-<em>Market</em></span>
+    </button>
+    <div class="site-nav-main">
+      <button class="site-nav-link act" data-page="home" type="button" onclick="switchSitePage('home',this)">首页</button>
+      <button class="site-nav-link" data-page="ai" type="button" onclick="switchSitePage('ai',this)">AI盯盘</button>
+      <div class="site-nav-menu">
+        <button class="site-nav-link site-nav-trigger" type="button">服务</button>
+        <div class="site-nav-dropdown">
+          <button class="site-nav-subbtn" data-page="vip" type="button" onclick="switchSitePage('vip',this)">
+            <span class="site-nav-subicon">VIP</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">机构和VIP服务</span>
+              <span class="site-nav-subdesc">面向交易席位与量化团队的权限分层、席位协同、专属支持与交付方案。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="ads" type="button" onclick="switchSitePage('ads',this)">
+            <span class="site-nav-subicon">AD</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">广告解决方案</span>
+              <span class="site-nav-subdesc">面向交易工具、数据服务与研究品牌的资源合作、专题联动与终端曝光入口。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="rebate" type="button" onclick="switchSitePage('rebate',this)">
+            <span class="site-nav-subicon">返</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">超级返佣</span>
+              <span class="site-nav-subdesc">以等级返佣、结算口径与渠道支持机制承接长期合作与稳定引流。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="invite" type="button" onclick="switchSitePage('invite',this)">
+            <span class="site-nav-subicon">邀</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">邀请奖励</span>
+              <span class="site-nav-subdesc">围绕注册、开通与有效转化设计的邀请机制与任务入口。</span>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="site-nav-menu">
+        <button class="site-nav-link site-nav-trigger" type="button">内容</button>
+        <div class="site-nav-dropdown">
+          <button class="site-nav-subbtn" data-page="plaza" type="button" onclick="switchSitePage('plaza',this)">
+            <span class="site-nav-subicon">广</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">广场</span>
+              <span class="site-nav-subdesc">汇集交易员观点、盘中观察与信号讨论，形成高频市场交流流。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="blog" type="button" onclick="switchSitePage('blog',this)">
+            <span class="site-nav-subicon">博</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">博客</span>
+              <span class="site-nav-subdesc">沉淀策略方法、终端迭代与案例研究，服务交易与研究团队深度阅读。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="help" type="button" onclick="switchSitePage('help',this)">
+            <span class="site-nav-subicon">助</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">帮助中心</span>
+              <span class="site-nav-subdesc">覆盖终端接入、功能指引、权限规则与异常排查的统一知识库。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="announcements" type="button" onclick="switchSitePage('announcements',this)">
+            <span class="site-nav-subicon">告</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">公告</span>
+              <span class="site-nav-subdesc">发布版本更新、维护安排、权限调整与风险提示的正式窗口。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="news" type="button" onclick="switchSitePage('news',this)">
+            <span class="site-nav-subicon">新</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">新闻中心</span>
+              <span class="site-nav-subdesc">聚合市场焦点、政策动态与专题解读，服务盘中判断与研究跟踪。</span>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="site-nav-menu">
+        <button class="site-nav-link site-nav-trigger" type="button">更多</button>
+        <div class="site-nav-dropdown">
+          <button class="site-nav-subbtn" data-page="feedback" type="button" onclick="switchSitePage('feedback',this)">
+            <span class="site-nav-subicon">反</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">产品反馈与建议</span>
+              <span class="site-nav-subdesc">统一提交实盘问题、因子需求、终端异常与版本反馈，形成可追踪输入。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="community" type="button" onclick="switchSitePage('community',this)">
+            <span class="site-nav-subicon">社</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">社区</span>
+              <span class="site-nav-subdesc">连接交易讨论群、研究社群与合作伙伴网络，承接长期交流与用户留存。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="agreement" type="button" onclick="switchSitePage('agreement',this)">
+            <span class="site-nav-subicon">协</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">服务协议</span>
+              <span class="site-nav-subdesc">说明终端服务边界、用户义务、责任限制与交易风险揭示条款。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="privacy" type="button" onclick="switchSitePage('privacy',this)">
+            <span class="site-nav-subicon">隐</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">隐私说明</span>
+              <span class="site-nav-subdesc">说明终端使用数据的收集范围、处理目的、安全措施与用户权利。</span>
+            </span>
+          </button>
+          <button class="site-nav-subbtn" data-page="about" type="button" onclick="switchSitePage('about',this)">
+            <span class="site-nav-subicon">关</span>
+            <span class="site-nav-subcopy">
+              <span class="site-nav-subttl">关于我们</span>
+              <span class="site-nav-subdesc">介绍终端定位、服务对象、交付路径与长期能力建设方向。</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="site-nav-actions">
+      <div class="auth-chip auth-chip-prominent">
+        <span class="auth-chip-user" id="auth-user">未登录</span>
+        <button class="auth-chip-btn" id="auth-open" type="button" onclick="openAuthModal('login')">登录</button>
+        <button class="auth-chip-btn" id="auth-subscribe" type="button" onclick="subscribeNow()" style="display:none">订阅</button>
+        <button class="auth-chip-btn" id="auth-logout" type="button" onclick="logout()" style="display:none">退出</button>
+      </div>
+      <div class="site-nav-search">
+        <input id="site-search-input" type="text" placeholder="搜索币种" autocomplete="off" aria-label="搜索币种">
+        <button class="site-search-btn" type="button" onclick="searchTopSymbol()" aria-label="搜索币种" title="搜索币种" data-tip="搜索币种">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg>
+        </button>
+      </div>
+      <button class="site-icon-btn" type="button" onclick="switchSitePage('announcements')" aria-label="公告" title="公告" data-tip="公告">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16a6 6 0 10-12 0"></path><path d="M6 16h12"></path><path d="M10 19a2 2 0 004 0"></path><path d="M12 4v2"></path></svg>
+      </button>
+      <button class="site-icon-btn" type="button" onclick="switchSitePage('community')" aria-label="社区" title="社区" data-tip="社区">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 18.5l3-1v-8l-3 1z"></path><path d="M10.5 17.5l3-1v-8l-3 1z"></path><path d="M16.5 16.5l3-1v-8l-3 1z"></path></svg>
+      </button>
+      <button class="site-icon-btn" type="button" onclick="switchSitePage('privacy')" aria-label="语言与设置" title="语言与设置" data-tip="语言与设置">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="M4 12h16"></path><path d="M12 4a13 13 0 010 16"></path><path d="M12 4a13 13 0 000 16"></path></svg>
+      </button>
+      <div class="site-status-group">
+        <div class="ws-badge">
+          <div class="wdot" id="wdot"></div><span id="wlbl">连接中</span>
+        </div>
+        <span id="htime" class="site-time"></span>
+        <div class="stat-pill">监控 <b style="color:var(--y)" id="nc">--</b></div>
+        <div class="stat-pill">活跃 <b style="color:var(--g)" id="ns2">--</b></div>
+        <div class="stat-pill stat-pill-link" onclick="openReplay()">回放</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="portal-shell" class="portal-shell"></div>
+
+<div id="dashboard-shell" class="dashboard-shell">
+<!-- ══ 主体 4列 ══ -->
+<div id="app">

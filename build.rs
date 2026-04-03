@@ -138,7 +138,7 @@ fn main() -> anyhow::Result<()> {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let crate_dir = PathBuf::from(manifest_dir);
 
-    let dash_root = crate_dir.join("src/web/dashboard");
+    let dash_root = crate_dir.join("src/terminal/interfaces/assets/dashboard");
     let partials_dir = dash_root.join("partials");
     let js_dir = dash_root.join("js");
     let app_path = js_dir.join("app.js");

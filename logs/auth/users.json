@@ -1,0 +1,12 @@
+{
+  "users": [
+    {
+      "username": "lisan",
+      "display_name": "gmgn",
+      "salt": "f77ac89d-e33d-4a31-b33e-6a09e5d76fcd",
+      "password_hash": "18e9c644de0eae8e351cabac5a5a3f361edc156abdaffa0fe5027a54f8c8a54f",
+      "subscribed": true,
+      "created_at": "2026-03-23T16:43:42.606625+00:00"
+    }
+  ]
+}

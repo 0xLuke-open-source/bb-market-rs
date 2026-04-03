@@ -1,0 +1,33 @@
+  <div class="panel market-panel" style="grid-column:1;flex-direction:column">
+    <div class="ph"><span class="ph-ttl">市场</span><span style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">MARKET</span></div>
+    <div class="left-top">
+      <div class="srch-wrap">
+        <input type="text" placeholder="搜索币对..." id="srch" oninput="filterP(this.value)">
+      </div>
+    </div>
+    <div class="sortbar">
+      <button class="sortbtn act" data-sort="focus" onclick="setMarketSort('focus',this)">综合优先</button>
+      <button class="sortbtn" data-sort="up" onclick="setMarketSort('up',this)">最强上涨</button>
+      <button class="sortbtn" data-sort="down" onclick="setMarketSort('down',this)">最强下跌</button>
+      <button class="sortbtn" data-sort="whale" onclick="setMarketSort('whale',this)">大户优先</button>
+      <button class="sortbtn" data-sort="anomaly" onclick="setMarketSort('anomaly',this)">异常优先</button>
+    </div>
+    <div class="quickbar">
+      <button class="quickbtn act" data-filter="all" onclick="setMarketQuickFilter('all',this)">全部币对</button>
+      <button class="quickbtn" data-filter="fav" onclick="setMarketQuickFilter('fav',this)">只看自选</button>
+      <button class="quickbtn" data-filter="key" onclick="setMarketQuickFilter('key',this)">重点以上</button>
+      <button class="quickbtn" data-filter="strong" onclick="setMarketQuickFilter('strong',this)">只看强提醒</button>
+      <button class="quickbtn" data-filter="whale" onclick="setMarketQuickFilter('whale',this)">只看大户</button>
+      <button class="quickbtn" data-filter="anomaly" onclick="setMarketQuickFilter('anomaly',this)">只看异常</button>
+    </div>
+    <div class="ls-vsec ls-vsec-all">
+      <div class="ls-sec-hdr ls-all" style="border-top:none">
+        <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+          <span class="ls-sec-ttl">全市场币对</span>
+          <span style="font-size:10px;color:var(--t3)">实时价格 / 涨跌幅 / 分析标签 / 关注级别</span>
+        </div>
+        <span class="ls-sec-cnt" id="sec-all-cnt">0</span>
+      </div>
+      <div class="ls-vsec-list pair-scroll" id="sec-all"><div class="ls-empty">等待市场数据...</div></div>
+    </div>
+  </div>
